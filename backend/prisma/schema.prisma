@@ -1,0 +1,141 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TypeImage {
+  INITIAL
+  RESOLUTION
+  PROGRESS
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+  TECHNICAL
+}
+enum State {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  VALIDATED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL  
+}
+
+model User {
+  user_id         String    @id @default(uuid())
+  email           String    @unique
+  name            String
+  surname         String
+  password        String
+  nickname        String    @unique
+  role            Role
+  active          Boolean   @default(true)
+  points          Int       @default(0)
+
+  inviteId        String?   @unique
+  invite          Invite?   @relation(fields: [inviteId], references: [id])
+
+  reportsAssigned Report[]  @relation("AssignedReports")
+  reportsCreated  Report[]  @relation("CreatedReports")
+  comments        Comment[]
+
+  createdAt       DateTime  @default(now())
+  lastModified    DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Report{
+  report_id       String     @id @default(uuid())
+  title           String
+  description     String
+
+  state           State     @default(OPEN)
+  priority        Priority  @default(MEDIUM)
+  category        String?
+
+  latitude        Float
+  longitude       Float
+  location        Unsupported("geography(Point, 4326)")?
+
+  images          Image[]
+  comments        Comment[]
+
+  createdById     String
+  createdBy       User     @relation("CreatedReports", fields: [createdById], references: [user_id])
+
+  assignedToId    String?
+  assignedTo      User?    @relation("AssignedReports", fields: [assignedToId], references: [user_id])
+
+  createdAt       DateTime  @default(now())
+  lastModified    DateTime @updatedAt 
+  
+  @@map("reports")
+}
+
+model Comment {
+  id              String     @id @default(uuid())
+  content         String
+
+  createdAt       DateTime   @default(now())
+  lastModified    DateTime @updatedAt 
+
+  reportId        String
+  report          Report   @relation(fields: [reportId], references: [report_id])
+
+  authorId        String
+  author          User     @relation(fields: [authorId], references: [user_id])
+
+  @@map("comments")
+}
+
+model Image {
+  id              String     @id @default(uuid())
+  url             String
+  type            TypeImage
+
+  createdAt       DateTime   @default(now())
+  lastModified    DateTime @updatedAt
+
+  reportId        String
+  report          Report   @relation(fields: [reportId], references: [report_id])
+
+  @@map("images")
+}
+
+enum InviteStatus {
+  PENDING
+  USED
+  REVOKED
+}
+
+model Invite {
+  id              String       @id @default(uuid())
+  email           String       @unique
+  role            Role
+  token           String       @unique
+  status          InviteStatus @default(PENDING)
+  createdAt       DateTime     @default(now())
+
+  user            User?
+
+  @@map("invites")
+}
+

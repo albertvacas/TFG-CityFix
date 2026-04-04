@@ -1,0 +1,98 @@
+
+DOCUMENT DE CANVIS TÈCNICS: PROTECCIÓ DEL REGISTRE D'USUARIS (RBAC)
+
+Objectiu: Impedir la creació no autoritzada d'usuaris amb rol ADMIN o TECHNICAL.
+
+---------------------------------------------------------------------------
+0. PREREQUISIT: CREACIÓ DEL PRIMER ADMIN
+---------------------------------------------------------------------------
+Abans d'implementar el sistema d'invitacions, cal crear manualment el primer
+administrador directament a la base de dades (Supabase). Passos:
+
+  1. Generar el hash bcrypt de la contrasenya a https://bcrypt.online (cost 10).
+  2. Inserir manualment a la taula `users` amb role = 'ADMIN'.
+  3. Verificar que el login funciona via POST /api/auth/login.
+
+Això és l'únic registre que es fa fora del flux normal. Un cop existeix
+aquest admin, pot crear invitacions per a nous ADMIN o TECHNICAL.
+
+---------------------------------------------------------------------------
+1. CANVIS AL MODEL DE DADES (schema.prisma)
+---------------------------------------------------------------------------
+Afegir una taula de control d'invitacions per validar registres privilegiats.
+
+model Invite {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  role      Role     // ADMIN o TECHNICAL (enum existent al schema)
+  token     String   @unique
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("invites")
+}
+
+NOTA: Els noms dels rols han de coincidir amb l'enum Role del schema:
+STUDENT, ADMIN, TECHNICAL (no USER ni TECHNICIAN).
+
+---------------------------------------------------------------------------
+2. LÒGICA DE VALIDACIÓ AL BACKEND (auth.controller.ts)
+---------------------------------------------------------------------------
+Dins de la funció de "Register", cal implementar la següent jerarquia de
+validació abans d'executar `prisma.user.create`:
+
+PAS A: Extreure dades del Body { email, name, surname, password, nickname, role, token }
+
+PAS B: Validació de Rol sol·licitat
+   - SI el rol sol·licitat és 'STUDENT' (o no s'especifica):
+       * Ignorar els camps 'role' i 'token'. Forçar role = 'STUDENT'.
+       * Procedir al registre.
+
+   - SI el rol sol·licitat és 'ADMIN' o 'TECHNICAL':
+       * El camp 'token' és OBLIGATORI. Si no s'envia → Error 400.
+       * Cercar a la DB: prisma.invite.findFirst({ email, token, used: false })
+       * SI NO existeix la invitació: Denegar amb Error 403 (Prohibit).
+       * SI existeix: Executar en TRANSACCIÓ ATÒMICA ($transaction):
+           1. Crear l'usuari amb el rol especificat a la invitació.
+           2. Marcar la invitació com a utilitzada (used: true).
+         Si una de les dues operacions falla, cap de les dues s'aplica.
+
+---------------------------------------------------------------------------
+3. ENDPOINT DE CREACIÓ D'INVITACIONS
+---------------------------------------------------------------------------
+Nou endpoint: POST /api/invites
+  - Protegit amb: authenticate + authorize('ADMIN')
+  - Body: { email: string, role: 'ADMIN' | 'TECHNICAL' }
+  - Lògica:
+      1. Validar que el rol és ADMIN o TECHNICAL (mai STUDENT).
+      2. Generar token criptogràfic: crypto.randomBytes(32).toString('hex')
+      3. Crear registre a la taula Invite.
+      4. Retornar { email, role, token } perquè l'admin pugui
+         enviar el token a la persona corresponent.
+
+---------------------------------------------------------------------------
+4. MILLORES EN EL TRACTAMENT DE DADES
+---------------------------------------------------------------------------
+- Xifratge: Totes les contrasenyes s'han de processar amb bcrypt (salt 10).
+  [JA IMPLEMENTAT al codi actual]
+- Sanitització: Si el body envia role = 'STUDENT' o no envia role,
+  forçar el rol programàticament al backend. Mai confiar en el client.
+- Token criptogràfic: Usar crypto.randomBytes(32) en lloc d'UUID per
+  garantir entropia criptogràfica real (64 caràcters hexadecimals).
+- Transacció atòmica: Usar prisma.$transaction() per crear l'usuari
+  i marcar la invitació com a usada en una sola operació. Prevé
+  inconsistències si el servidor falla entre les dues operacions.
+
+---------------------------------------------------------------------------
+5. RESUM DE SEGURETAT PER AL TFG
+---------------------------------------------------------------------------
+L'arquitectura passa de confiar en el client a un model de "Zero Trust", on
+el servidor valida cada petició contra la llista blanca (Whitelist)
+d'invitacions abans d'atorgar qualsevol privilegi d'administració.
+
+Patró: "Invitation-based Registration" / "Token-based Privileged Enrollment"
+
+Flux complet:
+  STUDENT  →  POST /api/auth/register { role: 'STUDENT' }  →  Registre directe
+  ADMIN    →  POST /api/auth/register { role: 'ADMIN', token: 'xxx' }  →  Valida invite → $transaction
+  Invitar  →  POST /api/invites [ADMIN only] { email, role }  →  Genera token criptogràfic

@@ -1,0 +1,171 @@
+
+\subsection{Proposta de valor}
+A diferència de les solucions estàndard de mercat, aquest projecte es posiciona com una plataforma activa i intel·ligent, reforçant en tres aspectes que resolen les mancances de les aplicacions de gestió actuals:
+
+\begin{itemize}
+	\item \textbf{Gestió d'incidencies amb agents i IA}: Mitjançant la integració de models de llenguatge (LLMs) via LangChain i OpenAI, el sistema no és un simple gestor de base de dades. Els agents d'IA analitzen el llenguatge natural de l'usuari, n'avaluen la criticitat, filtren duplicats mitjançant anàlisi de similitud i generen notificacions automatitzades. Això descarrega el personal administratiu de tasques repetitives. Aquest aspecte té molt de potencial ja que amb l'implementació de agents es pot escalar l'aplicació automatitzant la majoria de funcionalitats. Fins arribar al punt de crear una plataforma d'incidencies completament automatica que actui sota la revisió i control humà.   
+	
+	\item \textbf{Interficie web d'administració}: Aquest projecte implementa una plataforma tant movil com d'escitori, permetent als usuaris administradors la visualització de dades i grafics en una interficie comoda d'escritori. Gràcies a l'ús de WebSockets, les mètriques dels garfics i mapes s'actualitzen instantàniament, permetent una coordinació d'emergències altament eficient.
+	
+	\item \textbf{Sistema de recompenses (Gamificació)}: Per combatre el report deficient o malintencionat, s'implementa un mecanisme de puntuació on les bones pràctiques es premien (fomentant l'esperit de pertinença i cura del campus), mentre que el mal ús deliberat està vinculat a sancions acadèmiques, garantint així l'alta fiabilitat de les dades d'entrada.
+	
+\end{itemize}
+
+\section{Objectius}
+El projecte present es planteja amb l’objectiu principal de resoldre la necessitat de manteniment i millora de les infraestructures del campus universitari. Mitjançant tecnologies de la informació serem capaços de notificar als estudiants, mantenir i gestionar el Campus en bones condicions per garantir una bona experiència als alumnes i professors. Els objectius es centren a maximitzar l'eficiència del manteniment i potenciar el sentiment de comunitat.
+
+
+\begin{itemize}
+	\item \textbf{Optimització de la disponibilitat dels recursos del campus}: Reduir dràsticament el temps de permanència de les infraestructures en mal estat (com ara ordinadors de sales d'estudi, mobiliari d'aules o il·luminació). L'objectiu és que qualsevol element defectuós sigui detectat i reportat en qüestió de minuts, minimitzant l'impacte en l'activitat acadèmica.
+	
+	\item \textbf{Foment de la co-responsabilitat i la participació ciutadana}: Transformar l'alumne de "subjecte passiu" a "agent actiu" del manteniment del campus. Mitjançant el sistema de recompenses i gamificació, s'estimula un comportament cívic i proactiu, creant una comunitat que vetlla pel seu entorn.
+	
+	\item \textbf{Millora de l'eficiència operativa dels equips tècnics}: Proporcionar als operaris de manteniment una eina que prioritzi les tasques segons la gravetat i la ubicació. Això permet una assignació de recursos més intel·ligent, passant d'un model de manteniment reactiu a un model més organitzat i basat en dades reals.
+	
+	\item \textbf{Anàlisi de dades per a la gestió estratègica del Campus}: Utilitzar la informació geolocalitzada recollida per identificar problemes estructurals o zones amb una degradació superior a la mitjana. Això servirà de suport a la presa de decisions de la universitat i al control de l'estat actual del Campus.
+	
+	\item \textbf{Reducció de costos administratius mitjançant l'automatització}: Delegar en la Intel·ligència Artificial el triatge i la classificació d'incidències per reduir la càrrega de treball manual dels gestors. L'objectiu és accelerar la burocràcia interna i permetre que els recursos humans es concentrin en les tasques essencials.
+	
+\end{itemize}
+
+\section{Metodología}
+Per a la realització d'aquest projecte s'ha optat per una metodologia de desenvolupament àgil basada en el marc de treball Scrum\cite{4}, adaptada a la naturalesa individual d'un Treball de Final de Grau. Aquest enfocament permet una gestió iterativa i incremental, assegurant que les funcionalitats més crítiques es trobin en una base sòlida abans d'afegir capes de complexitat.
+
+Per dur a terme aquesta metodología, en primer lloc es defineix el \textit{Product Backlog} a partir dels requisits generats i funcionalitats definides. A partir d'aquí, s'extreu el \textit{Sprint Backlog}, que representa el subconjunt de tasques seleccionades per a ser executades en cada \textit{Sprint}. Finalment, cada cicle culmina amb un Increment, que és el resultat tangible i funcional del programari que s'afegeix de forma acumulativa a les versions anteriors, garantint així una evolució del projecte constant, robusta i verificable en cada lliurament.
+
+En aquest cas, en lloc de fer reunions diàries es farà un seguiment setmanal amb el tutor del TFG (\textit{Sprint Review i Retrospective}) per avaluar l'increment generat.
+Aquesta metodologia és ideal per a aquest projecte perquè permet integrar components complexos (com la IA i els SIG) de manera progressiva, garantint que la base del sistema sigui sòlida abans d'afegir-hi capes addicionals.
+
+
+\section{Planificació}
+Per establir una referència temporal clara i assolible, la planificació es divideix en blocs de treball de dues setmanes de durada, anomenats Sprints. Aquest enfocament permet fragmentar la complexitat del sistema en etapes consecutives, on cada cicle té com a objectiu el lliurament d'un increment funcional del programari. En aquest projecte hem definit Sprints de dues setmanes per tenir mes marge de desenvolupament. A continuació es mostra el diagrama de Gantt complet del projecte:
+
+% Per a fer que la figura ocupi les dues columnes utilitzeu "figure*" per comptes de "figure"
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\textwidth]{img/gantt}
+	\caption{Diagrama de Gantt}
+	\label{fig-exemple}
+\end{figure}
+
+Els Sprints que es durant a terme en aquest projecte son el següents:
+
+\begin{flushleft}
+	\textbf{Sprint 1: Definició i Disseny d'Arquitectura. }\\
+\end{flushleft}
+Aquest primer cicle es focalitza en la concreció dels objectius, l'anàlisi detallada dels requisits i el disseny de l'esquema de dades relacional. Es defineix l'arquitectura del sistema i el model conceptual de la màquina d'estats que governarà les incidències.
+
+\begin{flushleft}
+	\textbf{Sprint 2: Infraestructura Backend i Lògica de Control.} \\
+\end{flushleft}
+Durant aquesta fase es realitza la configuració del servidor amb Node.js i l'ORM Prisma. S'implementa la base de dades PostgreSQL amb l'extensió PostGIS per a la gestió geogràfica i es programa la lògica de transicions d'estats amb XState.
+
+\begin{flushleft}
+	\textbf{Sprint 3: Desenvolupament de la Interfície Web i SIG. } \\
+\end{flushleft}
+Es construeix el dashboard d'administració amb React, integrant les APIs de cartografia per a la visualització de clústers i mapes de calor. S'estableixen les eines de filtratge i assignació manual de tasques.
+
+\begin{flushleft}
+	\textbf{Sprint 4: Mòdul de l'Alumne i Aplicació Mòbil. } \\
+\end{flushleft}
+Inici del desenvolupament amb React Native i Expo\cite{3}. Es crea el formulari de report d'incidències, integrant l'accés natiu a la càmera i la captura de coordenades GPS.
+
+\begin{flushleft}
+	\textbf{Sprint 5: Mòdul Tècnic i Comunicació en Temps Real. } \\
+\end{flushleft}
+Es desenvolupa la interfície específica per a operaris amb llistats per proximitat. S'implementen les notificacions push i la connexió bidireccional amb Socket.io per a l'actualització instantània del sistema.
+
+\begin{flushleft}
+	\textbf{Sprint 6: Integració d'Intel·ligència Artificial.} \\
+\end{flushleft}
+En aquesta etapa s'integren OpenAI i LangChain al backend per permetre la classificació automàtica d'incidències mitjançant imatges i la generació intel·ligent d'avisos crítics.
+
+\begin{flushleft}
+	\textbf{Sprint 7: Gamificació i Control de Qualitat (QA).} \\
+\end{flushleft}
+Es programa la lògica del sistema de recompenses i rànquings. Es realitza una fase intensiva de proves de sistema i correcció d'errors per garantir la robustesa de la plataforma i el compliment del RGPD.
+
+\begin{flushleft}
+	\textbf{Sprint 8: Preparació de la defensa} \\
+\end{flushleft}
+El darrer cicle es dedica al tancament de la memòria escrita, el refinament final de l'experiència d'usuari (UI/UX) i la preparació dels materials per a la defensa pública del projecte.
+
+
+\section{Requisits}
+Per garantir l'èxit en el disseny i desenvolupament de la plataforma integral de gestió de desperfectes del campus universitari, s'han identificat i classificat els següents requisits funcionals i no funcionals. Aquests requisits delimiten l'abast tècnic del projecte i satisfan les necessitats dels diferents actors involucrats.
+
+\subsection{Requisits Funcionals}
+Aquests requisits defineixen les capacitats d'interacció i el comportament del sistema davant les accions dels usuaris:
+
+\begin{itemize}
+	\item \textbf{RF-01: Gestió de rols i privilegis. }
+	El sistema ha de permetre l'accés a tres perfils diferenciats: Administrador (visió global i control), Tècnic (resolució operativa) i Alumne (report d'incidències).
+	
+	\item \textbf{RF-02: Autenticació d'usuaris.} 
+	El sistema ha de permetre en el registre i inici de sessió la integració amb sistemes d'autenticació de Google i Outlook per a aquells que disposin de compte de l'autonoma. 
+	
+	\item \textbf{RF-03: Creació d'incidències mòbils. }
+	Els alumnes han de poder registrar incidències des de l'app amb estat "Oberta", adjuntant descripció, coordenades GPS i proves fotogràfiques.
+	
+	\item \textbf{RF-04: Control del flux d'estats (XState).} 
+	El sistema ha de governar el cicle de vida de la incidència mitjançant 5 estats finits: Oberta, Assignada, En procés, Validada i Tancada 
+	
+	\item \textbf{RF-05: Restricció de transicions.} 
+	Només es pot assignar un usuari amb rol "Tècnic" per moure una incidència que esta "Oberta" a l'estat "En procés”. 
+	
+	\item \textbf{RF-06: Traçabilitat d'actors.} 
+	Cada incidència ha d'estar vinculada obligatòriament a un ID d'usuari (creador) i a un ID de tècnic (assignat). 
+	
+	\item \textbf{RF-07: Panell de control d'administració.} 
+	Els administradors han de poder visualitzar llistats, filtrar incidències i assignar-les a tècnics recomanats.
+	
+	\item \textbf{RF-08: Gestió operativa per a tècnics.} 
+	Els tècnics han de poder autoassignar-se tasques mitjançant un llistat filtrat per proximitat geogràfica. 
+	
+	\item \textbf{RF-09: Verificació fotogràfica de resolució.} 
+	Els tècnics han de reportar la solució adjuntant fotos de l'abans i el després per canviar l'estat a "Validada”. 
+	
+	\item \textbf{RF-10: Tancament d'incidències.} 
+	L'administrador ha de rebre les peticions  "Validades" i determinar si es tanquen definitivament o es reassignen. 
+	
+	\item \textbf{RF-11: Visualització cartogràfica (SIG).} 
+	El sistema ha de representar les incidències en un mapa interactiu amb clustering i mapes de calor per zones.
+	
+	\item \textbf{RF-12: Notificacions Push. }
+	Enviament d'alertes als dispositius mòbils d'usuaris i tècnics davant canvis d'estat o avisos crítics. 
+	
+	\item \textbf{RF-13: Actualització en temps real.} 
+	El tauler d'administració s'ha d'actualitzar instantàniament en rebre nous reports o canvis de disponibilitat de tècnics. 
+	
+	\item \textbf{RF-14: Classificació automàtica per IA. }
+	Ús d'agents de IA per analitzar imatges, classificar el tipus d'incidència i determinar la prioritat. 
+	
+	\item \textbf{RF-15: Redacció d'avisos per IA. }
+	Agent especialitzat per redactar notificacions personalitzades i alertes en cas d'incidències crítiques. 
+	
+	\item \textbf{RF-16: Sistema de Recompenses i Sancions. }
+	Implementació d'un rànquing de punts per a usuaris col·laboradors i aplicació de sancions acadèmiques per mal ús.
+	
+\end{itemize}
+
+\subsection{Requisits No Funcionals}
+
+\begin{itemize}
+	
+	\item \textbf{RNF-01: Usabilitat i Experiència d'Usuari (UX/UI).} El sistema ha de presentar una interfície intuïtiva i adaptada a cada plataforma (mòbil per a l'ús en moviment i web per a l'anàlisi de dades), garantint que un alumne pugui completar un report d'incidència en menys de 30 segons.
+	
+	\item \textbf{RNF-02: Disponibilitat Multiplataforma.} La lògica de negoci ha d'estar centralitzada al backend per garantir la consistència de les dades, sent accessible tant des de navegadors web moderns com des de dispositius iOS i Android (vía Expo).
+	
+	\item \textbf{RNF-03: Rendiment i Eficiència Geoespacial.} El sistema ha de ser capaç de processar consultes espacials complexes (proximitat i clústers) mitjançant PostGIS amb un temps de resposta inferior a 500ms per a l'usuari final.
+	
+	\item \textbf{RNF-04: Accés a Recursos Natius.} L'aplicació mòbil ha d'integrar-se de forma transparent amb el maquinari del dispositiu (GPS i càmera), assegurant la captura de coordenades amb una precisió mínima de 10 metres.
+	
+	\item \textbf{RNF-05: Seguretat i Control d'Accés (RBAC).} S'ha d'implementar un control d'accés basat en rols (Role-Based Access Control) que restringeixi les operacions de la base de dades i les rutes de l'API segons el perfil de l'usuari autenticat.
+	
+	\item \textbf{RNF-06: Seguretat, Privacitat i Compliment (RGPD).} El sistema ha de complir el Reglament General de Protecció de Dades, incloent l'encriptació de dades sensibles en repòs i el trànsit de dades mitjançant protocols segurs (HTTPS/WSS).
+	
+	\item \textbf{RNF-07: Baixa Latència i Temps Real.} Les actualitzacions del panell d'administració s'han de reflectir mitjançant \textit{Socket.io} amb una latència gairebé instantània (idealment < 200ms) per garantir la coordinació operativa dels tècnics.
+	
+	\item \textbf{RNF-08: Mantenibilitat i Qualitat del Codi.} El sistema s'ha de desenvolupar seguint patrons de disseny modulars i utilitzant un ORM (Prisma) que faciliti la traçabilitat de les migracions i la validació de tipus (TypeScript), assegurant que el programari sigui fàcil d'ampliar en el futur.
+	
+\end{itemize}

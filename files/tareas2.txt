@@ -1,0 +1,36 @@
+---------------------------------------------------------------------------
+3. PROTECCIÓ DE L'ADMINISTRADOR CRÍTIC (Anti-Deadlock)
+---------------------------------------------------------------------------
+Per evitar que el sistema es quedi sense administradors (per error o atac), 
+s'apliquen les següents regles de negoci al Backend:
+
+REGLA 1: L'Administrador "Root" (Intocable)
+- El correu 'admin.master@uab.cat' (o el definit a variables d'entorn) 
+  està blindat. 
+- Qualsevol petició de PATCH (active: false) o DELETE sobre aquest usuari 
+  serà rebutjada automàticament pel servidor amb un Error 403.
+
+REGLA 2: L'Últim Supervivent
+- Abans de desactivar (active: false) qualsevol usuari amb rol 'ADMIN', 
+  el sistema executa un comptatge: 
+  `count = prisma.user.count({ where: { role: 'ADMIN', active: true } })`.
+- Si el comptatge és igual a 1, la operació es cancel·la. 
+- "No es permet desactivar l'últim administrador actiu del sistema."
+
+---------------------------------------------------------------------------
+4. PROCÉS DE REVOCACIÓ (Baixa d'Usuaris)
+---------------------------------------------------------------------------
+Quan un Administrador decideix treure l'accés a un Tècnic o un altre Admin:
+
+1. L'Admin clica "Revocar" a la llista d'invitacions/usuaris.
+2. El sistema executa una TRANSACCIÓ (Atomicitat):
+    a) Canvia Invite.status a 'REVOKED'.
+    b) Canvia User.active a 'false'.
+3. Resultat: L'usuari ja no pot fer login (Error 403), però la seva traçabilitat 
+   en les incidències passades es manté intacta (Integritat referencial).
+
+---------------------------------------------------------------------------
+5. SEGURETAT A L'API (Middlewares)
+---------------------------------------------------------------------------
+- Whitelisting: Els controladors ignoren camps com 'role' o 'active' si venen 
+  en el cos d'una petició d'un usuari normal (Mass Assignment Protection).
