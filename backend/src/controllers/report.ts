@@ -16,7 +16,7 @@ export const create = async (req: AuthRequest, res: Response): Promise<void> => 
       { title, description, latitude, longitude, category },
       req.user!.userId,
     );
-    res.status(201).json(report);
+    res.status(201).json({ report });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -29,7 +29,7 @@ export const getById = async (req: AuthRequest, res: Response): Promise<void> =>
       res.status(404).json({ error: 'Incidencia no encontrada' });
       return;
     }
-    res.json(report);
+    res.json({ report });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -39,7 +39,7 @@ export const getAll = async (req: AuthRequest, res: Response): Promise<void> => 
   try {
     const state = typeof req.query.state === 'string' ? req.query.state as State : undefined;
     const reports = await reportService.getAllReports({ state });
-    res.json(reports);
+    res.json({ reports });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -72,7 +72,7 @@ export const transition = async (req: AuthRequest, res: Response): Promise<void>
       req.user!.role,
       assignedToId,
     );
-    res.json(report);
+    res.json({ report });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

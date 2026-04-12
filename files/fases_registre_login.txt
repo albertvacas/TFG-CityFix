@@ -1,0 +1,227 @@
+FASES DE REGISTRE I INICI DE SESSIÓ — CityFix
+(Base per a diagrames de seqüència UML)
+
+Participants:
+  - Client (Navegador / App)
+  - Web Server (Vite Proxy :5173)
+  - App Server (Express :3000)
+  - Database (PostgreSQL / Supabase)
+
+================================================================================
+A. REGISTRE ESTUDIANT (ruta pública)
+================================================================================
+
+Actors: Client, Web Server, App Server, Database
+
+1. Client → Web Server
+   POST /api/auth/register
+   Body: { email, name, surname, password, nickname }
+   Nota: El camp role s'ignora o no s'envia
+
+2. Web Server → App Server
+   Vite Proxy redirigeix la petició :5173/api → :3000/api
+
+3. App Server (Controller): Validació d'entrada
+   - Comprova que tots els camps obligatoris existeixen (email, name, surname, password, nickname)
+   - Si falta algun camp → retorna 400 { error: "Faltan campos obligatorios" }
+
+4. App Server (Service): Hash de contrasenya
+   - bcrypt.hash(password, 10) → genera salt aleatori de 128 bits + hash resultant
+   - Dues contrasenyes idèntiques produeixen hashos diferents
+
+5. App Server (Service): Sanitització de rol
+   - Força role = "STUDENT" independentment del que enviï el client
+   - Mesura de seguretat Zero Trust
+
+6. App Server → Database
+   prisma.user.create({
+     email, name, surname,
+     password: hashedPassword,
+     nickname,
+     role: "STUDENT"
+   })
+
+7. Database → App Server
+   Retorna l'objecte User creat
+   - Si email o nickname ja existeix → error P2002 (unique constraint)
+
+8. App Server (Service): Eliminació de contrasenya
+   - Exclou el camp password de la resposta (compliment RGPD)
+   - const { password, ...userWithoutPassword } = user
+
+9. App Server → Web Server → Client
+   - Èxit: 201 Created + objecte usuari (sense password)
+   - Error email/nickname duplicat: 409 Conflict
+   - Error intern: 500
+
+================================================================================
+B. REGISTRE PRIVILEGIAT (ADMIN / TECHNICAL — requereix invitació)
+================================================================================
+
+Actors: Client, Web Server, App Server, Database
+
+1. Client → Web Server
+   POST /api/auth/register
+   Body: { email, name, surname, password, nickname, role: "ADMIN"|"TECHNICAL", token: "hex64" }
+
+2. Web Server → App Server
+   Vite Proxy redirigeix
+
+3. App Server (Controller): Validació d'entrada
+   - Comprova camps obligatoris
+   - Comprova que si role és ADMIN o TECHNICAL, existeixi el camp token
+   - Si falta token → 400 { error: "Es requereix un token d'invitació per a aquest rol" }
+
+4. App Server (Service): Hash de contrasenya
+   - bcrypt.hash(password, 10)
+
+5. App Server (Service) → Database: Cerca d'invitació
+   prisma.invite.findFirst({
+     where: { email, token, status: "PENDING" }
+   })
+
+6. Database → App Server
+   - Si no existeix invitació vàlida → llança error "Invitació no vàlida..."
+   - App Server retorna 403 Forbidden al Client
+
+7. App Server → Database: Transacció atòmica ($transaction)
+   Operació 1: prisma.user.create({
+     email, name, surname,
+     password: hashedPassword,
+     nickname,
+     role: invite.role,    ← rol de la invitació, no del body
+     inviteId: invite.id   ← vinculació 1:1 amb la invitació
+   })
+   Operació 2: prisma.invite.update({
+     where: { id: invite.id },
+     data: { status: "USED" }
+   })
+   Nota: Si una operació falla, cap de les dues s'aplica (atomicitat)
+
+8. Database → App Server
+   Retorna l'objecte User creat
+
+9. App Server (Service): Eliminació de contrasenya
+   - Exclou password de la resposta
+
+10. App Server → Web Server → Client
+    - Èxit: 201 Created + objecte usuari (sense password)
+    - Token invàlid: 403 Forbidden
+    - Email/nickname duplicat: 409 Conflict
+    - Error intern: 500
+
+================================================================================
+C. INICI DE SESSIÓ (LOGIN)
+================================================================================
+
+Actors: Client, Web Server, App Server, Database
+
+1. Client → Web Server
+   POST /api/auth/login
+   Body: { email, password }
+
+2. Web Server → App Server
+   Vite Proxy redirigeix
+
+3. App Server (Controller): Validació d'entrada
+   - Comprova que email i password existeixen
+   - Si falten → 400 { error: "Email y password son obligatorios" }
+
+4. App Server (Service) → Database: Cerca d'usuari
+   prisma.user.findUnique({ where: { email } })
+
+5. Database → App Server
+   - Si l'usuari no existeix → llança error "Credencials incorrectes"
+   - Missatge genèric per no revelar si l'email està registrat (seguretat)
+
+6. App Server (Service): Verificació de compte actiu
+   - Comprova user.active === true
+   - Si active === false → llança error "Compte desactivat. Contacta amb un administrador."
+   - Això bloqueja usuaris revocats
+
+7. App Server (Service): Comparació de contrasenya
+   - bcrypt.compare(password, user.password)
+   - Si no coincideix → llança error "Credencials incorrectes"
+   - Mateix missatge genèric (no revela si l'email existeix)
+
+8. App Server (Service): Generació de JWT
+   - Crea payload: { userId: user.user_id, role: user.role }
+   - jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" })
+   - Token signat criptogràficament amb clau secreta del servidor
+
+9. App Server (Service): Eliminació de contrasenya
+   - Exclou password de l'objecte usuari
+
+10. App Server → Web Server → Client
+    - Èxit: 200 OK + { token: "jwt...", user: { ... } }
+    - Credencials incorrectes: 401 Unauthorized
+    - Compte desactivat: 401 Unauthorized
+
+11. Client: Emmagatzematge del token
+    - localStorage.setItem("token", token)
+    - A partir d'ara, Axios interceptor l'injecta automàticament:
+      headers.Authorization = "Bearer <token>"
+
+================================================================================
+D. VERIFICACIÓ DE PETICIONS AUTENTICADES (MIDDLEWARE)
+================================================================================
+
+Actors: Client, Web Server, App Server
+
+1. Client → Web Server
+   Qualsevol petició protegida (ex: GET /api/reports)
+   Header: Authorization: Bearer <token>
+   Nota: L'interceptor d'Axios afegeix el header automàticament
+
+2. Web Server → App Server
+   Vite Proxy redirigeix
+
+3. App Server (Middleware authenticate):
+   3a. Extreu el header Authorization
+       - Si no existeix o no comença amb "Bearer " → 401 "Token no proporcionado"
+   3b. Separa el token: header.split(" ")[1]
+   3c. jwt.verify(token, JWT_SECRET)
+       - Verifica signatura criptogràfica
+       - Verifica que no ha expirat (< 24h)
+       - Si falla → 401 "Token inválido o expirado"
+   3d. Descodifica payload → { userId, role }
+   3e. Injecta a la petició: req.user = { userId, role }
+   3f. Crida next() per continuar al següent middleware
+
+4. App Server (Middleware authorize — opcional, segons la ruta):
+   4a. Comprova que req.user existeix
+       - Si no → 401 "No autenticado"
+   4b. Comprova que req.user.role està dins dels rols permesos
+       - Ex: authorize("ADMIN", "TECHNICAL") per a rutes de gestió
+       - Si el rol no és permès → 403 "No tienes permisos para esta acción"
+   4c. Si és permès → crida next()
+
+5. App Server → Controller → Service → Database
+   La petició continua el flux normal amb la identitat de l'usuari disponible a req.user
+
+================================================================================
+E. GESTIÓ D'ERRORS AL CLIENT (INTERCEPTOR AXIOS)
+================================================================================
+
+Actors: Client
+
+1. Si qualsevol resposta retorna 401:
+   - L'interceptor de resposta d'Axios detecta l'error
+   - Elimina el token: localStorage.removeItem("token")
+   - Redirigeix a la pàgina de login: window.location.href = "/login"
+   - L'usuari ha de tornar a iniciar sessió
+
+================================================================================
+NOTES PER AL DIAGRAMA DE SEQÜÈNCIA UML
+================================================================================
+
+- Representar les 4 línies de vida: Client, Web Server, App Server, Database
+- El Web Server (Vite Proxy) actua com a passthrough transparent en totes les operacions
+- Utilitzar fragments combinats:
+  - alt/else per a les bifurcacions (estudiant vs privilegiat, errors vs èxit)
+  - opt per a la verificació authorize (només en rutes protegides)
+  - ref per referenciar el flux de middleware des d'altres diagrames
+- Marcar les operacions bcrypt amb nota de "operació costosa (10 rondes de salt)"
+- Marcar la transacció atòmica amb un fragment "critical" o "par"
+- Les respostes d'error es representen com a retorns immediats (línies discontínues)
+- El JWT_SECRET mai surt del App Server

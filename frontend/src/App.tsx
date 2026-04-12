@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage';
 import ReportsListPage from './pages/ReportsListPage';
 import ReportDetailPage from './pages/ReportDetailPage';
 import InvitesPage from './pages/InvitesPage';
+import MapPage from './pages/MapPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
               <Route path="/reports" element={<ReportsListPage />} />
               <Route path="/reports/:id" element={<ReportDetailPage />} />
               <Route path="/invites" element={<InvitesPage />} />
+              <Route path="/map" element={<MapPage />} />
             </Route>
           </Route>
 

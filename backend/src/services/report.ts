@@ -83,6 +83,7 @@ export const transitionReport = async (
     data: {
       state: newState,
       ...(event === 'ASSIGN' && assignedToId ? { assignedToId } : {}),
+      ...(newState === 'CLOSED' ? { resolvedAt: new Date() } : {}),
     },
     include: {
       createdBy: { select: { user_id: true, name: true, nickname: true } },

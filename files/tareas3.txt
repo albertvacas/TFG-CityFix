@@ -1,0 +1,49 @@
+PLA DE VISUALITZACIÓ DE DADES I ANALÍTICA: DASHBOARD D'ADMINISTRACIÓ
+
+1. BLOC OPERATIU: ESTAT EN TEMPS REAL
+
+Gràfic de Rosca (Donut Chart) - Estat del Sistema
+   - Dades: Percentatge d'incidències en cada estat (Open, Assigned, 
+     In Progress, Validated, Closed).
+   - Ús: Identificar immediatament el volum de bloqueig (incidències 
+     obertes sense assignar).
+
+Percentatge d'incidències Crítiques/Altes.
+
+2. BLOC TEMPORAL: ANÀLISI DE TENDÈNCIES
+
+Gràfic d'Àrees Apilades (Stacked Area Chart) - Històric de Reports
+   - Dades: Eix X (Temps: dies/setmanes), Eix Y (Quantitat), 
+     Llegenda (Categoria de la incidència).
+   - Ús: Detectar estacionalitat (ex: pics de climatització a l'estiu) 
+     i preveure necessitats de material o personal segons la categoria.
+
+Gràfic de Barres Agrupades (Grouped Bar Chart) - Resolució vs. Creació
+   - Dades: Comparativa setmanal d'incidències creades vs. incidències 
+     tancades definitivament.
+   - Ús: Mesurar la capacitat d'absorció del sistema. Si es crea més del 
+     que es tanca, el sistema està col·lapsant.
+
+3. BLOC DE RENDIMENT: EFICIÈNCIA DELS RECURSOS 
+
+Gràfic de Barres Horitzontal - Top Tècnics (Workload)
+   - Dades: Eix Y (Nom del Tècnic), Eix X (Incidències gestionades).
+   - Ús: Balanceig de càrrega. Evitar que un tècnic tingui massa 
+     tasques "En Procés" mentre altres estan lliures.
+
+Gràfic de Dispersió (Scatter Plot) - Temps vs. Prioritat
+   - Dades: Eix X (Temps de resolució), Eix Y (Nivell de Prioritat).
+   - Ús: Auditar la qualitat del servei. Les incidències "Crítiques" 
+     haurien d'estar agrupades en el rang de temps més baix.
+
+Treemap - Distribució per Edificis/Facultats
+   - Dades: Àrees proporcionals al nombre d'incidències totals per edifici.
+   - Ús: Identificar quins actius immobiliaris de la universitat consumeixen 
+     més recursos de manteniment.
+
+4. BLOC SOCIAL: GAMIFICACIÓ 
+
+Taula de Rànquing (Leaderboard) - Participació Ciutadana
+   - Dades: Top 10 usuaris amb més punts acumulats i taxes d'encert 
+     en la classificació (validades per l'admin).
+   - Ús: Reconèixer i incentivar el report de qualitat per part dels alumnes.

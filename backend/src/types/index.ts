@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import { Role } from '../../generated/prisma';
+import { Role, Category } from '../../generated/prisma';
 
 // Payload que se almacena dentro del JWT
 export interface JwtPayload {
@@ -34,7 +34,7 @@ export interface CreateReportDTO {
   description: string;
   latitude: number;
   longitude: number;
-  category?: string;
+  category?: Category;
   priority?: string;
 }
 

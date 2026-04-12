@@ -42,13 +42,14 @@ export type ReportMinAggregateOutputType = {
   description: string | null
   state: $Enums.State | null
   priority: $Enums.Priority | null
-  category: string | null
+  category: $Enums.Category | null
   latitude: number | null
   longitude: number | null
   createdById: string | null
   assignedToId: string | null
   createdAt: Date | null
   lastModified: Date | null
+  resolvedAt: Date | null
 }
 
 export type ReportMaxAggregateOutputType = {
@@ -57,13 +58,14 @@ export type ReportMaxAggregateOutputType = {
   description: string | null
   state: $Enums.State | null
   priority: $Enums.Priority | null
-  category: string | null
+  category: $Enums.Category | null
   latitude: number | null
   longitude: number | null
   createdById: string | null
   assignedToId: string | null
   createdAt: Date | null
   lastModified: Date | null
+  resolvedAt: Date | null
 }
 
 export type ReportCountAggregateOutputType = {
@@ -79,6 +81,7 @@ export type ReportCountAggregateOutputType = {
   assignedToId: number
   createdAt: number
   lastModified: number
+  resolvedAt: number
   _all: number
 }
 
@@ -106,6 +109,7 @@ export type ReportMinAggregateInputType = {
   assignedToId?: true
   createdAt?: true
   lastModified?: true
+  resolvedAt?: true
 }
 
 export type ReportMaxAggregateInputType = {
@@ -121,6 +125,7 @@ export type ReportMaxAggregateInputType = {
   assignedToId?: true
   createdAt?: true
   lastModified?: true
+  resolvedAt?: true
 }
 
 export type ReportCountAggregateInputType = {
@@ -136,6 +141,7 @@ export type ReportCountAggregateInputType = {
   assignedToId?: true
   createdAt?: true
   lastModified?: true
+  resolvedAt?: true
   _all?: true
 }
 
@@ -231,13 +237,14 @@ export type ReportGroupByOutputType = {
   description: string
   state: $Enums.State
   priority: $Enums.Priority
-  category: string | null
+  category: $Enums.Category | null
   latitude: number
   longitude: number
   createdById: string
   assignedToId: string | null
   createdAt: Date
   lastModified: Date
+  resolvedAt: Date | null
   _count: ReportCountAggregateOutputType | null
   _avg: ReportAvgAggregateOutputType | null
   _sum: ReportSumAggregateOutputType | null
@@ -269,13 +276,14 @@ export type ReportWhereInput = {
   description?: Prisma.StringFilter<"Report"> | string
   state?: Prisma.EnumStateFilter<"Report"> | $Enums.State
   priority?: Prisma.EnumPriorityFilter<"Report"> | $Enums.Priority
-  category?: Prisma.StringNullableFilter<"Report"> | string | null
+  category?: Prisma.EnumCategoryNullableFilter<"Report"> | $Enums.Category | null
   latitude?: Prisma.FloatFilter<"Report"> | number
   longitude?: Prisma.FloatFilter<"Report"> | number
   createdById?: Prisma.StringFilter<"Report"> | string
   assignedToId?: Prisma.StringNullableFilter<"Report"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Report"> | Date | string
   lastModified?: Prisma.DateTimeFilter<"Report"> | Date | string
+  resolvedAt?: Prisma.DateTimeNullableFilter<"Report"> | Date | string | null
   images?: Prisma.ImageListRelationFilter
   comments?: Prisma.CommentListRelationFilter
   createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
@@ -295,6 +303,7 @@ export type ReportOrderByWithRelationInput = {
   assignedToId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastModified?: Prisma.SortOrder
+  resolvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   images?: Prisma.ImageOrderByRelationAggregateInput
   comments?: Prisma.CommentOrderByRelationAggregateInput
   createdBy?: Prisma.UserOrderByWithRelationInput
@@ -310,13 +319,14 @@ export type ReportWhereUniqueInput = Prisma.AtLeast<{
   description?: Prisma.StringFilter<"Report"> | string
   state?: Prisma.EnumStateFilter<"Report"> | $Enums.State
   priority?: Prisma.EnumPriorityFilter<"Report"> | $Enums.Priority
-  category?: Prisma.StringNullableFilter<"Report"> | string | null
+  category?: Prisma.EnumCategoryNullableFilter<"Report"> | $Enums.Category | null
   latitude?: Prisma.FloatFilter<"Report"> | number
   longitude?: Prisma.FloatFilter<"Report"> | number
   createdById?: Prisma.StringFilter<"Report"> | string
   assignedToId?: Prisma.StringNullableFilter<"Report"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Report"> | Date | string
   lastModified?: Prisma.DateTimeFilter<"Report"> | Date | string
+  resolvedAt?: Prisma.DateTimeNullableFilter<"Report"> | Date | string | null
   images?: Prisma.ImageListRelationFilter
   comments?: Prisma.CommentListRelationFilter
   createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
@@ -336,6 +346,7 @@ export type ReportOrderByWithAggregationInput = {
   assignedToId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastModified?: Prisma.SortOrder
+  resolvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.ReportCountOrderByAggregateInput
   _avg?: Prisma.ReportAvgOrderByAggregateInput
   _max?: Prisma.ReportMaxOrderByAggregateInput
@@ -352,13 +363,14 @@ export type ReportScalarWhereWithAggregatesInput = {
   description?: Prisma.StringWithAggregatesFilter<"Report"> | string
   state?: Prisma.EnumStateWithAggregatesFilter<"Report"> | $Enums.State
   priority?: Prisma.EnumPriorityWithAggregatesFilter<"Report"> | $Enums.Priority
-  category?: Prisma.StringNullableWithAggregatesFilter<"Report"> | string | null
+  category?: Prisma.EnumCategoryNullableWithAggregatesFilter<"Report"> | $Enums.Category | null
   latitude?: Prisma.FloatWithAggregatesFilter<"Report"> | number
   longitude?: Prisma.FloatWithAggregatesFilter<"Report"> | number
   createdById?: Prisma.StringWithAggregatesFilter<"Report"> | string
   assignedToId?: Prisma.StringNullableWithAggregatesFilter<"Report"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Report"> | Date | string
   lastModified?: Prisma.DateTimeWithAggregatesFilter<"Report"> | Date | string
+  resolvedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Report"> | Date | string | null
 }
 
 export type ReportCreateInput = {
@@ -367,11 +379,12 @@ export type ReportCreateInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
   images?: Prisma.ImageCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentCreateNestedManyWithoutReportInput
   createdBy: Prisma.UserCreateNestedOneWithoutReportsCreatedInput
@@ -384,13 +397,14 @@ export type ReportUncheckedCreateInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   createdById: string
   assignedToId?: string | null
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
   images?: Prisma.ImageUncheckedCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutReportInput
 }
@@ -401,11 +415,12 @@ export type ReportUpdateInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   images?: Prisma.ImageUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUpdateManyWithoutReportNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutReportsCreatedNestedInput
@@ -418,13 +433,14 @@ export type ReportUncheckedUpdateInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   assignedToId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   images?: Prisma.ImageUncheckedUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutReportNestedInput
 }
@@ -435,13 +451,14 @@ export type ReportCreateManyInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   createdById: string
   assignedToId?: string | null
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
 }
 
 export type ReportUpdateManyMutationInput = {
@@ -450,11 +467,12 @@ export type ReportUpdateManyMutationInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type ReportUncheckedUpdateManyInput = {
@@ -463,13 +481,14 @@ export type ReportUncheckedUpdateManyInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   assignedToId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type ReportListRelationFilter = {
@@ -495,6 +514,7 @@ export type ReportCountOrderByAggregateInput = {
   assignedToId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastModified?: Prisma.SortOrder
+  resolvedAt?: Prisma.SortOrder
 }
 
 export type ReportAvgOrderByAggregateInput = {
@@ -515,6 +535,7 @@ export type ReportMaxOrderByAggregateInput = {
   assignedToId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastModified?: Prisma.SortOrder
+  resolvedAt?: Prisma.SortOrder
 }
 
 export type ReportMinOrderByAggregateInput = {
@@ -530,6 +551,7 @@ export type ReportMinOrderByAggregateInput = {
   assignedToId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastModified?: Prisma.SortOrder
+  resolvedAt?: Prisma.SortOrder
 }
 
 export type ReportSumOrderByAggregateInput = {
@@ -634,12 +656,20 @@ export type EnumPriorityFieldUpdateOperationsInput = {
   set?: $Enums.Priority
 }
 
+export type NullableEnumCategoryFieldUpdateOperationsInput = {
+  set?: $Enums.Category | null
+}
+
 export type FloatFieldUpdateOperationsInput = {
   set?: number
   increment?: number
   decrement?: number
   multiply?: number
   divide?: number
+}
+
+export type NullableDateTimeFieldUpdateOperationsInput = {
+  set?: Date | string | null
 }
 
 export type ReportCreateNestedOneWithoutCommentsInput = {
@@ -676,11 +706,12 @@ export type ReportCreateWithoutAssignedToInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
   images?: Prisma.ImageCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentCreateNestedManyWithoutReportInput
   createdBy: Prisma.UserCreateNestedOneWithoutReportsCreatedInput
@@ -692,12 +723,13 @@ export type ReportUncheckedCreateWithoutAssignedToInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   createdById: string
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
   images?: Prisma.ImageUncheckedCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutReportInput
 }
@@ -718,11 +750,12 @@ export type ReportCreateWithoutCreatedByInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
   images?: Prisma.ImageCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentCreateNestedManyWithoutReportInput
   assignedTo?: Prisma.UserCreateNestedOneWithoutReportsAssignedInput
@@ -734,12 +767,13 @@ export type ReportUncheckedCreateWithoutCreatedByInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   assignedToId?: string | null
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
   images?: Prisma.ImageUncheckedCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutReportInput
 }
@@ -779,13 +813,14 @@ export type ReportScalarWhereInput = {
   description?: Prisma.StringFilter<"Report"> | string
   state?: Prisma.EnumStateFilter<"Report"> | $Enums.State
   priority?: Prisma.EnumPriorityFilter<"Report"> | $Enums.Priority
-  category?: Prisma.StringNullableFilter<"Report"> | string | null
+  category?: Prisma.EnumCategoryNullableFilter<"Report"> | $Enums.Category | null
   latitude?: Prisma.FloatFilter<"Report"> | number
   longitude?: Prisma.FloatFilter<"Report"> | number
   createdById?: Prisma.StringFilter<"Report"> | string
   assignedToId?: Prisma.StringNullableFilter<"Report"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Report"> | Date | string
   lastModified?: Prisma.DateTimeFilter<"Report"> | Date | string
+  resolvedAt?: Prisma.DateTimeNullableFilter<"Report"> | Date | string | null
 }
 
 export type ReportUpsertWithWhereUniqueWithoutCreatedByInput = {
@@ -810,11 +845,12 @@ export type ReportCreateWithoutCommentsInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
   images?: Prisma.ImageCreateNestedManyWithoutReportInput
   createdBy: Prisma.UserCreateNestedOneWithoutReportsCreatedInput
   assignedTo?: Prisma.UserCreateNestedOneWithoutReportsAssignedInput
@@ -826,13 +862,14 @@ export type ReportUncheckedCreateWithoutCommentsInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   createdById: string
   assignedToId?: string | null
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
   images?: Prisma.ImageUncheckedCreateNestedManyWithoutReportInput
 }
 
@@ -858,11 +895,12 @@ export type ReportUpdateWithoutCommentsInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   images?: Prisma.ImageUpdateManyWithoutReportNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutReportsCreatedNestedInput
   assignedTo?: Prisma.UserUpdateOneWithoutReportsAssignedNestedInput
@@ -874,13 +912,14 @@ export type ReportUncheckedUpdateWithoutCommentsInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   assignedToId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   images?: Prisma.ImageUncheckedUpdateManyWithoutReportNestedInput
 }
 
@@ -890,11 +929,12 @@ export type ReportCreateWithoutImagesInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
   comments?: Prisma.CommentCreateNestedManyWithoutReportInput
   createdBy: Prisma.UserCreateNestedOneWithoutReportsCreatedInput
   assignedTo?: Prisma.UserCreateNestedOneWithoutReportsAssignedInput
@@ -906,13 +946,14 @@ export type ReportUncheckedCreateWithoutImagesInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   createdById: string
   assignedToId?: string | null
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutReportInput
 }
 
@@ -938,11 +979,12 @@ export type ReportUpdateWithoutImagesInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   comments?: Prisma.CommentUpdateManyWithoutReportNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutReportsCreatedNestedInput
   assignedTo?: Prisma.UserUpdateOneWithoutReportsAssignedNestedInput
@@ -954,13 +996,14 @@ export type ReportUncheckedUpdateWithoutImagesInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   assignedToId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   comments?: Prisma.CommentUncheckedUpdateManyWithoutReportNestedInput
 }
 
@@ -970,12 +1013,13 @@ export type ReportCreateManyAssignedToInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   createdById: string
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
 }
 
 export type ReportCreateManyCreatedByInput = {
@@ -984,12 +1028,13 @@ export type ReportCreateManyCreatedByInput = {
   description: string
   state?: $Enums.State
   priority?: $Enums.Priority
-  category?: string | null
+  category?: $Enums.Category | null
   latitude: number
   longitude: number
   assignedToId?: string | null
   createdAt?: Date | string
   lastModified?: Date | string
+  resolvedAt?: Date | string | null
 }
 
 export type ReportUpdateWithoutAssignedToInput = {
@@ -998,11 +1043,12 @@ export type ReportUpdateWithoutAssignedToInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   images?: Prisma.ImageUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUpdateManyWithoutReportNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutReportsCreatedNestedInput
@@ -1014,12 +1060,13 @@ export type ReportUncheckedUpdateWithoutAssignedToInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   images?: Prisma.ImageUncheckedUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutReportNestedInput
 }
@@ -1030,12 +1077,13 @@ export type ReportUncheckedUpdateManyWithoutAssignedToInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type ReportUpdateWithoutCreatedByInput = {
@@ -1044,11 +1092,12 @@ export type ReportUpdateWithoutCreatedByInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   images?: Prisma.ImageUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUpdateManyWithoutReportNestedInput
   assignedTo?: Prisma.UserUpdateOneWithoutReportsAssignedNestedInput
@@ -1060,12 +1109,13 @@ export type ReportUncheckedUpdateWithoutCreatedByInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   assignedToId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   images?: Prisma.ImageUncheckedUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutReportNestedInput
 }
@@ -1076,12 +1126,13 @@ export type ReportUncheckedUpdateManyWithoutCreatedByInput = {
   description?: Prisma.StringFieldUpdateOperationsInput | string
   state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
-  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   latitude?: Prisma.FloatFieldUpdateOperationsInput | number
   longitude?: Prisma.FloatFieldUpdateOperationsInput | number
   assignedToId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 
@@ -1137,6 +1188,7 @@ export type ReportSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   assignedToId?: boolean
   createdAt?: boolean
   lastModified?: boolean
+  resolvedAt?: boolean
   images?: boolean | Prisma.Report$imagesArgs<ExtArgs>
   comments?: boolean | Prisma.Report$commentsArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1157,6 +1209,7 @@ export type ReportSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   assignedToId?: boolean
   createdAt?: boolean
   lastModified?: boolean
+  resolvedAt?: boolean
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   assignedTo?: boolean | Prisma.Report$assignedToArgs<ExtArgs>
 }, ExtArgs["result"]["report"]>
@@ -1174,6 +1227,7 @@ export type ReportSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   assignedToId?: boolean
   createdAt?: boolean
   lastModified?: boolean
+  resolvedAt?: boolean
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   assignedTo?: boolean | Prisma.Report$assignedToArgs<ExtArgs>
 }, ExtArgs["result"]["report"]>
@@ -1191,9 +1245,10 @@ export type ReportSelectScalar = {
   assignedToId?: boolean
   createdAt?: boolean
   lastModified?: boolean
+  resolvedAt?: boolean
 }
 
-export type ReportOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"report_id" | "title" | "description" | "state" | "priority" | "category" | "latitude" | "longitude" | "createdById" | "assignedToId" | "createdAt" | "lastModified", ExtArgs["result"]["report"]>
+export type ReportOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"report_id" | "title" | "description" | "state" | "priority" | "category" | "latitude" | "longitude" | "createdById" | "assignedToId" | "createdAt" | "lastModified" | "resolvedAt", ExtArgs["result"]["report"]>
 export type ReportInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   images?: boolean | Prisma.Report$imagesArgs<ExtArgs>
   comments?: boolean | Prisma.Report$commentsArgs<ExtArgs>
@@ -1224,13 +1279,14 @@ export type $ReportPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     description: string
     state: $Enums.State
     priority: $Enums.Priority
-    category: string | null
+    category: $Enums.Category | null
     latitude: number
     longitude: number
     createdById: string
     assignedToId: string | null
     createdAt: Date
     lastModified: Date
+    resolvedAt: Date | null
   }, ExtArgs["result"]["report"]>
   composites: {}
 }
@@ -1663,13 +1719,14 @@ export interface ReportFieldRefs {
   readonly description: Prisma.FieldRef<"Report", 'String'>
   readonly state: Prisma.FieldRef<"Report", 'State'>
   readonly priority: Prisma.FieldRef<"Report", 'Priority'>
-  readonly category: Prisma.FieldRef<"Report", 'String'>
+  readonly category: Prisma.FieldRef<"Report", 'Category'>
   readonly latitude: Prisma.FieldRef<"Report", 'Float'>
   readonly longitude: Prisma.FieldRef<"Report", 'Float'>
   readonly createdById: Prisma.FieldRef<"Report", 'String'>
   readonly assignedToId: Prisma.FieldRef<"Report", 'String'>
   readonly createdAt: Prisma.FieldRef<"Report", 'DateTime'>
   readonly lastModified: Prisma.FieldRef<"Report", 'DateTime'>
+  readonly resolvedAt: Prisma.FieldRef<"Report", 'DateTime'>
 }
     
 

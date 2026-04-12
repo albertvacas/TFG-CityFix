@@ -3,6 +3,19 @@ export type State = 'OPEN' | 'ASSIGNED' | 'IN_PROGRESS' | 'VALIDATED' | 'CLOSED'
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type IncidentEvent = 'ASSIGN' | 'START' | 'REASSIGN' | 'RESOLVE' | 'CLOSE' | 'REJECT';
 export type InviteStatus = 'PENDING' | 'USED' | 'REVOKED';
+export type Category = 'LIGHTING' | 'URBAN_FURNITURE' | 'PAVEMENT' | 'CLEANING' | 'GREEN_AREAS' | 'SIGNAGE' | 'ACCESSIBILITY' | 'TECHNOLOGY' | 'OTHER';
+
+export const CATEGORY_LABELS: Record<Category, string> = {
+  LIGHTING: 'Il·luminació',
+  URBAN_FURNITURE: 'Mobiliari urbà',
+  PAVEMENT: 'Via pública',
+  CLEANING: 'Neteja',
+  GREEN_AREAS: 'Zones verdes',
+  SIGNAGE: 'Senyalització',
+  ACCESSIBILITY: 'Accessibilitat',
+  TECHNOLOGY: 'Tecnologia',
+  OTHER: 'Altres',
+};
 
 export interface User {
   user_id: string;
@@ -22,7 +35,7 @@ export interface Report {
   description: string;
   state: State;
   priority: Priority;
-  category: string | null;
+  category: Category | null;
   latitude: number;
   longitude: number;
   createdBy: { user_id: string; name: string; nickname: string };

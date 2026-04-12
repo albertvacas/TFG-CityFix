@@ -104,7 +104,8 @@ export const ReportScalarFieldEnum = {
   createdById: 'createdById',
   assignedToId: 'assignedToId',
   createdAt: 'createdAt',
-  lastModified: 'lastModified'
+  lastModified: 'lastModified',
+  resolvedAt: 'resolvedAt'
 } as const
 
 export type ReportScalarFieldEnum = (typeof ReportScalarFieldEnum)[keyof typeof ReportScalarFieldEnum]

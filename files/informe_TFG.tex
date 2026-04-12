@@ -1,0 +1,208 @@
+
+\section{Eines Utilitzades}
+
+En aquesta secció es presenten les principals eines i tecnologies emprades durant el desenvolupament del projecte CityFix, agrupades per àmbit funcional.
+
+\subsection{Llenguatges i entorns d'execució}
+
+\begin{itemize}
+	\item \textbf{TypeScript}: Superconjunt tipat de JavaScript utilitzat tant al backend com al frontend. El tipatge estàtic permet detectar errors en temps de compilació i millora la mantenibilitat del codi en projectes de mida mitjana-gran.
+	\item \textbf{Node.js}: Entorn d'execució de JavaScript al servidor. Permet compartir el mateix llenguatge entre frontend i backend, reduint el canvi de context durant el desenvolupament.
+	\item \textbf{SQL / PL/pgSQL}: Utilitzat per a les consultes avançades que Prisma no suporta nativament (agregacions amb \texttt{date\_trunc}) i per als triggers de PostGIS que sincronitzen les coordenades amb la columna de geometria.
+\end{itemize}
+
+\subsection{Backend}
+
+\begin{itemize}
+	\item \textbf{Express v5}: Framework HTTP minimalista per a Node.js. Proporciona routing, middlewares encadenables i gestió de peticions/respostes. La versió 5 introdueix canvis al tipus de \texttt{req.params} i suport natiu per a promeses als middlewares.
+	\item \textbf{Prisma v7}: ORM (Object-Relational Mapping) per a TypeScript que genera un client tipat a partir de l'esquema de la base de dades. La versió 7 utilitza un driver adapter (\texttt{PrismaPg}) en lloc d'acceptar la URL directament al constructor, millorant la compatibilitat amb drivers natius.
+	\item \textbf{node-postgres (pg)}: Driver natiu de PostgreSQL per a Node.js. Utilitzat com a adaptador subjacent de Prisma v7 mitjançant \texttt{@prisma/adapter-pg}, proporcionant la connexió directa amb la base de dades i permetent l'execució de consultes SQL crues (\texttt{\$queryRawUnsafe}).
+	\item \textbf{XState v5}: Llibreria de màquines d'estats finits i statecharts. S'utilitza per governar el cicle de vida de les incidències amb l'API \texttt{setup()}, que permet definir guards amb noms tipats per al control d'accés per rol.
+	\item \textbf{jsonwebtoken (JWT)}: Llibreria per a la generació i verificació de tokens JSON Web Token. Permet implementar autenticació stateless amb signatura criptogràfica i expiració configurable.
+	\item \textbf{bcrypt}: Algoritme de hashing de contrasenyes basat en Blowfish. Genera un salt aleatori per cada hash, garantint que contrasenyes idèntiques produeixin resultats diferents.
+	\item \textbf{dotenv}: Mòdul que carrega variables d'entorn des d'un fitxer \texttt{.env} al procés de Node.js. Permet separar la configuració sensible (credencials de base de dades, claus JWT, identificadors d'administrador root) del codi font, seguint el principi de \textit{twelve-factor app}.
+	\item \textbf{cors}: Middleware per a Express que configura les capçaleres Cross-Origin Resource Sharing, permetent que el frontend accedeixi al backend des d'un origen diferent en producció.
+\end{itemize}
+
+\subsection{Frontend web}
+
+\begin{itemize}
+	\item \textbf{React 19}: Llibreria d'interfícies d'usuari basada en components declaratius. Permet construir SPAs (Single Page Applications) amb un model de dades reactiu i un cicle de vida gestionat per hooks.
+	\item \textbf{Vite}: Bundler i servidor de desenvolupament amb compilació instantània i Hot Module Replacement (HMR). Configurat amb un proxy que redirigeix les peticions \texttt{/api} al backend Express, eliminant problemes de CORS en desenvolupament.
+	\item \textbf{Tailwind CSS v4}: Framework CSS utility-first que genera classes d'utilitat a partir d'una única directiva d'importació. La versió 4, integrada directament amb Vite mitjançant \texttt{@tailwindcss/vite}, no requereix fitxer de configuració.
+	\item \textbf{React Router v7}: Llibreria de routing client-side que permet definir rutes protegides amb guards de navegació i sincronitzar filtres amb la URL mitjançant \texttt{useSearchParams}.
+	\item \textbf{Axios}: Client HTTP amb interceptors que automatitzen la injecció del token JWT a cada petició i la gestió centralitzada d'errors 401 (sessió expirada).
+	\item \textbf{Recharts}: Llibreria de visualització de dades construïda sobre components React i D3.js. Proporciona gràfics declaratius (donut, àrees apilades, barres, dispersió) amb responsivitat integrada.
+	\item \textbf{Leaflet + react-leaflet}: Motor de mapes interactius de codi obert amb un pes de ~42 KB. S'han integrat els plugins \texttt{leaflet.markercluster} (agrupació visual) i \texttt{leaflet.heat} (mapes de calor).
+\end{itemize}
+
+\subsection{Base de dades i infraestructura}
+
+\begin{itemize}
+	\item \textbf{PostgreSQL}: Sistema de gestió de bases de dades relacional. Ofereix suport nadiu per a UUID, enums, transaccions ACID i funcions avançades com \texttt{date\_trunc} per a agregacions temporals.
+	\item \textbf{PostGIS}: Extensió geoespacial per a PostgreSQL que permet emmagatzemar punts geogràfics com a objectes binaris optimitzats (\texttt{geography(Point, 4326)}) sobre l'el·lipsoide WGS 84, el mateix sistema de referència que utilitzen GPS i OpenStreetMap.
+	\item \textbf{Supabase}: Plataforma Backend-as-a-Service que proporciona una instància de PostgreSQL gestionada amb extensions activables (PostGIS), autenticació, emmagatzematge d'arxius i un editor SQL integrat.
+\end{itemize}
+
+\subsection{Control de versions i gestió del projecte}
+
+\begin{itemize}
+	\item \textbf{Git}: Sistema de control de versions distribuït. Cada Sprint es desenvolupat en una branca independent i fusionat a la branca principal un cop validat.
+	\item \textbf{GitHub}: Plataforma d'allotjament del repositori remot. Facilita la traçabilitat dels canvis, la recuperació de codi i la col·laboració.
+\end{itemize}
+
+\subsection{Eines de desenvolupament i proves}
+
+\begin{itemize}
+	\item \textbf{Visual Studio Code}: Editor de codi amb suport nadiu per a TypeScript, integració amb Git, terminal integrat i extensions per a ESLint i Prisma.
+	\item \textbf{tsx}: Executor de TypeScript per a Node.js que permet executar fitxers \texttt{.ts} directament sense pas previ de compilació. S'utilitza tant en mode \texttt{watch} durant el desenvolupament (reinici automàtic davant canvis) com per a l'execució en producció.
+	\item \textbf{ESLint}: Eina d'anàlisi estàtica de codi que detecta errors, patrons problemàtics i inconsistències d'estil. Configurat amb els plugins \texttt{react-hooks} i \texttt{react-refresh} per garantir el correcte ús dels hooks de React i la compatibilitat amb el Hot Module Replacement de Vite.
+	\item \textbf{Postman}: Eina per a la validació manual dels endpoints de l'API REST. Permet enviar peticions HTTP amb headers d'autenticació i analitzar les respostes del servidor.
+	\item \textbf{Figma}: Eina de disseny d'interfícies utilitzada per crear els prototips de baixa i alta fidelitat de les pantalles de l'aplicació.
+\end{itemize}
+
+\section{Desenvolupament}
+
+\subsection{Estructura backend}
+
+L'arquitectura del backend segueix el patró Routes - Middleware - Controller -
+Service - Database, on cada capa té una responsabilitat clarament definida.
+Aquesta separació de responsabilitats facilita la mantenibilitat i l'escalabilitat
+del sistema, ja que permet modificar la lògica de negoci sense afectar les
+capes de presentació o d'accés a dades.
+
+\subsubsection{Arquitectura de la Base de Dades}
+
+La base de dades és PostgreSQL allotjada a Supabase, amb l'extensió PostGIS
+per a les capacitats geoespacials. L'esquema es defineix amb Prisma ORM, que
+proporciona tipatge automàtic, migracions versionades i un client generat.
+
+S'ha definit un esquema robust amb les seguents taules principals:
+
+\begin{itemize}
+	\item \textbf{users}: Emmagatzema els usuaris del sistema amb rol (STUDENT, TECHNICAL,
+	ADMIN), punts de gamificació i estat actiu. Inclou el vincle optional amb
+	la invitació que va originar l'accés per als rols privilegiats.
+	\item \textbf{reports}: Les incidències reportades, amb estat governat per la màquina
+	XState, prioritat, categoria tipificada, coordenades GPS, vincles amb
+	el creador i el tècnic assignat, i marca temporal de resolució.
+	\item \textbf{invites}: Les invitacions per a registre privilegiat, amb token criptogràfic,
+	estat (Pendent/Utilitzada/Revocada) i relació amb l'usuari creat.
+\end{itemize}
+
+
+\subsubsection{Maquina d'Estats}
+
+Per governar el cicle de vida de les incidències (RF-04), s'ha implementat
+una màquina d'estats finits utilitzant la llibreria XState v5 amb l'API
+setup(). Aquesta decisió respon a la necessitat de centralitzar i formalitzar
+les regles de transició, evitant condicions disperses pel codi que serien
+difícils de mantenir i verificar.
+
+La màquina defineix cinc estats (Oberta, Assignada, En procés, Validada i
+Tancada) i sis transicions, cadascuna protegida per guards que verifiquen
+el rol de l'usuari que sol·licita el canvi. Per exemple, només un administrador
+pot tancar definitivament una incidència, mentre que assignar-la pot fer-ho
+qualsevol usuari que no sigui estudiant.
+
+La integració amb la base de dades és especialment rellevant: quan un servei
+necessita executar una transició, crea un actor XState, restaurant l'estat
+actual des de la base de dades amb resolveState(). Abans d'executar la
+transició, valida amb snapshot.can() si és permesa, permetent retornar
+missatges d'error descriptius sense haver de modificar les dades.
+
+
+\subsubsection{Middleware: Xifratge i RBAC}
+
+Per controlar la seguretat del backend i restringir l'acces a determinats usuaris s'ha afegit un middleware que actua com a capa intermitja, filtrant totes aquelles peticions malicioses o invalides i controlant l'acces dels usuaris. 
+
+La primera part del middleware (authenticate) s'encarrega de verificar l'inici de sessió d'un usuari lícit. En rebre una petició, extreu el token del header Authorization, verifica la seva signatura criptogràfica mitjançant jwt.verify(). Si es valid vol dir que l'usuari es correcte i es retorna el payload descodificat (identificador d'usuari i rol). En cas contrari es rebutja amb un codi 401.
+
+La segona part del middleware (authorize) implementa el control d'accés basat en rols
+(RBAC). Verifica si l'usuari autenticat posseeix un dels rols requerits. En cas contrari, retorna un codi 403. 
+
+Per al registre, la contrasenya es protegeix amb bcrypt utilitzant 10 rondes de salt,
+garantint que contrasenyes idèntiques produeixin hashos diferents. Per a
+l'inici de sessió, es compara la contrasenya proporcionada amb el hash
+emmagatzemat i, si coincideix, es genera un token JWT amb una expiració de
+24 hores. En ambdós casos, la contrasenya mai es retorna al client, complint
+amb els principis de protecció de dades del RGPD.
+
+\subsubsection{Seguretat}
+
+S'ha implementat el patró de registre per invitació, inspirat en el model
+Zero Trust: el registre d'estudiants és públic però el backend ignora el
+camp role i força STUDENT programàticament. Per als rols privilegiats (ADMIN
+i TECHNICAL), es requereix un token d'invitació generat prèviament per un
+administrador.
+
+La creació de l'usuari privilegiat i el marcatge de la invitació com a
+utilitzada s'executen dins d'una transacció atòmica de Prisma. Si una de les
+dues operacions falla, cap de les dues s'aplica, prevenint inconsistències
+com un token reutilitzable o un token perdut.
+
+Per prevenir situacions irreversibles, s'han establert dues regles de
+protecció:
+
+\begin{itemize}
+	
+	\item La primera protegeix un administrador root (configurat via variable d'entorn)
+	que no pot ser revocat sota cap circumstància, garantint que sempre existeixi
+	almenys un punt d'accés al sistema.
+	
+	\item La segona impedeix revocar l'últim administrador actiu mitjançant un comptatge
+	previ a la base de dades. Si només resta un administrador actiu, l'operació
+	es cancel·la, protegint el sistema contra una situació de deadlock
+	administratiu.
+	
+\end{itemize}
+
+\subsection{Panell de control}
+
+L'aplicació consta de cinc pàgines principals, organitzades dins d'un layout
+comú amb una barra lateral de navegació fixa i una zona de contingut principal.
+
+\subsubsection{Dashboard}
+S'ha escollit Recharts com a llibreria de visualització per la seva integració
+nativa amb React. Les diferents gràfiques implementades s'han dividit en diferents blocs: 
+
+\begin{itemize}
+	\item El Bloc Operatiu respon la pregunta «Quin és l'estat actual del sistema?»
+	mitjançant targetes KPI clicables i un gràfic de rosca que mostra la
+	distribució proporcional dels cinc estats.
+	\item El Bloc Temporal analitza les tendències amb un gràfic d'àrees apilades que
+	mostra simultàniament l'evolució global i la composició per categoria, i un
+	gràfic de barres agrupades que compara les incidències creades amb les
+	tancades per setmana.
+	\item El Bloc de Rendiment avalua l'eficiència dels recursos amb un gràfic de
+	barres horitzontals apilades per tècnic i un gràfic de dispersió que relaciona el temps de resolució amb la prioritat.
+	\item El Bloc Social mostra un rànquing dels 10 usuaris que més
+	incidències han reportat.
+\end{itemize}
+
+\subsubsection{Administració d'usuaris}
+S'ha implementat una pàgina inicial d'inici de sessió que permet exclusivament als usuaris administradors accedir al panell de control. L'accés es verifica en dos nivells: al frontend, el context d'autenticació comprova que el rol de l'usuari sigui ADMIN abans d'acceptar la sessió; al backend, cada petició protegida valida el token JWT i el rol associat. Aquesta doble verificació garanteix que, fins i tot si algú manipula el codi client, el servidor rebutjarà les peticions no autoritzades.
+
+A més, s'ha implementat una pàgina de gestió d'invitacions (/invites) que permet als administradors crear tokens de registre per a tècnics i altres administradors, visualitzar l'historial d'invitacions amb el seu estat (Pendent, Utilitzada o Revocada) i revocar l'accés d'usuaris privilegiats.
+
+\subsubsection{Visualització geografica i SIG}
+S'ha habilitat l'extensió PostGIS a Supabase per afegir capacitats
+geoespacials a la base de dades PostgreSQL. S'ha escollit Leaflet com a motor de mapes i s'ha creat un trigger PL/pgSQL que transforma automàticament els camps decimals latitude i
+longitude en un punt binari PostGIS. 
+
+S'han integrat dos plugins específics: leaflet.markercluster per a l'agrupació
+visual de markers per proximitat amb animacions de dispersió, i leaflet.heat
+per a la generació de mapes de calor amb gradient configurable. 
+
+Aquests plugins ens permeten visualitzar en el mapa de manera ordenada els punts on s'ubiquen les incidències, que s'agrupen automàticament per proximitat (clustering).
+
+D'altra banda també s'ha implementat un mapa de calor. Es pot seleccionar el criteri de pes entre tres opcions (prioritat, densitat i antiguitat) per obtenir perspectives analítiques diferents. 
+
+\subsection{Frontend app}
+
+L'aplicació mòbil està destinada als usuaris finals del campus (estudiants, personal docent i de serveis). Aquesta interfície permetrà reportar incidències directament des del dispositiu mòbil, adjuntant fotografies i geolocalització automàtica. El seu desenvolupament està planificat per als sprints posteriors.
+
+\subsubsection{Inici de sessió i registre}
+
+El sistema d'autenticació de l'aplicació mòbil compartirà la mateixa API REST que el panell web. Els estudiants podran registrar-se lliurement, mentre que els rols privilegiats (tècnic i administrador) requeriran una invitació prèvia. Un cop autenticat, el token JWT s'emmagatzemarà de forma segura al dispositiu i s'enviarà automàticament amb cada petició.
+

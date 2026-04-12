@@ -520,15 +520,13 @@ Formulari de login amb email i contrasenya. El flux és:
 
 **Disseny**: pàgina completa centrada amb el logotip CityFix i un formulari amb estil card (fons blanc, ombra suau, vora arrodonida).
 
-#### `DashboardPage.tsx` — Visió general
+#### `DashboardPage.tsx` — Dashboard analític
 
-Pàgina principal del panell que mostra un resum de l'estat del sistema:
+Pàgina principal del panell d'administració, redissenyada amb visualitzacions professionals mitjançant la llibreria **Recharts**. Conté 9 components visuals organitzats en 4 blocs temàtics (veure secció "Mòdul d'Analítica i Visualització de Dades" per a la justificació completa).
 
-1. **Targetes d'estat**: 5 targetes clicables, una per cada estat (Obertes, Assignades, En procés, Validades, Tancades). Cada targeta mostra el comptador corresponent amb un color diferenciador. Fer clic filtra la llista d'incidències per aquell estat
-2. **Total d'incidències**: targeta destacada amb el recompte global
-3. **Incidències recents**: taula amb les 5 últimes incidències, mostrant títol, estat, creador i data. Cada fila és clicable i porta al detall
+**Controls globals**: selector de granularitat temporal (diari/setmanal/mensual) i rang temporal (30/90/180/365 dies) que afecten tots els gràfics temporals.
 
-**Dades**: carrega totes les incidències amb `getReports()` al muntar-se i calcula els comptadors localment.
+**Dades**: consumeix l'endpoint `GET /api/analytics/dashboard` que retorna totes les agregacions en una sola petició, calculades al servidor amb queries optimitzades.
 
 #### `ReportsListPage.tsx` — Llistat d'incidències
 
@@ -917,3 +915,389 @@ La pàgina `/invites` del panell d'administració s'ha ampliat per incloure:
 | `frontend/src/types/index.ts` | Modificat | Afegits `active` a User, `InviteStatus`, actualitzat Invite |
 | `frontend/src/api/users.ts` | Modificat | Afegits `getPrivilegedUsers()` i `revokeUser()` |
 | `frontend/src/pages/InvitesPage.tsx` | Modificat | Taula d'usuaris amb botó revocar + status enum a invitacions |
+
+---
+
+## Tipificació de Categories — Enum `Category`
+
+El camp `category` del model `Report` s'ha canviat de `String?` a un **enum Prisma**, eliminant l'ambigüitat de text lliure:
+
+| Valor enum | Etiqueta (ca) | Descripció |
+|---|---|---|
+| `LIGHTING` | Il·luminació | Faroles, llums, electricitat exterior |
+| `URBAN_FURNITURE` | Mobiliari urbà | Bancs, papereres, marquesines |
+| `PAVEMENT` | Via pública | Voreres, escocells, asfalt, forats |
+| `CLEANING` | Neteja | Contenidors, brossa, neteja general |
+| `GREEN_AREAS` | Zones verdes | Arbres, jardineria, reg |
+| `SIGNAGE` | Senyalització | Cartells, indicadors, senyals |
+| `ACCESSIBILITY` | Accessibilitat | Rampes, baranes, passos adaptats |
+| `TECHNOLOGY` | Tecnologia | Ordinadors, xarxes, equipament digital |
+| `OTHER` | Altres | Qualsevol cosa que no encaixi |
+
+Al frontend, el mapa `CATEGORY_LABELS` (a `types/index.ts`) tradueix cada valor enum a la seva etiqueta en català per a la interfície d'usuari.
+
+---
+
+## Mòdul SIG: Visualització Geogràfica d'Incidències
+
+### Resum
+
+S'ha implementat un mòdul de visualització cartogràfica que permet als administradors veure les incidències sobre un mapa interactiu del campus. El mòdul ofereix dues vistes: **markers amb clustering** (agrupació automàtica per proximitat) i **mapa de calor** (heatmap) amb pes configurable. Ambdues vistes suporten filtres per estat, categoria i rang temporal.
+
+---
+
+### Justificació de les tecnologies escollides
+
+#### PostGIS — Extensió geoespacial per a PostgreSQL
+
+PostGIS és l'extensió estàndard de la indústria per afegir capacitats geoespacials a PostgreSQL. S'ha escollit per tres raons:
+
+1. **Integració nativa amb Supabase**: Supabase (la plataforma de base de dades del projecte) ofereix PostGIS com a extensió activable amb un sol clic. Això evita haver de configurar un servidor GIS separat o migrar a una base de dades especialitzada.
+
+2. **Tipus `geography` amb SRID 4326**: PostGIS permet emmagatzemar punts geogràfics com a objectes binaris optimitzats (`geography(Point, 4326)`) que representen coordenades sobre l'el·lipsoide terrestre WGS 84 — el mateix sistema de referència que utilitzen GPS, Google Maps i OpenStreetMap. Emmagatzemar les coordenades com a `geography` en lloc de simples `Float` permet fer càlculs de distància reals en metres (no en graus decimals) si en el futur es necessiten consultes espacials com "incidències dins d'un radi de 500m".
+
+3. **Trigger automàtic**: els camps `latitude` i `longitude` del model `Report` es mantenen com a `Float` per simplicitat a l'API (qualsevol client pot enviar coordenades decimals). Un trigger PL/pgSQL (`BEFORE INSERT OR UPDATE`) transforma automàticament aquests valors en el punt binari PostGIS dins la columna `location`. Aquesta decisió de disseny desacobla la interfície (lat/lng simples) de l'emmagatzematge optimitzat (geometria PostGIS), seguint el principi de responsabilitat única: l'aplicació no necessita conèixer PostGIS, la base de dades s'encarrega de la conversió.
+
+**Alternativa descartada**: emmagatzemar les coordenades només com a `Float` i fer tots els càlculs al frontend. Això funcionaria per a visualització bàsica, però impossibilitaria qualsevol consulta espacial eficient (radi, bounding box, proximitat) al crèixer el sistema.
+
+#### Leaflet — Llibreria de mapes interactius
+
+S'ha escollit Leaflet (v1.9) com a motor de mapes per al frontend, amb la integració `react-leaflet` (v5.0) per a la compatibilitat amb React. Les raons són:
+
+1. **Codi obert i gratuït**: a diferència de Google Maps (que requereix clau d'API de pagament) o Mapbox (que té límits d'ús gratuït), Leaflet és completament lliure sota llicència BSD. Per a un TFG acadèmic, això elimina costos i dependències de serveis externs.
+
+2. **Lleugeresa**: Leaflet pesa ~42 KB (gzip), molt menys que OpenLayers (~180 KB) o l'SDK de Google Maps (~200 KB). En una SPA que ja carrega React, Axios i Tailwind, mantenir el pes del bundle reduït és important per al rendiment.
+
+3. **Ecosistema de plugins**: Leaflet té un ecosistema madur de plugins per a funcionalitats avançades. S'han utilitzat dos plugins específics:
+   - **`leaflet.markercluster`**: agrupació visual de markers per proximitat amb animacions de dispersió
+   - **`leaflet.heat`**: generació de mapes de calor (heatmap) amb gradient configurable
+
+4. **Capa base OpenStreetMap**: les tiles (imatges del mapa) provenen d'OpenStreetMap, que és gratuït i de codi obert. No cal API key ni configuració de facturació.
+
+**Alternativa descartada**: Google Maps (cost per ús, API key obligatòria, termes de servei restrictius) i Mapbox (gratuït fins a un límit, després de pagament). Ambdues opcions introdueixen una dependència de servei extern innecessària per a un entorn acadèmic.
+
+#### GeoJSON — Format d'intercanvi de dades geoespacials
+
+L'endpoint `/api/geo/geojson` retorna les incidències en format **GeoJSON** (`FeatureCollection`), l'estàndard obert (RFC 7946) per a dades geoespacials. S'ha escollit perquè:
+
+1. **Compatibilitat universal**: Leaflet, OpenLayers, Mapbox, Google Maps, QGIS i pràcticament qualsevol eina GIS consumeix GeoJSON nativament. Si en el futur es canvia la llibreria de mapes, l'API no cal modificar-la.
+
+2. **Separació geometria/propietats**: cada `Feature` conté un objecte `geometry` (coordenades) i un objecte `properties` (metadades de la incidència). Això permet al frontend renderitzar els punts al mapa i alhora mostrar informació contextual als popups sense crides addicionals.
+
+3. **Ordre de coordenades**: GeoJSON utilitza l'ordre `[longitude, latitude]`, que és el contrari de la convenció habitual `[lat, lng]`. Aquesta diferència és una font habitual d'errors; al servei `geo.ts` la conversió es fa explícitament: `coordinates: [r.longitude, r.latitude]`.
+
+#### Clustering client-side vs. server-side — Decisió de disseny
+
+El pla de desenvolupament inicial plantejava la possibilitat d'implementar clustering SQL al servidor (`ST_ClusterDBSCAN` o `ST_ClusterKMeans`). Aquesta opció s'ha **descartat intencionadament** en favor del clustering purament visual al frontend (`leaflet.markercluster`). La justificació és:
+
+| Criteri | Clustering SQL (servidor) | Clustering Leaflet (client) |
+|---|---|---|
+| Complexitat | Alta (consultes SQL avançades) | Baixa (plugin configurable) |
+| Volum de dades | Necessari per a >10.000 punts | Suficient per a centenars |
+| Interactivitat | Estàtica (agrupa abans d'enviar) | Dinàmica (reagrupa al fer zoom) |
+| Experiència d'usuari | Perd detall individual | Dispersió animada al clicar |
+
+En un campus universitari, el volum esperat d'incidències és de centenars (no milions). Amb aquest volum, enviar tots els punts al client i deixar que `leaflet.markercluster` els agrupi visualment és la solució més eficient: l'usuari pot fer zoom i veure els markers individuals amb animacions de dispersió, cosa que no seria possible amb clustering pre-calculat al servidor.
+
+Si en el futur el sistema s'escalés a escala de ciutat (desenes de milers d'incidències), es podria afegir clustering SQL com a capa d'optimització sense modificar el frontend — simplement substituint les Features individuals per centroids agrupats a l'endpoint GeoJSON.
+
+#### Heatmap amb pes configurable — Anàlisi multidimensional
+
+El mapa de calor (`leaflet.heat`) no es limita a mostrar densitat: l'administrador pot seleccionar el **criteri de pes** per obtenir perspectives analítiques diferents sobre les mateixes dades:
+
+| Criteri | Càlcul del pes | Pregunta que respon |
+|---|---|---|
+| **Prioritat** | LOW=1, MEDIUM=2, HIGH=3, CRITICAL=4 | On es concentren els problemes més greus? |
+| **Densitat** | Totes les incidències pesen 1 | Quines zones generen més incidències? |
+| **Antiguitat** | Setmanes d'edat (1-10) | On hi ha problemes crònics sense resoldre? |
+
+Aquesta decisió de disseny converteix el heatmap en una eina analítica real per a la presa de decisions, en comptes d'una simple visualització decorativa. Per exemple, un administrador pot detectar que una zona no té moltes incidències (densitat baixa) però les poques que té són crítiques (prioritat alta), o que una zona acumula incidències antigues sense resoldre (antiguitat alta).
+
+El càlcul del pes es fa al **backend** (`services/geo.ts`), no al frontend, per dues raons:
+1. El frontend no ha de conèixer la lògica de negoci (quant pesa cada prioritat)
+2. Si es canvia la fórmula de pes, només cal modificar el servei — el frontend simplement renderitza els valors que rep
+
+---
+
+### Arquitectura
+
+```
+MapPage.tsx (React)
+    │
+    ├─ Vista "Markers" ──► MarkerClusterGroup.tsx ──► leaflet.markercluster
+    │                           │
+    │                           └─ getGeoJson() ──► GET /api/geo/geojson
+    │
+    └─ Vista "Heatmap" ──► HeatmapLayer.tsx ──► leaflet.heat
+                                │
+                                └─ getHeatmapData() ──► GET /api/geo/heatmap
+                                        │
+                                        ▼
+                                Backend (Prisma queries amb filtres)
+```
+
+### Infraestructura PostGIS
+
+#### Trigger PL/pgSQL — `backend/prisma/sql/001_postgis_trigger.sql`
+
+S'ha creat un trigger que s'executa automàticament **BEFORE INSERT OR UPDATE** a la taula `reports`. La funció `sync_report_location()` transforma els camps decimals `latitude` i `longitude` en un punt binari PostGIS (`geography(Point, 4326)`) dins de la columna `location`.
+
+Això desacobla la creació d'incidències (que treballa amb lat/lng simples) de la indexació geoespacial (que necessita geometries PostGIS per a consultes espacials eficients).
+
+El trigger s'ha d'executar manualment al SQL Editor de Supabase un cop, ja que Prisma no suporta triggers nativament.
+
+### Endpoints GIS — `backend/src/routes/geo.ts`
+
+| Mètode | Ruta | Query Params | Descripció |
+|---|---|---|---|
+| GET | `/api/geo/geojson` | `state`, `category`, `days` | FeatureCollection GeoJSON |
+| GET | `/api/geo/heatmap` | `weightBy`, `state`, `category`, `days` | Punts amb pes per al heatmap |
+
+Ambdós endpoints estan protegits amb `authenticate + authorize('ADMIN')`.
+
+#### Format GeoJSON
+
+L'endpoint `/geojson` retorna una `FeatureCollection` estàndard compatible directament amb Leaflet i qualsevol client GIS:
+
+```json
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [2.1060, 41.5025] },
+      "properties": {
+        "id": "uuid",
+        "title": "Farola apagada",
+        "state": "OPEN",
+        "priority": "HIGH",
+        "category": "LIGHTING",
+        "createdBy": "Admin",
+        "createdAt": "2026-04-06T..."
+      }
+    }
+  ]
+}
+```
+
+Nota: GeoJSON utilitza l'ordre `[longitude, latitude]`, no `[latitude, longitude]`.
+
+#### Format Heatmap
+
+L'endpoint `/heatmap` retorna un array de punts amb pes calculat segons el criteri seleccionat:
+
+| `weightBy` | Càlcul |
+|---|---|
+| `priority` | LOW=1, MEDIUM=2, HIGH=3, CRITICAL=4 |
+| `density` | Totes les incidències pesen 1 (concentració pura) |
+| `age` | Setmanes d'antiguitat, limitat a 1-10 |
+
+### Visualització Frontend — `MapPage.tsx`
+
+#### Component base
+
+Mapa Leaflet centrat al campus UAB (`41.5025, 2.1060`) amb zoom 16 i capa base OpenStreetMap. El mapa ocupa 600px d'alçada dins d'un contenidor arrodonit.
+
+#### Vista Markers (`MarkerClusterGroup.tsx`)
+
+Utilitza el plugin `leaflet.markercluster` per agrupar automàticament els markers per proximitat. Cada marker té:
+- **Color segons estat**: blau (Oberta), groc (Assignada), taronja (En procés), verd (Validada), gris (Tancada)
+- **Popup**: títol, estat, prioritat, categoria (traduïda al català) i data
+- **Navegació**: clic al marker obre el detall de la incidència (`/reports/:id`)
+
+El clustering es calcula al client (no al servidor) ja que el volum de dades d'un campus universitari (centenars d'incidències) no justifica la complexitat de clustering SQL (`ST_ClusterDBSCAN`).
+
+#### Vista Heatmap (`HeatmapLayer.tsx`)
+
+Utilitza el plugin `leaflet.heat` amb un gradient de 5 colors (blau → cian → verd → groc → vermell). L'admin pot seleccionar el criteri de pes entre tres opcions per obtenir perspectives analítiques diferents.
+
+#### Filtres
+
+Tres selectors que filtren ambdues vistes simultàniament:
+- **Estat**: tots / Obertes / Assignades / En procés / Validades / Tancades
+- **Categoria**: totes / els 9 valors de l'enum Category
+- **Rang temporal**: qualsevol data / últims 7 / 30 / 90 dies
+
+Els filtres es passen com a query params als endpoints del backend, que filtra a nivell de consulta Prisma.
+
+#### Toggle de vista
+
+Un botó segmentat permet alternar entre "Markers" i "Mapa de calor". Quan s'activa el heatmap, apareix un selector addicional per al criteri de pes.
+
+### Llegenda
+
+A sota del mapa es mostra:
+- En vista markers: llegenda de colors per estat
+- En vista heatmap: text descriptiu del criteri de pes seleccionat
+
+### Dependències afegides
+
+| Paquet | Versió | Propòsit |
+|---|---|---|
+| `leaflet` | 1.9 | Llibreria de mapes interactius |
+| `react-leaflet` | 5.0 | Integració React per Leaflet |
+| `leaflet.markercluster` | 1.5 | Plugin de clustering visual |
+| `leaflet.heat` | 0.2 | Plugin de mapa de calor |
+| `@types/leaflet` | — | Tipus TypeScript |
+| `@types/leaflet.markercluster` | — | Tipus TypeScript |
+| `@types/leaflet.heat` | — | Tipus TypeScript |
+
+### Fitxers creats o modificats
+
+| Fitxer | Acció | Descripció |
+|---|---|---|
+| `backend/prisma/schema.prisma` | Modificat | `category` canviat de `String?` a `Category?` enum |
+| `backend/prisma/sql/001_postgis_trigger.sql` | Creat | Trigger PostGIS per sincronitzar columna `location` |
+| `backend/src/services/geo.ts` | Creat | Queries GeoJSON i heatmap amb filtres |
+| `backend/src/controllers/geo.ts` | Creat | Controlador amb validació de query params |
+| `backend/src/routes/geo.ts` | Creat | Rutes protegides GET /api/geo/* |
+| `backend/src/index.ts` | Modificat | Registrada ruta `/api/geo` |
+| `frontend/src/api/geo.ts` | Creat | Client API per GeoJSON i heatmap |
+| `frontend/src/components/map/MarkerClusterGroup.tsx` | Creat | Clustering visual amb popups |
+| `frontend/src/components/map/HeatmapLayer.tsx` | Creat | Capa de calor configurable |
+| `frontend/src/pages/MapPage.tsx` | Creat | Pàgina completa amb mapa + filtres + toggle |
+| `frontend/src/App.tsx` | Modificat | Afegida ruta `/map` |
+| `frontend/src/components/Layout.tsx` | Modificat | Afegit enllaç "Mapa" al sidebar |
+| `frontend/src/types/index.ts` | Modificat | Afegits `Category`, `CATEGORY_LABELS` |
+
+---
+
+## Mòdul d'Analítica i Visualització de Dades — Dashboard
+
+### Resum
+
+S'ha redissenyat completament el `DashboardPage.tsx`, transformant-lo d'una pàgina estàtica amb comptadors simples a un dashboard analític professional amb 9 visualitzacions interactives. L'objectiu és satisfer el requisit funcional **RF-07** (Panell de control d'administració) i l'objectiu estratègic del projecte d'**anàlisi de dades per a la gestió estratègica del Campus**, proporcionant als administradors una eina de presa de decisions basada en dades reals.
+
+### Justificació de la llibreria escollida — Recharts
+
+S'ha escollit **Recharts** com a llibreria de visualització de dades pels següents motius:
+
+1. **Integració nativa amb React**: Recharts és una llibreria construïda específicament sobre components React i D3.js. Cada gràfic és un component declaratiu (`<PieChart>`, `<BarChart>`, `<AreaChart>`), cosa que s'integra naturalment amb l'arquitectura de components del frontend existent. A diferència de Chart.js (imperatiu, basat en Canvas) o D3.js pur (excessivament complex per a aquest cas d'ús), Recharts respecta el cicle de vida de React i el seu model de dades reactiu.
+
+2. **Suport complet dels tipus de gràfic necessaris**: El dashboard requereix 6 tipus de gràfic diferents (donut, àrees apilades, barres agrupades, barres horitzontals apilades, dispersió i barres amb colors per cel·la). Recharts els suporta tots de forma nativa, sense necessitat de plugins addicionals ni configuracions complexes.
+
+3. **Responsivitat integrada**: El component `<ResponsiveContainer>` adapta automàticament cada gràfic al contenidor pare, garantint que el dashboard es visualitzi correctament en qualsevol resolució de pantalla sense codi CSS addicional.
+
+4. **Lleugeresa**: Recharts afegeix ~45 KB (gzipped) al bundle, significativament menys que alternatives com Highcharts (~80 KB) o ECharts (~100 KB). En un projecte acadèmic on el rendiment de càrrega és rellevant, aquesta diferència és significativa.
+
+5. **Personalització**: Permet configurar colors, tooltips, llegendes i etiquetes per component, cosa que ha permès mantenir la coherència visual amb la paleta de colors ja establerta al projecte (estat → color, categoria → color, prioritat → color).
+
+**Alternatives descartades:**
+- **Chart.js / react-chartjs-2**: Model imperatiu que no s'integra tan bé amb l'estat de React. Requereix refs i useEffect per actualitzar gràfics, trencant la filosofia declarativa.
+- **D3.js**: Massa baix nivell per a aquest cas d'ús. Recharts ja utilitza D3 internament per als càlculs matemàtics, però abstrau la complexitat de manipulació del DOM.
+- **Nivo**: Bona alternativa, però menys documentada i amb una comunitat més petita.
+
+### Arquitectura de dades — Blocs analítics
+
+El dashboard s'organitza en 4 blocs temàtics, cadascun dissenyat per respondre preguntes específiques de gestió:
+
+#### Bloc 1: Operatiu — Estat en temps real
+
+**Pregunta que respon**: Quin és l'estat actual del sistema? Hi ha bloqueig?
+
+| Component | Tipus | Dades |
+|---|---|---|
+| Targetes d'estat (×5) | KPI cards clicables | Comptatge per `state` (`groupBy`) |
+| % Crítiques + Altes | KPI card vermell | Ràtio `priority IN (HIGH, CRITICAL)` / total |
+| Distribució per estat | Donut Chart (PieChart amb innerRadius) | Mateixa agregació, visualitzada com a proporcions |
+
+**Justificació del Donut Chart**: El gràfic de rosca és l'estàndard per mostrar distribucions proporcionals d'un conjunt tancat de categories (els 5 estats). La perforació central permet col·locar el total al centre, maximitzant la densitat informativa. S'ha preferit davant d'un gràfic de barres perquè l'objectiu no és comparar quantitats absolutes sinó percebre les proporcions relatives d'un cop d'ull.
+
+#### Bloc 2: Temporal — Anàlisi de tendències
+
+**Pregunta que respon**: El sistema millora o empitjora amb el temps? Quines categories creixen?
+
+| Component | Tipus | Dades |
+|---|---|---|
+| Històric per categoria | Stacked Area Chart | `createdAt` truncat per interval + `category` |
+| Creades vs Tancades | Grouped Bar Chart | `createdAt` vs `resolvedAt` per setmana |
+
+**Justificació del Stacked Area Chart**: Les àrees apilades mostren simultàniament la tendència global (l'alçada total de l'àrea) i la composició per categoria (cada franja de color). Això permet detectar estacionalitat (per exemple, pics de `TECHNOLOGY` durant el període d'exàmens quan les aules d'informàtica tenen més ús) i preveure necessitats de material. El toggle de granularitat (dia/setmana/mes) permet a l'administrador ajustar el nivell de detall segons el context de l'anàlisi.
+
+**Justificació del Grouped Bar Chart**: La comparativa visual de barres adjacents (blau = creades, verd = tancades) és la forma més intuïtiva de mesurar la **capacitat d'absorció del sistema**. Si les barres blaves superen consistentment les verdes, el sistema està col·lapsant i cal assignar més recursos. Aquesta visualització requereix el camp `resolvedAt` (afegit al model Report), ja que `updatedAt` no distingeix entre una actualització d'estat i el tancament definitiu.
+
+#### Bloc 3: Rendiment — Eficiència dels recursos
+
+**Pregunta que respon**: Els tècnics estan equilibrats? Les incidències crítiques es resolen ràpid?
+
+| Component | Tipus | Dades |
+|---|---|---|
+| Workload per tècnic | Stacked Horizontal Bar Chart | `assignedToId` + `state` (`groupBy`) |
+| Temps resolució vs Prioritat | Scatter Plot | `resolvedAt - createdAt` vs `priority` |
+| Distribució per categoria | Bar Chart vertical amb colors | `category` (`groupBy`) |
+
+**Justificació del Horizontal Bar Chart apilat**: Les barres horitzontals permeten incloure noms llargs de tècnics a l'eix Y sense problemes de rotació de text. L'apilament per estat (Assignades → En procés → Validades → Tancades) permet veure no només el volum total sinó l'estat del treball de cada tècnic. Un tècnic amb moltes barres taronges (En procés) i poques grises (Tancades) pot indicar un coll d'ampolla.
+
+**Justificació del Scatter Plot**: El gràfic de dispersió és el tipus de gràfic canònic per analitzar la relació entre dues variables contínues. En aquest cas, l'eix X (hores de resolució) i l'eix Y (nivell de prioritat) permeten **auditar la qualitat del servei**: les incidències Crítiques haurien d'aparèixer agrupades a l'esquerra (poques hores). Si apareixen punts Crítics a la dreta del gràfic, indica una fallada en la priorització. Aquesta visualització requereix el camp `resolvedAt` per calcular el temps real de resolució.
+
+**Justificació del Bar Chart per categoria (substitueix Treemap per edificis)**: El pla original preveia un Treemap per edificis/facultats, però el model de dades actual no disposa d'un camp `building` als reports (es preveu afegir-lo al Sprint 4 amb l'app mòbil). Com a alternativa equivalent en valor analític, s'ha implementat un gràfic de barres per categoria que identifica quins tipus d'infraestructura consumeixen més recursos de manteniment. Cada barra utilitza el color assignat a la seva categoria per mantenir la coherència visual amb el mapa i la resta del dashboard.
+
+#### Bloc 4: Social — Participació
+
+**Pregunta que respon**: Quins usuaris contribueixen més al sistema?
+
+| Component | Tipus | Dades |
+|---|---|---|
+| Top 10 Reporters | Taula rànquing | `createdById` (`groupBy`) + `users.points` |
+
+**Justificació de la taula (substitueix Leaderboard de punts)**: El sistema de gamificació complet està planificat pel Sprint 7. Mentrestant, s'ha implementat un rànquing basat en el nombre d'incidències reportades per cada usuari, que ja és calculable amb les dades actuals. La taula inclou columna de punts (actualment 0 per a tots els usuaris) preparada per reflectir el sistema de recompenses quan s'implementi. S'ha optat per una taula HTML en lloc d'un gràfic perquè els rànquings amb noms d'usuari i múltiples mètriques es llegeixen millor en format tabular que en barres.
+
+### Canvi al model de dades — `resolvedAt`
+
+S'ha afegit el camp `resolvedAt DateTime?` al model `Report` a Prisma. Aquest camp:
+- Es marca automàticament amb `new Date()` quan una incidència transiciona a l'estat `CLOSED` (dins del servei `transitionReport()`)
+- És `null` per a incidències no tancades
+- Permet calcular el temps real de resolució (`resolvedAt - createdAt`) sense dependre de `updatedAt`, que canvia amb qualsevol modificació
+
+**Per què no reutilitzar `updatedAt`?** El camp `@updatedAt` de Prisma s'actualitza amb qualsevol operació d'escriptura sobre el registre (canvi d'estat, reassignació, edició de camps). Això contamina la dada temporal i impossibilita el càlcul precís del temps de resolució. Un camp dedicat `resolvedAt` garanteix que la marca temporal correspon exclusivament al moment de tancament definitiu.
+
+### Endpoint d'analítica — `GET /api/analytics/dashboard`
+
+S'ha creat un únic endpoint que retorna totes les dades del dashboard en una sola petició HTTP, minimitzant la latència i simplificant la gestió d'estat al frontend.
+
+**Ruta**: `GET /api/analytics/dashboard?granularity=week&days=90`
+**Protecció**: `authenticate` + `authorize('ADMIN')`
+**Paràmetres opcionals**:
+- `granularity`: `day` | `week` | `month` (per defecte `week`) — controla la truncatura temporal dels gràfics d'àrees i barres
+- `days`: nombre de dies enrere a consultar (per defecte `90`)
+
+**Justificació d'un sol endpoint**: En lloc de crear 8 endpoints separats (un per cada visualització), s'ha optat per un endpoint únic que executa totes les queries en paral·lel amb `Promise.all()`. Aquesta decisió es basa en:
+1. **Reducció de roundtrips**: Una sola petició HTTP en lloc de 8, eliminant la latència acumulada de múltiples connexions TCP
+2. **Consistència temporal**: Totes les dades es consulten al mateix instant, evitant discrepàncies entre gràfics si les dades canvien entre peticions
+3. **Simplicitat al frontend**: Un sol `useEffect` i un sol estat (`DashboardData`) en lloc de 8 hooks independents amb 8 estats de càrrega
+
+**Queries executades en paral·lel**:
+
+| Query | Mètode Prisma | Descripció |
+|---|---|---|
+| `getStateCounts()` | `groupBy(['state'])` | Comptatge per estat |
+| `getCriticalHighPercentage()` | `count()` × 2 | Ràtio prioritat alta/crítica |
+| `getHistoryByCategory()` | `$queryRawUnsafe` amb `date_trunc` | Sèrie temporal per categoria |
+| `getCreatedVsResolved()` | `$queryRawUnsafe` × 2 | Creades vs tancades per setmana |
+| `getTechnicianWorkload()` | `groupBy(['assignedToId', 'state'])` | Càrrega per tècnic |
+| `getResolutionTimeVsPriority()` | `findMany` amb `resolvedAt` | Dispersió temps vs prioritat |
+| `getCategoryDistribution()` | `groupBy(['category'])` | Distribució per categoria |
+| `getTopReporters()` | `groupBy(['createdById'])` | Top 10 reporters |
+
+**Nota sobre `$queryRawUnsafe`**: Dues queries utilitzen SQL cru en lloc de l'ORM de Prisma perquè requereixen la funció `date_trunc()` de PostgreSQL per truncar dates a intervals (dia/setmana/mes). Prisma no suporta aquesta funció nativament a la seva API de consultes. Els paràmetres s'injecten de forma segura mitjançant placeholders posicionals (`$1`) per prevenir SQL injection.
+
+### Fitxers creats o modificats
+
+| Fitxer | Acció | Descripció |
+|---|---|---|
+| `backend/prisma/schema.prisma` | Modificat | Afegit `resolvedAt DateTime?` al model Report |
+| `backend/src/services/analytics.ts` | Creat | 8 funcions d'agregació per al dashboard |
+| `backend/src/controllers/analytics.ts` | Creat | Controlador amb `Promise.all()` de totes les queries |
+| `backend/src/routes/analytics.ts` | Creat | Ruta protegida `GET /api/analytics/dashboard` |
+| `backend/src/index.ts` | Modificat | Registrada ruta `/api/analytics` |
+| `backend/src/services/report.ts` | Modificat | Marca `resolvedAt` automàticament en transició a CLOSED |
+| `frontend/src/api/analytics.ts` | Creat | Client API amb interfície `DashboardData` tipada |
+| `frontend/src/pages/DashboardPage.tsx` | Reescrit | 9 visualitzacions Recharts amb controls globals |
+
+### Dependències afegides
+
+**Frontend (`frontend/package.json`)**:
+
+| Paquet | Versió | Funció |
+|---|---|---|
+| `recharts` | ^2.x | Llibreria de gràfics React basada en D3.js |
