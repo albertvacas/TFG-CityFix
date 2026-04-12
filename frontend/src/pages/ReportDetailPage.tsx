@@ -5,7 +5,7 @@ import { getTechnicians } from '../api/users';
 import ReportStatusBadge from '../components/ReportStatusBadge';
 import PriorityBadge from '../components/PriorityBadge';
 import type { Report, User, IncidentEvent } from '../types';
-import { STATE_TRANSITIONS } from '../types';
+import { STATE_TRANSITIONS, CATEGORY_LABELS } from '../types';
 
 const eventLabels: Record<IncidentEvent, { label: string; className: string }> = {
   ASSIGN: { label: 'Assignar', className: 'bg-yellow-600 hover:bg-yellow-700' },
@@ -88,7 +88,7 @@ export default function ReportDetailPage() {
             <PriorityBadge priority={report.priority} />
             {report.category && (
               <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
-                {report.category}
+                {CATEGORY_LABELS[report.category]}
               </span>
             )}
           </div>

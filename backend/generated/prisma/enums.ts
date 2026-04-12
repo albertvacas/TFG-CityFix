@@ -48,6 +48,21 @@ export const Priority = {
 export type Priority = (typeof Priority)[keyof typeof Priority]
 
 
+export const Category = {
+  LIGHTING: 'LIGHTING',
+  URBAN_FURNITURE: 'URBAN_FURNITURE',
+  PAVEMENT: 'PAVEMENT',
+  CLEANING: 'CLEANING',
+  GREEN_AREAS: 'GREEN_AREAS',
+  SIGNAGE: 'SIGNAGE',
+  ACCESSIBILITY: 'ACCESSIBILITY',
+  TECHNOLOGY: 'TECHNOLOGY',
+  OTHER: 'OTHER'
+} as const
+
+export type Category = (typeof Category)[keyof typeof Category]
+
+
 export const InviteStatus = {
   PENDING: 'PENDING',
   USED: 'USED',

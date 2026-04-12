@@ -35,7 +35,19 @@ enum Priority {
   LOW
   MEDIUM
   HIGH
-  CRITICAL  
+  CRITICAL
+}
+
+enum Category {
+  LIGHTING
+  URBAN_FURNITURE
+  PAVEMENT
+  CLEANING
+  GREEN_AREAS
+  SIGNAGE
+  ACCESSIBILITY
+  TECHNOLOGY
+  OTHER
 }
 
 model User {
@@ -69,7 +81,7 @@ model Report{
 
   state           State     @default(OPEN)
   priority        Priority  @default(MEDIUM)
-  category        String?
+  category        Category?
 
   latitude        Float
   longitude       Float
@@ -85,8 +97,9 @@ model Report{
   assignedTo      User?    @relation("AssignedReports", fields: [assignedToId], references: [user_id])
 
   createdAt       DateTime  @default(now())
-  lastModified    DateTime @updatedAt 
-  
+  lastModified    DateTime @updatedAt
+  resolvedAt      DateTime?
+
   @@map("reports")
 }
 

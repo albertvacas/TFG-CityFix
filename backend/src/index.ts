@@ -6,6 +6,8 @@ import { authRouter } from './routes/auth';
 import { reportRouter } from './routes/reports';
 import { userRouter } from './routes/users';
 import { inviteRouter } from './routes/invites';
+import { geoRouter } from './routes/geo';
+import { analyticsRouter } from './routes/analytics';
 
 const app = express();
 
@@ -18,6 +20,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/reports', reportRouter);
 app.use('/api/users', userRouter);
 app.use('/api/invites', inviteRouter);
+app.use('/api/geo', geoRouter);
+app.use('/api/analytics', analyticsRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {

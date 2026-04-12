@@ -1,0 +1,82 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]: REGISTRE
+    - generic [ref=e5]:
+      - generic [ref=e6]: 📨
+      - strong [ref=e7]: Client envia dades
+      - text: email, password, name, surname, nickname
+    - generic [ref=e8]: ▼
+    - generic [ref=e9]:
+      - generic [ref=e10]: 🔐
+      - strong [ref=e11]: bcrypt.hash(password, 10)
+      - text: Genera salt aleatori de 128 bits.
+      - generic [ref=e12]: Dues contrasenyes iguals → hashos diferents
+    - generic [ref=e13]: ▼
+    - generic [ref=e14]:
+      - generic [ref=e15]: 🗄️
+      - strong [ref=e16]: prisma.user.create()
+      - text: Emmagatzema hash, mai la contrasenya
+      - generic [ref=e17]: "Rol per defecte: STUDENT"
+    - generic [ref=e18]: ▼
+    - generic [ref=e19]:
+      - generic [ref=e20]: ✅
+      - strong [ref=e21]: 201 Created
+      - text: Retorna usuari sense camp password
+      - generic [ref=e22]: Compleix RGPD
+  - generic [ref=e23]:
+    - generic [ref=e24]: LOGIN
+    - generic [ref=e25]:
+      - generic [ref=e26]: 📨
+      - strong [ref=e27]: Client envia credencials
+      - text: email, password
+    - generic [ref=e28]: ▼
+    - generic [ref=e29]:
+      - generic [ref=e30]: 🗄️
+      - strong [ref=e31]: prisma.user.findUnique(email)
+      - text: Cerca usuari per email
+      - generic [ref=e32]: Error genèric si no existeix
+    - generic [ref=e33]: ▼
+    - generic [ref=e34]:
+      - generic [ref=e35]: 🔐
+      - strong [ref=e36]: bcrypt.compare(password, hash)
+      - text: Compara amb el hash emmagatzemat
+      - generic [ref=e37]: Error genèric si no coincideix
+    - generic [ref=e38]: ▼
+    - generic [ref=e39]:
+      - generic [ref=e40]: 🔑
+      - strong [ref=e41]: "jwt.sign({userId, role})"
+      - text: Genera token amb secret + expiració 24h
+      - generic [ref=e42]: "Payload: identificació + rol"
+    - generic [ref=e43]: ▼
+    - generic [ref=e44]:
+      - generic [ref=e45]: ✅
+      - strong [ref=e46]: 200 OK
+      - text: Retorna token JWT + dades usuari
+  - generic [ref=e47]:
+    - generic [ref=e48]: VERIFICACIÓ
+    - generic [ref=e49]:
+      - generic [ref=e50]: 📨
+      - strong [ref=e51]: Petició amb header
+      - text: "Authorization: Bearer <token>"
+    - generic [ref=e52]: ▼
+    - generic [ref=e53]:
+      - generic [ref=e54]: 📋
+      - strong [ref=e55]: Extreu token del header
+      - text: Separa "Bearer " del token real
+      - generic [ref=e56]: 401 si no existeix el header
+    - generic [ref=e57]: ▼
+    - generic [ref=e58]:
+      - generic [ref=e59]: 🔐
+      - strong [ref=e60]: jwt.verify(token, secret)
+      - text: Verifica signatura criptogràfica
+      - generic [ref=e61]: 401 si token invàlid o expirat
+    - generic [ref=e62]: ▼
+    - generic [ref=e63]:
+      - generic [ref=e64]: 👤
+      - strong [ref=e65]: "req.user = {userId, role}"
+      - text: Payload injectat a la petició
+    - generic [ref=e66]: ▼
+    - generic [ref=e67]:
+      - generic [ref=e68]: ➡️
+      - strong [ref=e69]: Continua al Controller
+      - text: L'usuari és autenticat
