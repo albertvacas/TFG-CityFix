@@ -63,6 +63,18 @@ export const Category = {
 export type Category = (typeof Category)[keyof typeof Category]
 
 
+export const IncidentEvent = {
+  ASSIGN: 'ASSIGN',
+  START: 'START',
+  REASSIGN: 'REASSIGN',
+  RESOLVE: 'RESOLVE',
+  CLOSE: 'CLOSE',
+  REJECT: 'REJECT'
+} as const
+
+export type IncidentEvent = (typeof IncidentEvent)[keyof typeof IncidentEvent]
+
+
 export const InviteStatus = {
   PENDING: 'PENDING',
   USED: 'USED',

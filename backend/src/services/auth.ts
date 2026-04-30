@@ -6,6 +6,13 @@ import { RegisterDTO, LoginDTO, JwtPayload } from '../types';
 
 const SALT_ROUNDS = 10;
 
+const ALLOWED_EMAIL_DOMAINS = ['uab.cat', 'autonoma.cat'];
+
+const isUabEmail = (email: string): boolean => {
+  const domain = email.split('@')[1]?.toLowerCase();
+  return !!domain && ALLOWED_EMAIL_DOMAINS.includes(domain);
+};
+
 export const registerUser = async (data: RegisterDTO) => {
   const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
 
@@ -24,6 +31,20 @@ export const registerUser = async (data: RegisterDTO) => {
 
     if (!invite) {
       throw new Error('Invitació no vàlida, ja utilitzada o no coincideix amb l\'email');
+    }
+
+    // Comprovació d'expiració: les invitacions són vàlides 7 dies per defecte
+    if (invite.expiresAt < new Date()) {
+      throw new Error('Aquesta invitació ha caducat. Demana\'n una de nova a l\'administrador.');
+    }
+
+    // Domini UAB obligatori només per a ADMIN (personal intern). Els TECHNICAL
+    // sovint són contractistes externs (Eulen, Ferrovial, jardineria...) i el
+    // que els avala és la invitació mateixa, generada per un admin.
+    if (invite.role === 'ADMIN' && !isUabEmail(data.email)) {
+      throw new Error(
+        `El correu d'un administrador ha de pertànyer a un domini institucional de la UAB (${ALLOWED_EMAIL_DOMAINS.join(', ')})`,
+      );
     }
 
     // Transacció atòmica: crear usuari (amb inviteId) + marcar invitació com USED
@@ -49,7 +70,14 @@ export const registerUser = async (data: RegisterDTO) => {
     return userWithoutPassword;
   }
 
-  // Registre públic: forçar rol STUDENT (sanitització)
+  // Registre públic: forçar rol STUDENT (sanitització) + domini UAB obligatori
+  // (sense invitació, és l'única defensa contra registres oberts a qualsevol).
+  if (!isUabEmail(data.email)) {
+    throw new Error(
+      `El correu ha de pertànyer a un domini institucional de la UAB (${ALLOWED_EMAIL_DOMAINS.join(', ')})`,
+    );
+  }
+
   const user = await prisma.user.create({
     data: {
       email: data.email,

@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../types';
-import { createInvite, getAllInvites } from '../services/invite';
+import { createInvite, getAllInvites, revokeInvite } from '../services/invite';
 
 /**
  * POST /api/invites — Crea una invitació per a un rol privilegiat.
@@ -40,6 +40,27 @@ export const getAll = async (_req: AuthRequest, res: Response): Promise<void> =>
     const invites = await getAllInvites();
     res.json({ invites });
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * PATCH /api/invites/:id/revoke — Revoca una invitació pendent.
+ * Només accessible per ADMIN.
+ */
+export const revoke = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const invite = await revokeInvite(req.params.id as string);
+    res.json({ invite });
+  } catch (error: any) {
+    if (error.message?.includes('no trobada')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    if (error.message?.includes('No es pot revocar')) {
+      res.status(409).json({ error: error.message });
+      return;
+    }
     res.status(500).json({ error: error.message });
   }
 };

@@ -1,8 +1,23 @@
 import client from './client';
 import type { Report, IncidentEvent, State } from '../types';
 
-export const getReports = async (state?: State): Promise<Report[]> => {
-  const params = state ? { state } : {};
+export interface ReportFilters {
+  q?: string;
+  state?: State;
+  createdById?: string;
+  assignedToId?: string;
+  dateFrom?: string; // YYYY-MM-DD
+  dateTo?: string;
+}
+
+export const getReports = async (filters: ReportFilters = {}): Promise<Report[]> => {
+  const params: Record<string, string> = {};
+  if (filters.q) params.q = filters.q;
+  if (filters.state) params.state = filters.state;
+  if (filters.createdById) params.createdById = filters.createdById;
+  if (filters.assignedToId) params.assignedToId = filters.assignedToId;
+  if (filters.dateFrom) params.dateFrom = filters.dateFrom;
+  if (filters.dateTo) params.dateTo = filters.dateTo;
   const { data } = await client.get<{ reports: Report[] }>('/reports', { params });
   return data.reports;
 };

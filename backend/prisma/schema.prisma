@@ -50,6 +50,15 @@ enum Category {
   OTHER
 }
 
+enum IncidentEvent {
+  ASSIGN
+  START
+  REASSIGN
+  RESOLVE
+  CLOSE
+  REJECT
+}
+
 model User {
   user_id         String    @id @default(uuid())
   email           String    @unique
@@ -61,12 +70,19 @@ model User {
   active          Boolean   @default(true)
   points          Int       @default(0)
 
+  // Camps específics per a tècnics (null per a STUDENT i ADMIN).
+  // workCategory és el que utilitza l'algoritme de recomanació al panel d'admin.
+  position        String?   // p. ex. "Electricista", "Jardiner"
+  workCategory    Category? // àmbit principal del tècnic, lligat a Category de Report
+  company         String?   // empresa contractista (Eulen, Ferrovial...)
+
   inviteId        String?   @unique
   invite          Invite?   @relation(fields: [inviteId], references: [id])
 
   reportsAssigned Report[]  @relation("AssignedReports")
   reportsCreated  Report[]  @relation("CreatedReports")
   comments        Comment[]
+  imagesUploaded  Image[]   @relation("UploadedImages")
 
   createdAt       DateTime  @default(now())
   lastModified    DateTime  @updatedAt
@@ -104,17 +120,18 @@ model Report{
 }
 
 model Comment {
-  id              String     @id @default(uuid())
+  id              String         @id @default(uuid())
   content         String
+  transitionEvent IncidentEvent?
 
-  createdAt       DateTime   @default(now())
-  lastModified    DateTime @updatedAt 
+  createdAt       DateTime       @default(now())
+  lastModified    DateTime       @updatedAt
 
   reportId        String
-  report          Report   @relation(fields: [reportId], references: [report_id])
+  report          Report         @relation(fields: [reportId], references: [report_id])
 
   authorId        String
-  author          User     @relation(fields: [authorId], references: [user_id])
+  author          User           @relation(fields: [authorId], references: [user_id])
 
   @@map("comments")
 }
@@ -125,10 +142,13 @@ model Image {
   type            TypeImage
 
   createdAt       DateTime   @default(now())
-  lastModified    DateTime @updatedAt
+  lastModified    DateTime   @updatedAt
 
   reportId        String
-  report          Report   @relation(fields: [reportId], references: [report_id])
+  report          Report     @relation(fields: [reportId], references: [report_id])
+
+  uploadedById    String?
+  uploadedBy      User?      @relation("UploadedImages", fields: [uploadedById], references: [user_id])
 
   @@map("images")
 }
@@ -145,6 +165,7 @@ model Invite {
   role            Role
   token           String       @unique
   status          InviteStatus @default(PENDING)
+  expiresAt       DateTime     @default(dbgenerated("(now() + interval '7 days')"))
   createdAt       DateTime     @default(now())
 
   user            User?

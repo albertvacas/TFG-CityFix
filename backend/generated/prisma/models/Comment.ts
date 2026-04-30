@@ -27,6 +27,7 @@ export type AggregateComment = {
 export type CommentMinAggregateOutputType = {
   id: string | null
   content: string | null
+  transitionEvent: $Enums.IncidentEvent | null
   createdAt: Date | null
   lastModified: Date | null
   reportId: string | null
@@ -36,6 +37,7 @@ export type CommentMinAggregateOutputType = {
 export type CommentMaxAggregateOutputType = {
   id: string | null
   content: string | null
+  transitionEvent: $Enums.IncidentEvent | null
   createdAt: Date | null
   lastModified: Date | null
   reportId: string | null
@@ -45,6 +47,7 @@ export type CommentMaxAggregateOutputType = {
 export type CommentCountAggregateOutputType = {
   id: number
   content: number
+  transitionEvent: number
   createdAt: number
   lastModified: number
   reportId: number
@@ -56,6 +59,7 @@ export type CommentCountAggregateOutputType = {
 export type CommentMinAggregateInputType = {
   id?: true
   content?: true
+  transitionEvent?: true
   createdAt?: true
   lastModified?: true
   reportId?: true
@@ -65,6 +69,7 @@ export type CommentMinAggregateInputType = {
 export type CommentMaxAggregateInputType = {
   id?: true
   content?: true
+  transitionEvent?: true
   createdAt?: true
   lastModified?: true
   reportId?: true
@@ -74,6 +79,7 @@ export type CommentMaxAggregateInputType = {
 export type CommentCountAggregateInputType = {
   id?: true
   content?: true
+  transitionEvent?: true
   createdAt?: true
   lastModified?: true
   reportId?: true
@@ -156,6 +162,7 @@ export type CommentGroupByArgs<ExtArgs extends runtime.Types.Extensions.Internal
 export type CommentGroupByOutputType = {
   id: string
   content: string
+  transitionEvent: $Enums.IncidentEvent | null
   createdAt: Date
   lastModified: Date
   reportId: string
@@ -186,6 +193,7 @@ export type CommentWhereInput = {
   NOT?: Prisma.CommentWhereInput | Prisma.CommentWhereInput[]
   id?: Prisma.StringFilter<"Comment"> | string
   content?: Prisma.StringFilter<"Comment"> | string
+  transitionEvent?: Prisma.EnumIncidentEventNullableFilter<"Comment"> | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFilter<"Comment"> | Date | string
   lastModified?: Prisma.DateTimeFilter<"Comment"> | Date | string
   reportId?: Prisma.StringFilter<"Comment"> | string
@@ -197,6 +205,7 @@ export type CommentWhereInput = {
 export type CommentOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   content?: Prisma.SortOrder
+  transitionEvent?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastModified?: Prisma.SortOrder
   reportId?: Prisma.SortOrder
@@ -211,6 +220,7 @@ export type CommentWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.CommentWhereInput[]
   NOT?: Prisma.CommentWhereInput | Prisma.CommentWhereInput[]
   content?: Prisma.StringFilter<"Comment"> | string
+  transitionEvent?: Prisma.EnumIncidentEventNullableFilter<"Comment"> | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFilter<"Comment"> | Date | string
   lastModified?: Prisma.DateTimeFilter<"Comment"> | Date | string
   reportId?: Prisma.StringFilter<"Comment"> | string
@@ -222,6 +232,7 @@ export type CommentWhereUniqueInput = Prisma.AtLeast<{
 export type CommentOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   content?: Prisma.SortOrder
+  transitionEvent?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastModified?: Prisma.SortOrder
   reportId?: Prisma.SortOrder
@@ -237,6 +248,7 @@ export type CommentScalarWhereWithAggregatesInput = {
   NOT?: Prisma.CommentScalarWhereWithAggregatesInput | Prisma.CommentScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"Comment"> | string
   content?: Prisma.StringWithAggregatesFilter<"Comment"> | string
+  transitionEvent?: Prisma.EnumIncidentEventNullableWithAggregatesFilter<"Comment"> | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Comment"> | Date | string
   lastModified?: Prisma.DateTimeWithAggregatesFilter<"Comment"> | Date | string
   reportId?: Prisma.StringWithAggregatesFilter<"Comment"> | string
@@ -246,6 +258,7 @@ export type CommentScalarWhereWithAggregatesInput = {
 export type CommentCreateInput = {
   id?: string
   content: string
+  transitionEvent?: $Enums.IncidentEvent | null
   createdAt?: Date | string
   lastModified?: Date | string
   report: Prisma.ReportCreateNestedOneWithoutCommentsInput
@@ -255,6 +268,7 @@ export type CommentCreateInput = {
 export type CommentUncheckedCreateInput = {
   id?: string
   content: string
+  transitionEvent?: $Enums.IncidentEvent | null
   createdAt?: Date | string
   lastModified?: Date | string
   reportId: string
@@ -264,6 +278,7 @@ export type CommentUncheckedCreateInput = {
 export type CommentUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
+  transitionEvent?: Prisma.NullableEnumIncidentEventFieldUpdateOperationsInput | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   report?: Prisma.ReportUpdateOneRequiredWithoutCommentsNestedInput
@@ -273,6 +288,7 @@ export type CommentUpdateInput = {
 export type CommentUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
+  transitionEvent?: Prisma.NullableEnumIncidentEventFieldUpdateOperationsInput | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   reportId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -282,6 +298,7 @@ export type CommentUncheckedUpdateInput = {
 export type CommentCreateManyInput = {
   id?: string
   content: string
+  transitionEvent?: $Enums.IncidentEvent | null
   createdAt?: Date | string
   lastModified?: Date | string
   reportId: string
@@ -291,6 +308,7 @@ export type CommentCreateManyInput = {
 export type CommentUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
+  transitionEvent?: Prisma.NullableEnumIncidentEventFieldUpdateOperationsInput | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -298,6 +316,7 @@ export type CommentUpdateManyMutationInput = {
 export type CommentUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
+  transitionEvent?: Prisma.NullableEnumIncidentEventFieldUpdateOperationsInput | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   reportId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -317,6 +336,7 @@ export type CommentOrderByRelationAggregateInput = {
 export type CommentCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   content?: Prisma.SortOrder
+  transitionEvent?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastModified?: Prisma.SortOrder
   reportId?: Prisma.SortOrder
@@ -326,6 +346,7 @@ export type CommentCountOrderByAggregateInput = {
 export type CommentMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   content?: Prisma.SortOrder
+  transitionEvent?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastModified?: Prisma.SortOrder
   reportId?: Prisma.SortOrder
@@ -335,6 +356,7 @@ export type CommentMaxOrderByAggregateInput = {
 export type CommentMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   content?: Prisma.SortOrder
+  transitionEvent?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastModified?: Prisma.SortOrder
   reportId?: Prisma.SortOrder
@@ -425,9 +447,14 @@ export type CommentUncheckedUpdateManyWithoutReportNestedInput = {
   deleteMany?: Prisma.CommentScalarWhereInput | Prisma.CommentScalarWhereInput[]
 }
 
+export type NullableEnumIncidentEventFieldUpdateOperationsInput = {
+  set?: $Enums.IncidentEvent | null
+}
+
 export type CommentCreateWithoutAuthorInput = {
   id?: string
   content: string
+  transitionEvent?: $Enums.IncidentEvent | null
   createdAt?: Date | string
   lastModified?: Date | string
   report: Prisma.ReportCreateNestedOneWithoutCommentsInput
@@ -436,6 +463,7 @@ export type CommentCreateWithoutAuthorInput = {
 export type CommentUncheckedCreateWithoutAuthorInput = {
   id?: string
   content: string
+  transitionEvent?: $Enums.IncidentEvent | null
   createdAt?: Date | string
   lastModified?: Date | string
   reportId: string
@@ -473,6 +501,7 @@ export type CommentScalarWhereInput = {
   NOT?: Prisma.CommentScalarWhereInput | Prisma.CommentScalarWhereInput[]
   id?: Prisma.StringFilter<"Comment"> | string
   content?: Prisma.StringFilter<"Comment"> | string
+  transitionEvent?: Prisma.EnumIncidentEventNullableFilter<"Comment"> | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFilter<"Comment"> | Date | string
   lastModified?: Prisma.DateTimeFilter<"Comment"> | Date | string
   reportId?: Prisma.StringFilter<"Comment"> | string
@@ -482,6 +511,7 @@ export type CommentScalarWhereInput = {
 export type CommentCreateWithoutReportInput = {
   id?: string
   content: string
+  transitionEvent?: $Enums.IncidentEvent | null
   createdAt?: Date | string
   lastModified?: Date | string
   author: Prisma.UserCreateNestedOneWithoutCommentsInput
@@ -490,6 +520,7 @@ export type CommentCreateWithoutReportInput = {
 export type CommentUncheckedCreateWithoutReportInput = {
   id?: string
   content: string
+  transitionEvent?: $Enums.IncidentEvent | null
   createdAt?: Date | string
   lastModified?: Date | string
   authorId: string
@@ -524,6 +555,7 @@ export type CommentUpdateManyWithWhereWithoutReportInput = {
 export type CommentCreateManyAuthorInput = {
   id?: string
   content: string
+  transitionEvent?: $Enums.IncidentEvent | null
   createdAt?: Date | string
   lastModified?: Date | string
   reportId: string
@@ -532,6 +564,7 @@ export type CommentCreateManyAuthorInput = {
 export type CommentUpdateWithoutAuthorInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
+  transitionEvent?: Prisma.NullableEnumIncidentEventFieldUpdateOperationsInput | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   report?: Prisma.ReportUpdateOneRequiredWithoutCommentsNestedInput
@@ -540,6 +573,7 @@ export type CommentUpdateWithoutAuthorInput = {
 export type CommentUncheckedUpdateWithoutAuthorInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
+  transitionEvent?: Prisma.NullableEnumIncidentEventFieldUpdateOperationsInput | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   reportId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -548,6 +582,7 @@ export type CommentUncheckedUpdateWithoutAuthorInput = {
 export type CommentUncheckedUpdateManyWithoutAuthorInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
+  transitionEvent?: Prisma.NullableEnumIncidentEventFieldUpdateOperationsInput | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   reportId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -556,6 +591,7 @@ export type CommentUncheckedUpdateManyWithoutAuthorInput = {
 export type CommentCreateManyReportInput = {
   id?: string
   content: string
+  transitionEvent?: $Enums.IncidentEvent | null
   createdAt?: Date | string
   lastModified?: Date | string
   authorId: string
@@ -564,6 +600,7 @@ export type CommentCreateManyReportInput = {
 export type CommentUpdateWithoutReportInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
+  transitionEvent?: Prisma.NullableEnumIncidentEventFieldUpdateOperationsInput | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   author?: Prisma.UserUpdateOneRequiredWithoutCommentsNestedInput
@@ -572,6 +609,7 @@ export type CommentUpdateWithoutReportInput = {
 export type CommentUncheckedUpdateWithoutReportInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
+  transitionEvent?: Prisma.NullableEnumIncidentEventFieldUpdateOperationsInput | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   authorId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -580,6 +618,7 @@ export type CommentUncheckedUpdateWithoutReportInput = {
 export type CommentUncheckedUpdateManyWithoutReportInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
+  transitionEvent?: Prisma.NullableEnumIncidentEventFieldUpdateOperationsInput | $Enums.IncidentEvent | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   authorId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -590,6 +629,7 @@ export type CommentUncheckedUpdateManyWithoutReportInput = {
 export type CommentSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   content?: boolean
+  transitionEvent?: boolean
   createdAt?: boolean
   lastModified?: boolean
   reportId?: boolean
@@ -601,6 +641,7 @@ export type CommentSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
 export type CommentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   content?: boolean
+  transitionEvent?: boolean
   createdAt?: boolean
   lastModified?: boolean
   reportId?: boolean
@@ -612,6 +653,7 @@ export type CommentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
 export type CommentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   content?: boolean
+  transitionEvent?: boolean
   createdAt?: boolean
   lastModified?: boolean
   reportId?: boolean
@@ -623,13 +665,14 @@ export type CommentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
 export type CommentSelectScalar = {
   id?: boolean
   content?: boolean
+  transitionEvent?: boolean
   createdAt?: boolean
   lastModified?: boolean
   reportId?: boolean
   authorId?: boolean
 }
 
-export type CommentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "content" | "createdAt" | "lastModified" | "reportId" | "authorId", ExtArgs["result"]["comment"]>
+export type CommentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "content" | "transitionEvent" | "createdAt" | "lastModified" | "reportId" | "authorId", ExtArgs["result"]["comment"]>
 export type CommentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   report?: boolean | Prisma.ReportDefaultArgs<ExtArgs>
   author?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -652,6 +695,7 @@ export type $CommentPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     content: string
+    transitionEvent: $Enums.IncidentEvent | null
     createdAt: Date
     lastModified: Date
     reportId: string
@@ -1083,6 +1127,7 @@ export interface Prisma__CommentClient<T, Null = never, ExtArgs extends runtime.
 export interface CommentFieldRefs {
   readonly id: Prisma.FieldRef<"Comment", 'String'>
   readonly content: Prisma.FieldRef<"Comment", 'String'>
+  readonly transitionEvent: Prisma.FieldRef<"Comment", 'IncidentEvent'>
   readonly createdAt: Prisma.FieldRef<"Comment", 'DateTime'>
   readonly lastModified: Prisma.FieldRef<"Comment", 'DateTime'>
   readonly reportId: Prisma.FieldRef<"Comment", 'String'>

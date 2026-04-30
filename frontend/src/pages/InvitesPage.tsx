@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { getInvites, createInvite } from '../api/invites';
+import { getInvites, createInvite, revokeInvite } from '../api/invites';
 import { getPrivilegedUsers, revokeUser } from '../api/users';
 import type { Invite, User, InviteStatus } from '../types';
 
@@ -7,6 +7,22 @@ const statusConfig: Record<InviteStatus, { label: string; className: string }> =
   PENDING: { label: 'Pendent', className: 'bg-green-100 text-green-700' },
   USED: { label: 'Utilitzada', className: 'bg-gray-100 text-gray-600' },
   REVOKED: { label: 'Revocada', className: 'bg-red-100 text-red-700' },
+};
+
+const expiredConfig = { label: 'Caducada', className: 'bg-amber-100 text-amber-700' };
+
+const isExpired = (inv: Invite): boolean =>
+  inv.status === 'PENDING' && new Date(inv.expiresAt).getTime() < Date.now();
+
+const formatExpiresIn = (iso: string): string => {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms < 0) return 'Caducada';
+  const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+  if (days >= 1) return `En ${days} ${days === 1 ? 'dia' : 'dies'}`;
+  const hours = Math.floor(ms / (60 * 60 * 1000));
+  if (hours >= 1) return `En ${hours} h`;
+  const mins = Math.max(1, Math.floor(ms / 60000));
+  return `En ${mins} min`;
 };
 
 export default function InvitesPage() {
@@ -24,6 +40,10 @@ export default function InvitesPage() {
   // Revoke state
   const [revoking, setRevoking] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState('');
+
+  // Revoke invite state
+  const [revokingInvite, setRevokingInvite] = useState<string | null>(null);
+  const [revokeInviteError, setRevokeInviteError] = useState('');
 
   const fetchData = () => {
     setLoading(true);
@@ -65,6 +85,21 @@ export default function InvitesPage() {
       else setRevokeError('Error revocant l\'usuari.');
     } finally {
       setRevoking(null);
+    }
+  };
+
+  const handleRevokeInvite = async (inviteId: string, email: string) => {
+    if (!confirm(`Vols anul·lar la invitació pendent per a ${email}?\n\nEl token deixarà de funcionar immediatament.`)) return;
+    setRevokeInviteError('');
+    setRevokingInvite(inviteId);
+    try {
+      await revokeInvite(inviteId);
+      fetchData();
+    } catch (err: unknown) {
+      if (err instanceof Error) setRevokeInviteError(err.message);
+      else setRevokeInviteError('Error revocant la invitació.');
+    } finally {
+      setRevokingInvite(null);
     }
   };
 
@@ -214,6 +249,10 @@ export default function InvitesPage() {
       <section>
         <h2 className="mb-4 text-lg font-semibold text-gray-900">Historial d'invitacions</h2>
 
+        {revokeInviteError && (
+          <div className="mb-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{revokeInviteError}</div>
+        )}
+
         {invites.length === 0 ? (
           <div className="rounded-xl bg-white p-12 text-center ring-1 ring-gray-200">
             <p className="text-gray-500">No hi ha invitacions creades.</p>
@@ -227,33 +266,56 @@ export default function InvitesPage() {
                   <th className="px-4 py-3 font-medium text-gray-600">Rol</th>
                   <th className="px-4 py-3 font-medium text-gray-600">Token</th>
                   <th className="px-4 py-3 font-medium text-gray-600">Estat</th>
+                  <th className="px-4 py-3 font-medium text-gray-600">Caducitat</th>
                   <th className="px-4 py-3 font-medium text-gray-600">Data</th>
+                  <th className="px-4 py-3 font-medium text-gray-600">Accions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
-                {invites.map((inv) => (
-                  <tr key={inv.id}>
-                    <td className="px-4 py-3 font-medium text-gray-900">{inv.email}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                        inv.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {inv.role === 'ADMIN' ? 'Administrador' : 'Tècnic'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <code className="text-xs text-gray-500">{inv.token.slice(0, 12)}...</code>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusConfig[inv.status].className}`}>
-                        {statusConfig[inv.status].label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {new Date(inv.createdAt).toLocaleDateString('ca-ES')}
-                    </td>
-                  </tr>
-                ))}
+                {invites.map((inv) => {
+                  const expired = isExpired(inv);
+                  const statusBadge = expired ? expiredConfig : statusConfig[inv.status];
+                  const canRevoke = inv.status === 'PENDING' && !expired;
+                  return (
+                    <tr key={inv.id}>
+                      <td className="px-4 py-3 font-medium text-gray-900">{inv.email}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          inv.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {inv.role === 'ADMIN' ? 'Administrador' : 'Tècnic'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <code className="text-xs text-gray-500">{inv.token.slice(0, 12)}...</code>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge.className}`}>
+                          {statusBadge.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-500">
+                        {inv.status === 'PENDING' ? formatExpiresIn(inv.expiresAt) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {new Date(inv.createdAt).toLocaleDateString('ca-ES')}
+                      </td>
+                      <td className="px-4 py-3">
+                        {canRevoke ? (
+                          <button
+                            onClick={() => handleRevokeInvite(inv.id, inv.email)}
+                            disabled={revokingInvite === inv.id}
+                            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {revokingInvite === inv.id ? '...' : 'Revocar'}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

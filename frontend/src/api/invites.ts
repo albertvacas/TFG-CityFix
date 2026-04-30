@@ -10,3 +10,8 @@ export const createInvite = async (email: string, role: 'ADMIN' | 'TECHNICAL'): 
   const { data } = await client.post<{ invite: Invite }>('/invites', { email, role });
   return data.invite;
 };
+
+export const revokeInvite = async (id: string): Promise<Invite> => {
+  const { data } = await client.patch<{ invite: Invite }>(`/invites/${id}/revoke`);
+  return data.invite;
+};

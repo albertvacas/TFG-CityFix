@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middlewares/auth';
-import { getProfile, getAllTechnicians, getPrivileged, revoke } from '../controllers/user';
+import { getProfile, getAllTechnicians, getAllStudents, getPrivileged, revoke } from '../controllers/user';
 
 export const userRouter = Router();
 
@@ -12,6 +12,9 @@ userRouter.get('/profile', getProfile);
 
 // GET /api/users/technicians — Llistar tècnics actius (només ADMIN)
 userRouter.get('/technicians', authorize('ADMIN'), getAllTechnicians);
+
+// GET /api/users/students — Llistar estudiants actius (només ADMIN)
+userRouter.get('/students', authorize('ADMIN'), getAllStudents);
 
 // GET /api/users/privileged — Llistar ADMIN + TECHNICAL (només ADMIN)
 userRouter.get('/privileged', authorize('ADMIN'), getPrivileged);

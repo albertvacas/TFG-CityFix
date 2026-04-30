@@ -4,6 +4,8 @@ import { useAuth } from '../hooks/useAuth';
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '📊' },
   { to: '/reports', label: 'Incidències', icon: '📋' },
+  { to: '/assignments', label: 'Assignacions', icon: '🧰' },
+  { to: '/validations', label: 'Validacions', icon: '✅' },
   { to: '/map', label: 'Mapa', icon: '🗺️' },
   { to: '/invites', label: 'Invitacions', icon: '🔑' },
 ];

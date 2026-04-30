@@ -4,7 +4,8 @@ import { getReportById, transitionReport } from '../api/reports';
 import { getTechnicians } from '../api/users';
 import ReportStatusBadge from '../components/ReportStatusBadge';
 import PriorityBadge from '../components/PriorityBadge';
-import type { Report, User, IncidentEvent } from '../types';
+import ImageLightbox from '../components/ImageLightbox';
+import type { Report, Technician, IncidentEvent } from '../types';
 import { STATE_TRANSITIONS, CATEGORY_LABELS } from '../types';
 
 const eventLabels: Record<IncidentEvent, { label: string; className: string }> = {
@@ -20,11 +21,12 @@ export default function ReportDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [report, setReport] = useState<Report | null>(null);
-  const [technicians, setTechnicians] = useState<User[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [selectedTechId, setSelectedTechId] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -105,31 +107,49 @@ export default function ReportDetailPage() {
           </div>
 
           {/* Images */}
-          {report.images.length > 0 && (
+          {(report.images?.length ?? 0) > 0 && (
             <div className="rounded-xl bg-white p-6 ring-1 ring-gray-200">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Imatges</h2>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-                {report.images.map((img) => (
-                  <img
+                {report.images?.map((img, i) => (
+                  <button
                     key={img.id}
-                    src={img.url}
-                    alt={img.type}
-                    className="h-40 w-full rounded-lg object-cover"
-                  />
+                    type="button"
+                    onClick={() => setLightboxIdx(i)}
+                    className="group relative overflow-hidden rounded-lg ring-1 ring-gray-200 transition-shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <img
+                      src={img.url}
+                      alt={img.type}
+                      className="h-40 w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    />
+                    {/* Etiqueta de tipus a la cantonada superior */}
+                    <span className="absolute left-2 top-2 rounded bg-black/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                      {img.type === 'INITIAL' ? 'Inicial' : img.type === 'RESOLUTION' ? 'Resolució' : 'Progrés'}
+                    </span>
+                    {/* Hint d'expansió que apareix amb hover */}
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                      </svg>
+                    </span>
+                  </button>
                 ))}
               </div>
             </div>
           )}
 
           {/* Comments */}
-          {report.comments.length > 0 && (
+          {(report.comments?.length ?? 0) > 0 && (
             <div className="rounded-xl bg-white p-6 ring-1 ring-gray-200">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Comentaris</h2>
               <div className="space-y-3">
-                {report.comments.map((c) => (
+                {report.comments?.map((c) => (
                   <div key={c.id} className="rounded-lg bg-gray-50 p-3">
                     <div className="mb-1 flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-900">{c.author.name}</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {c.author?.name ?? 'Usuari'}
+                      </span>
                       <span className="text-xs text-gray-500">
                         {new Date(c.createdAt).toLocaleString('ca-ES')}
                       </span>
@@ -225,6 +245,15 @@ export default function ReportDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Lightbox d'imatges */}
+      {lightboxIdx !== null && (report.images?.length ?? 0) > 0 && (
+        <ImageLightbox
+          images={(report.images ?? []).map((img) => ({ url: img.url, alt: img.type }))}
+          initialIndex={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+        />
+      )}
     </div>
   );
 }

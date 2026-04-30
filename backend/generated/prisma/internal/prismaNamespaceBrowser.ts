@@ -84,6 +84,9 @@ export const UserScalarFieldEnum = {
   role: 'role',
   active: 'active',
   points: 'points',
+  position: 'position',
+  workCategory: 'workCategory',
+  company: 'company',
   inviteId: 'inviteId',
   createdAt: 'createdAt',
   lastModified: 'lastModified'
@@ -114,6 +117,7 @@ export type ReportScalarFieldEnum = (typeof ReportScalarFieldEnum)[keyof typeof 
 export const CommentScalarFieldEnum = {
   id: 'id',
   content: 'content',
+  transitionEvent: 'transitionEvent',
   createdAt: 'createdAt',
   lastModified: 'lastModified',
   reportId: 'reportId',
@@ -129,7 +133,8 @@ export const ImageScalarFieldEnum = {
   type: 'type',
   createdAt: 'createdAt',
   lastModified: 'lastModified',
-  reportId: 'reportId'
+  reportId: 'reportId',
+  uploadedById: 'uploadedById'
 } as const
 
 export type ImageScalarFieldEnum = (typeof ImageScalarFieldEnum)[keyof typeof ImageScalarFieldEnum]
@@ -141,6 +146,7 @@ export const InviteScalarFieldEnum = {
   role: 'role',
   token: 'token',
   status: 'status',
+  expiresAt: 'expiresAt',
   createdAt: 'createdAt'
 } as const
 

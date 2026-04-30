@@ -1,9 +1,14 @@
 import client from './client';
-import type { User } from '../types';
+import type { User, Technician, StudentSummary } from '../types';
 
-export const getTechnicians = async (): Promise<User[]> => {
-  const { data } = await client.get<{ technicians: User[] }>('/users/technicians');
+export const getTechnicians = async (): Promise<Technician[]> => {
+  const { data } = await client.get<{ technicians: Technician[] }>('/users/technicians');
   return data.technicians;
+};
+
+export const getStudents = async (): Promise<StudentSummary[]> => {
+  const { data } = await client.get<{ students: StudentSummary[] }>('/users/students');
+  return data.students;
 };
 
 export const getPrivilegedUsers = async (): Promise<User[]> => {

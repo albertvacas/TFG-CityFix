@@ -27,6 +27,22 @@ export interface User {
   active: boolean;
   points: number;
   createdAt: string;
+  // Camps específics per a tècnics (null per a STUDENT/ADMIN)
+  position?: string | null;
+  workCategory?: Category | null;
+  company?: string | null;
+}
+
+// Resposta enriquida que retorna GET /users/technicians (inclou càrrega actual)
+export interface Technician extends User {
+  _count?: { reportsAssigned: number };
+}
+
+export interface StudentSummary {
+  user_id: string;
+  name: string;
+  surname: string;
+  nickname: string;
 }
 
 export interface Report {
@@ -71,6 +87,7 @@ export interface Invite {
   role: 'ADMIN' | 'TECHNICAL';
   token: string;
   status: InviteStatus;
+  expiresAt: string;
   createdAt: string;
 }
 

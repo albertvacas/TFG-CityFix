@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import { Role, Category } from '../../generated/prisma';
+import { Role, Category, IncidentEvent as PrismaIncidentEvent, TypeImage } from '../../generated/prisma';
 
 // Payload que se almacena dentro del JWT
 export interface JwtPayload {
@@ -38,5 +38,10 @@ export interface CreateReportDTO {
   priority?: string;
 }
 
-// Eventos válidos de la máquina de estados XState
-export type IncidentEvent = 'ASSIGN' | 'START' | 'REASSIGN' | 'RESOLVE' | 'CLOSE' | 'REJECT';
+// Re-exportación del enum de Prisma como única fuente de verdad
+export type IncidentEvent = PrismaIncidentEvent;
+
+// DTO para subir una imagen a una incidencia
+export interface UploadImageDTO {
+  type: TypeImage;
+}

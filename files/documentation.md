@@ -1301,3 +1301,935 @@ S'ha creat un únic endpoint que retorna totes les dades del dashboard en una so
 | Paquet | Versió | Funció |
 |---|---|---|
 | `recharts` | ^2.x | Llibreria de gràfics React basada en D3.js |
+
+---
+
+# Sprint 4: Aplicació Mòbil — Fase 1 (Autenticació i Estructura)
+
+## Resum
+
+Fase inicial de l'app mòbil de CityFix: inicialització del projecte Expo, arquitectura de navegació, sistema d'autenticació amb emmagatzematge segur del JWT, i pantalles de login i registre funcionals contra el backend. Queda pendent el disseny en Figma de les pantalles específiques per rol (Estudiant / Tècnic) i la navegació per pestanyes.
+
+## Tecnologies escollides
+
+| Tecnologia | Per què |
+|---|---|
+| **React Native + Expo (Managed)** | Reaprofita coneixement de React del frontend web. Compila per Android i iOS amb una sola base de codi. Expo Go permet provar al dispositiu físic via QR sense configurar Android Studio/Xcode. |
+| **Expo Router** | File-based routing inspirat en Next.js. Permet separar *Auth Stack* i *App Stack* mitjançant Route Groups (`(auth)` i `(app)`) amb layouts independents. |
+| **NativeWind** | Tailwind CSS per a React Native. Manté coherència visual amb el frontend web (mateixes classes). |
+| **expo-secure-store** | Emmagatzematge encriptat del JWT via iOS Keychain / Android Keystore. Descartat `AsyncStorage` perquè guarda en text pla. |
+| **React Hook Form + Zod** | Formularis performants amb validació declarativa i inferència de tipus automàtica. |
+| **Axios** | Mateix patró d'interceptors que el frontend web per injectar el JWT i gestionar 401. |
+
+## Arquitectura del projecte
+
+```
+app/
+├── app.json, package.json, tailwind.config.js, babel.config.js, metro.config.js, global.css
+├── app/                              ← Carpeta màgica d'Expo Router
+│   ├── _layout.tsx                   ← AuthProvider + guard de redirecció
+│   ├── index.tsx                     ← Redirect inicial a /login
+│   ├── (auth)/                       ← Route Group: pantalles públiques
+│   │   ├── _layout.tsx
+│   │   ├── login.tsx
+│   │   └── register.tsx
+│   └── (app)/                        ← Route Group: pantalles protegides
+│       ├── _layout.tsx
+│       └── home.tsx
+└── src/
+    ├── types/index.ts                ← User, Role, LoginResponse, RegisterPayload
+    ├── config/env.ts                 ← Resolució dinàmica d'API_URL segons plataforma
+    ├── api/
+    │   ├── client.ts                 ← Axios + interceptors JWT + SecureStore
+    │   └── auth.ts                   ← login, register, getProfile
+    └── context/AuthContext.tsx       ← Estat global + auto-login + login/logout/register
+```
+
+**Route Groups `(auth)` i `(app)`**: els parèntesis són una convenció d'Expo Router. Les carpetes agrupen rutes lògicament **sense afectar la URL** (`(auth)/login.tsx` és accessible com a `/login`), i permeten layouts independents per a pantalles públiques vs. autenticades.
+
+## Lògica clau
+
+### Guard de rutes (`app/_layout.tsx`)
+
+El layout root utilitza `useSegments()` per detectar en quin Route Group es troba l'usuari i redirigir amb `router.replace()`:
+- Si `user == null` i NO està a `(auth)` → redirigeix a `/login`
+- Si `user != null` i ESTÀ a `(auth)` → redirigeix a `/home`
+
+### Auto-login (`AuthContext.tsx`)
+
+En muntar el provider, un `useEffect` llegeix el JWT del SecureStore i fa `GET /users/profile` per validar-lo. Si té èxit, l'usuari queda autenticat sense introduir credencials. Si falla, s'esborra el token.
+
+### Interceptors d'Axios (`api/client.ts`)
+
+- **Request**: injecta `Authorization: Bearer <token>` llegint el JWT del SecureStore abans de cada petició.
+- **Response**: si el backend retorna 401, esborra el token del SecureStore automàticament.
+
+### API_URL dinàmica (`config/env.ts`)
+
+Resol la URL del backend segons l'entorn: `10.0.2.2:3000` per Android Emulator, `localhost:3000` per iOS Simulator, i la IP del host des d'`Constants.expoConfig.hostUri` per a dispositiu físic via Expo Go (sense configuració manual).
+
+### Registre amb flux dual (`app/(auth)/register.tsx`)
+
+Formulari amb dues pestanyes: **"Estudiant UAB"** (registre públic, força `role: STUDENT`) i **"Amb codi d'invitació"** (afegeix camp `token` que el backend valida contra la taula `invites`). L'esquema Zod es construeix dinàmicament segons el mode per aplicar validació condicional al camp `token`. La validació del domini UAB (`uab.cat`, `autonoma.cat`) es fa tant al client (UX) com al backend (seguretat).
+
+## Canvis al Backend
+
+- **`backend/src/services/auth.ts`**: afegida validació `isUabEmail()` al `registerUser()`. Només s'accepten correus `@uab.cat` i `@autonoma.cat`. La validació és server-side obligatòria (el frontend només l'usa per UX).
+
+## Fitxers creats o modificats
+
+| Fitxer | Acció | Descripció |
+|---|---|---|
+| `app/` | Creat | Projecte Expo amb TypeScript |
+| `app/app.json` | Creat | Nom "CityFix", slug "cityfix-mobile", scheme "cityfix" per deep linking |
+| `app/tailwind.config.js`, `babel.config.js`, `metro.config.js`, `global.css`, `nativewind-env.d.ts` | Creat | Configuració de NativeWind |
+| `app/app/_layout.tsx` | Creat | RootLayout amb AuthProvider + guard de redirecció |
+| `app/app/index.tsx` | Creat | Redirect inicial a `/login` |
+| `app/app/(auth)/_layout.tsx`, `(app)/_layout.tsx` | Creat | Stacks per grups de rutes |
+| `app/app/(auth)/login.tsx` | Creat | Formulari de login amb Zod |
+| `app/app/(auth)/register.tsx` | Creat | Formulari dual (estudiant/invitació) amb validació condicional |
+| `app/app/(app)/home.tsx` | Creat | Placeholder amb perfil i logout |
+| `app/src/types/index.ts` | Creat | Tipus compartits mirall del backend |
+| `app/src/config/env.ts` | Creat | Resolució dinàmica d'API_URL |
+| `app/src/api/client.ts` | Creat | Instància Axios + interceptors |
+| `app/src/api/auth.ts` | Creat | Wrappers tipats dels endpoints d'auth |
+| `app/src/context/AuthContext.tsx` | Creat | Estat global + auto-login |
+| `backend/src/services/auth.ts` | Modificat | Validació de domini UAB al registre |
+
+## Dependències afegides
+
+**Mòbil (`app/package.json`)**:
+
+| Paquet | Funció |
+|---|---|
+| `expo`, `expo-router`, `expo-constants`, `expo-linking`, `expo-status-bar` | Framework + routing |
+| `expo-secure-store` | Emmagatzematge encriptat del JWT |
+| `react-native-safe-area-context`, `react-native-screens`, `react-native-gesture-handler`, `react-native-reanimated` | Requisits natius d'Expo Router |
+| `axios` | Client HTTP |
+| `react-hook-form`, `zod`, `@hookform/resolvers` | Formularis + validació |
+| `nativewind`, `tailwindcss` | Estilització |
+
+## Pendents per a la Fase 2
+
+Disseny Figma de les pantalles per rol, navegació per pestanyes (`<Tabs>`) al grup `(app)` condicionada per `user.role`, integració de `expo-camera`, `expo-location` i `react-native-maps`, i pantalla de gamificació amb rànquing de punts.
+
+---
+
+# Sprint 4 — Fase 2: Pantallas, mapa real y sincronización con el backend
+
+## Resumen
+
+Segunda fase del cliente móvil de CityFix. Se ha completado el diseño y la implementación de todas las pantallas de la aplicación (home, mapa, listado, creación, perfil y detalle de incidencia), se ha sustituido el sistema de mocks por consultas reales al backend (`/api/reports`), se ha integrado un mapa OpenStreetMap real con marcadores y mapa de calor — siguiendo la misma estética que el panel de administración web — y se ha sustituido toda la iconografía basada en emojis por iconos vectoriales `Ionicons` para reforzar la identidad seria y profesional de la aplicación.
+
+## Tecnologías añadidas
+
+| Tecnología | Por qué |
+|---|---|
+| **`@expo/vector-icons` (Ionicons)** | Iconos vectoriales nativos incluidos con Expo. Sustituye los emojis del prototipo inicial por símbolos coherentes con la estética de aplicaciones modernas (variantes `outline` por defecto y `filled` en estado activo). |
+| **`react-native-webview`** | WebView nativo. Se usa como contenedor del mapa Leaflet (mismo *stack* que el dashboard web), evitando depender de `react-native-maps` que en SDK 54 + new architecture mostraba el mapa en blanco sobre Apple Maps. |
+| **Leaflet + `leaflet.markercluster` + `leaflet.heat`** *(vía CDN dentro del WebView)* | Misma librería que la web admin. Permite *clustering* de marcadores y mapa de calor con un único peso por punto. Cargado desde `cdn.jsdelivr.net` para que iOS WKWebView (con `baseUrl` definido) permita los `<script>` externos. |
+
+## Arquitectura del proyecto
+
+Estructura final del directorio `app/` tras la Fase 2:
+
+```
+app/
+├── app/                                  ← Carpeta de Expo Router
+│   ├── _layout.tsx                       ← AuthProvider + guard de rutas
+│   ├── index.tsx
+│   ├── (auth)/                           ← Pantallas públicas (login, register)
+│   └── (app)/                            ← Pantallas autenticadas
+│       ├── _layout.tsx                   ← Stack que envuelve (tabs) + incident/[id]
+│       ├── (tabs)/
+│       │   ├── _layout.tsx               ← Tab bar flotante estilo iOS + Ionicons
+│       │   ├── home.tsx                  ← Inicio (variantes Estudiante / Técnico / Admin)
+│       │   ├── map.tsx                   ← Mapa Leaflet (markers + heatmap)
+│       │   ├── reports.tsx               ← Listado filtrable por estado
+│       │   ├── create.tsx                ← Formulario de nueva incidencia
+│       │   └── profile.tsx               ← Perfil del usuario
+│       └── incident/
+│           └── [id].tsx                  ← Detalle de incidencia + transiciones
+└── src/
+    ├── types/index.ts                    ← Report alineado con el backend (createdBy/assignedTo anidados)
+    ├── api/
+    │   ├── client.ts                     ← Axios + JWT desde SecureStore
+    │   ├── auth.ts
+    │   └── reports.ts                    ← getAllReports / getReportById / createReport / transitionReport
+    ├── hooks/
+    │   └── useReports.ts                 ← useReports() y useReport(id) con loading/error/refresh
+    ├── components/ReportCard.tsx
+    ├── mocks/reports.ts                  ← Constantes y helpers (sin datos mock)
+    └── context/AuthContext.tsx
+```
+
+**Patrón Stack-sobre-Tabs**: el grupo `(app)` se compone de un `<Stack>` raíz que contiene a su vez el grupo `(tabs)` y la pantalla `incident/[id].tsx`. Esto permite que el detalle de una incidencia se presente como una nueva pantalla por encima de la barra de pestañas (con su propio botón de retroceso) sin perder el estado de las tabs.
+
+## Pantallas implementadas
+
+| Pantalla | Variantes por rol | Funcionalidades clave |
+|---|---|---|
+| **Home (`home.tsx`)** | Estudiante / Técnico / Admin | Estudiante ve sus puntos, accesos rápidos a "Reportar" y "Mapa", y sus últimas incidencias. Técnico ve resumen de carga (pendientes / en curso / resueltas) y la lista ordenada por prioridad. Admin ve estadísticas globales. Pull-to-refresh. |
+| **Mapa (`map.tsx`)** | Común | Mapa OSM real, alternancia *Markers ↔ Mapa de calor*, filtros por estado, marcadores agrupados con `markercluster`, leyenda de estados, botón de recentrado, hoja inferior con preview de la incidencia seleccionada. |
+| **Listado (`reports.tsx`)** | Común | Filtros por estado (Todas / Abiertas / Asignadas / En curso / Validadas / Cerradas) en chips horizontales. Pull-to-refresh. Adapta el título según rol ("Mis incidencias" / "Asignadas" / "Todas"). |
+| **Crear (`create.tsx`)** | Estudiante (solo) | Formulario con foto (placeholder), título, descripción, categoría (chips con `Ionicons`) y ubicación. POST a `/api/reports`. Botón de enviar deshabilitado mientras se valida o se envía. |
+| **Perfil (`profile.tsx`)** | Común | Avatar con iniciales, badge de rol con icono, estadísticas según rol (puntos / incidencias / resueltas), datos de cuenta, ajustes y logout con confirmación. |
+| **Detalle (`incident/[id].tsx`)** | Común con acciones para Técnico | Carga la incidencia desde `GET /api/reports/:id`. Muestra galería, badges (categoría, prioridad, estado), descripción, ubicación, metadatos y comentarios. Si el usuario es **Técnico** y está asignado a la incidencia, ofrece botones de transición (`START`, `RESOLVE`, `CLOSE`) que llaman a `PATCH /api/reports/:id/transition` con actualización optimista. |
+
+## Tab bar flotante estilo iOS
+
+El layout `(tabs)/_layout.tsx` configura una barra de pestañas con apariencia de píldora flotante:
+
+- `position: absolute` con `bottom: 28` (iOS) / `18` (Android), márgenes laterales generosos (`left: 32, right: 32`) y `borderRadius: 32`.
+- Fondo translúcido blanco (`rgba(255,255,255,0.96)`), borde sutil y sombra elevada.
+- Iconos `Ionicons` con variante `outline` en estado inactivo y `filled` cuando la pestaña está activa, todo coloreado con `tabBarActiveTintColor` / `tabBarInactiveTintColor`.
+- La pestaña **"Reportar"** se oculta para los roles `TECHNICAL` y `ADMIN` mediante `href: isStudent ? '/create' : null`.
+
+## Mapa OpenStreetMap dentro de un WebView
+
+### Por qué WebView en lugar de `react-native-maps`
+
+Durante la implementación se intentó primero usar `react-native-maps` con `UrlTile` apuntando a OpenStreetMap. En iOS Expo Go (SDK 54, new architecture) el mapa se mostraba completamente gris sin renderizar tiles ni el mapa base de Apple Maps, sin emitir errores. La solución definitiva fue replicar exactamente el *stack* del dashboard web (Leaflet + OSM) dentro de un `WebView` con HTML inline. Ventajas:
+
+- Funciona idénticamente en iOS y Android sin claves de Google Maps.
+- Permite reutilizar `leaflet.markercluster` y `leaflet.heat` del frontend admin.
+- Independiente del SDK de mapas nativo: actualizar la librería no requiere recompilar.
+
+### Detalles técnicos no obvios
+
+Tres ajustes resultaron críticos para que el mapa se renderice correctamente:
+
+1. **`baseUrl: 'https://cdn.jsdelivr.net/'`** en `source={{ html, baseUrl }}`. Sin un `baseUrl` real, WKWebView de iOS sirve el HTML desde el origen `about:blank`, lo que bloquea silenciosamente los `<script>` externos. Con un `baseUrl` HTTPS, Leaflet y los plugins se cargan correctamente desde el CDN.
+2. **`map.invalidateSize()` con varios `setTimeout`** después de inicializar el mapa. Leaflet mide el contenedor al arrancar; en un WebView ese contenedor todavía no tiene su tamaño definitivo, por lo que sin estos `invalidateSize` los tiles se renderizan en un canvas de 0×0 aunque el resto funcione.
+3. **WebView con `position: absolute, top:0, left:0, right:0, bottom:0`** dentro de un contenedor `<View style={{ flex: 1 }}>`. El `flex: 1` puro sobre el WebView en algunas combinaciones colapsaba a altura 0 — el posicionamiento absoluto explícito fuerza al WebView a ocupar el contenedor padre.
+
+### Comunicación nativo ↔ WebView
+
+- **Nativo → WebView**: cuando cambian los reports visibles o el modo de vista, se llama `webviewRef.current.injectJavaScript('window.__renderMarkers(...)')` (o `__renderHeatmap`) con el payload serializado. La capa Leaflet borra los marcadores anteriores y dibuja los nuevos.
+- **WebView → Nativo**: `window.ReactNativeWebView.postMessage(JSON.stringify({...}))` envía un evento `ready` al inicializar, y un `select` con el `id` de la incidencia cuando se hace clic en un marcador. El handler `onMessage` del componente actualiza el estado de React Native.
+
+### Markers vs. Heatmap
+
+| Modo | Estilo |
+|---|---|
+| **Markers** | Punto de 14 px coloreado según el **estado** de la incidencia (mismo mapeo que el panel admin: azul=Abierta, amarillo=Asignada, naranja=En curso, verde=Validada, gris=Cerrada). Se agrupan automáticamente con `markercluster`. Sin emojis, en línea con el rediseño solicitado. |
+| **Mapa de calor** | `leaflet.heat` con peso por incidencia derivado de la prioridad (`PRIORITY_WEIGHTS`: LOW=0.25, MEDIUM=0.5, HIGH=0.75, CRITICAL=1.0). Gradiente azul → amarillo → rojo. |
+
+El mapa móvil reutiliza el endpoint común `/api/reports` (accesible para todos los roles autenticados) en lugar de `/api/geo/geojson` y `/api/geo/heatmap` (que el backend restringe a `ADMIN`). Los marcadores y el heatmap se calculan en cliente sobre el mismo conjunto de datos, lo que evita tener que abrir esos endpoints geo a estudiantes y técnicos.
+
+## Sincronización con el backend
+
+### Cliente API (`src/api/reports.ts`)
+
+Wrappers tipados sobre el cliente Axios, todos con JWT inyectado automáticamente por el interceptor:
+
+| Función | Endpoint | Uso |
+|---|---|---|
+| `getAllReports({ state? })` | `GET /api/reports` | Lista de incidencias visibles para el usuario autenticado. |
+| `getReportById(id)` | `GET /api/reports/:id` | Detalle con `images` y `comments` incluidos. |
+| `createReport({ title, description, latitude, longitude, category })` | `POST /api/reports` | Crear nueva incidencia (estudiantes). |
+| `transitionReport(id, event, assignedToId?)` | `PATCH /api/reports/:id/transition` | Disparar transición de XState. Eventos: `ASSIGN`, `START`, `REASSIGN`, `RESOLVE`, `CLOSE`, `REJECT`. |
+
+### Hooks (`src/hooks/useReports.ts`)
+
+Dos hooks que abstraen la carga de datos:
+
+- **`useReports()`** — devuelve `{ reports, loading, error, refresh }`. Usado por home, listado, mapa y perfil. Compatible con `RefreshControl` para pull-to-refresh.
+- **`useReport(id)`** — devuelve `{ report, loading, error, refresh, setReport }`. Usado por la pantalla de detalle. `setReport` permite actualización optimista cuando se ejecuta una transición.
+
+### Alineación de tipos con el backend
+
+El tipo `Report` se ha rediseñado para reflejar exactamente la forma que devuelve Prisma desde `services/report.ts`:
+
+```ts
+export interface Report {
+  report_id: string;
+  title: string;
+  description: string;
+  state: ReportState;
+  priority: ReportPriority;
+  category: ReportCategory | null;     // El backend permite null
+  latitude: number;
+  longitude: number;
+  createdBy: ReportAuthor;             // Antes: createdByName/createdByNickname planos
+  assignedTo: ReportAuthor | null;     // Antes: assignedToName/assignedToNickname opcionales
+  images?: ReportImage[];              // Solo presentes en GET /:id
+  comments?: ReportComment[];          // Solo presentes en GET /:id
+  createdAt: string;
+  resolvedAt?: string;
+}
+```
+
+El helper `getReportsByRole(reports, role, nickname)` se ha actualizado para leer `r.createdBy?.nickname` y `r.assignedTo?.nickname` en lugar de los campos planos del prototipo.
+
+### Modelo de asignación (decisión)
+
+Se ha optado por el modelo simple: **solo los administradores pueden asignar incidencias a técnicos** (vía dashboard web con el evento `ASSIGN`). Los técnicos solo pueden ejecutar transiciones sobre incidencias ya asignadas a ellos: `START` (iniciar trabajo), `RESOLVE` (marcar como validada) y `CLOSE` (cerrar definitivamente). Esta restricción es server-side: la máquina de estados XState del backend valida tanto la transición como el rol del usuario, por lo que la UI móvil simplemente expone los botones permitidos según el estado actual.
+
+## Migración emoji → Ionicons
+
+Toda la iconografía emoji se ha reemplazado por iconos vectoriales `Ionicons` (variante `outline` por defecto, `filled` en estados activos). Se ha creado un mapa explícito de categorías:
+
+```ts
+export const CATEGORY_IONICONS: Record<ReportCategory, IoniconName> = {
+  LIGHTING: 'bulb-outline',
+  URBAN_FURNITURE: 'cube-outline',
+  PAVEMENT: 'construct-outline',
+  CLEANING: 'sparkles-outline',
+  GREEN_AREAS: 'leaf-outline',
+  SIGNAGE: 'flag-outline',
+  ACCESSIBILITY: 'accessibility-outline',
+  TECHNOLOGY: 'desktop-outline',
+  OTHER: 'pricetag-outline',
+};
+```
+
+Otros reemplazos relevantes: trofeo de puntos (`trophy-outline`), rol estudiante (`school-outline`), rol técnico (`construct-outline`), rol admin (`shield-checkmark-outline`), botones de cámara/galería (`camera-outline`/`image-outline`), botón de recentrado del mapa (`locate-outline`), botones de transición (`play-outline`, `checkmark-done-outline`, `lock-closed-outline`), errores (`alert-circle-outline`), ajustes (`notifications-outline`, `language-outline`, `information-circle-outline`), logout (`log-out-outline`).
+
+## Lecciones aprendidas (para el TFG)
+
+- **NativeWind y SafeAreaView**: en algunas combinaciones de pantalla con WebView dentro, `className="flex-1"` sobre `SafeAreaView` (el deprecado, importado desde `react-native`) no propaga el `flex` a los hijos. La solución es usar `style={{ flex: 1 }}` inline sobre el `SafeAreaView` y sobre el contenedor del WebView; mantener `className` solo para color de fondo.
+- **NativeWind y `printUpgradeWarning`**: cambiar dinámicamente clases con sombras o pseudo-clases (`active:bg-...`, `shadow-sm`) entre renders dispara un *upgrade warning* del runtime de `react-native-css-interop` que en algunos casos rompe la navegación. La regla práctica adoptada: para estados (selected/active), usar `style={{ ... }}` inline en lugar de cambios de `className`.
+- **Expo Go vs. Metro tras instalar un módulo nativo**: tras añadir `react-native-webview` o `@expo/vector-icons`, no basta con un *fast refresh*: hay que parar Metro, reiniciar con `npx expo start --clear` y matar Expo Go por completo en el dispositivo (no recargar). De lo contrario, el bundle JavaScript anterior sigue activo y el módulo nativo no está enlazado.
+
+## Ficheros creados o modificados
+
+| Fichero | Acción | Descripción |
+|---|---|---|
+| `app/app/(app)/_layout.tsx` | Modificado | `Stack` que envuelve `(tabs)` + `incident/[id]`. |
+| `app/app/(app)/(tabs)/_layout.tsx` | Creado | Tab bar flotante estilo iOS con Ionicons; tab "Reportar" oculta para no-estudiantes. |
+| `app/app/(app)/(tabs)/home.tsx` | Creado | Inicio con tres variantes según rol; usa `useReports` y `RefreshControl`. |
+| `app/app/(app)/(tabs)/map.tsx` | Creado | Mapa Leaflet en WebView con markers + heatmap basado en datos reales. |
+| `app/app/(app)/(tabs)/reports.tsx` | Creado | Listado filtrable por estado (chips). Pull-to-refresh. |
+| `app/app/(app)/(tabs)/create.tsx` | Creado | Formulario que envía `POST /api/reports`. |
+| `app/app/(app)/(tabs)/profile.tsx` | Creado | Perfil con stats por rol y logout. |
+| `app/app/(app)/incident/[id].tsx` | Creado | Detalle con `useReport(id)` y botones de transición XState para técnicos. |
+| `app/src/api/reports.ts` | Creado | Wrappers tipados sobre `/api/reports`. |
+| `app/src/hooks/useReports.ts` | Creado | Hooks `useReports` y `useReport`. |
+| `app/src/components/ReportCard.tsx` | Modificado | Se adapta al nuevo tipo `Report` con `createdBy` anidado y usa `Ionicons` para la categoría. |
+| `app/src/types/index.ts` | Modificado | `Report` reescrito con `createdBy`/`assignedTo` anidados, `category` nullable, `images`/`comments` opcionales. |
+| `app/src/mocks/reports.ts` | Modificado | Eliminado `MOCK_REPORTS`. Sustituido `CATEGORY_ICONS` (emojis) por `CATEGORY_IONICONS`. Añadido `STATE_COLORS.dot` y `PRIORITY_WEIGHTS`. `getReportsByRole` ahora lee la forma anidada. |
+
+## Dependencias añadidas
+
+| Paquete | Función |
+|---|---|
+| `@expo/vector-icons` | Iconos `Ionicons` para tab bar, botones, badges y categorías. |
+| `react-native-webview` | Contenedor del mapa Leaflet/OSM. |
+| `react-native-worklets` | Dependencia introducida con Reanimated v4 (separó el plugin de worklets). |
+
+## Estado al final del Sprint 4
+
+La aplicación móvil ya consume datos reales del backend para los roles **STUDENT** y **TECHNICAL**: ambos pueden iniciar sesión, ver el mapa y el listado de incidencias, y los técnicos pueden cambiar el estado de sus incidencias asignadas. La interfaz mantiene la misma estética que el panel web pero adaptada a patrones móviles (tab bar flotante, pull-to-refresh, hoja inferior).
+
+---
+
+## Integració hardware: ubicació, càmera i pujada d'imatges (Fase 3)
+
+Tercera fase de l'app mòbil i ampliació del backend. Ara els estudiants poden capturar la **ubicació real del dispositiu** i adjuntar **fotos amb la càmera o la galeria** a les seves incidències, i els tècnics poden tancar el cicle de resolució amb una **foto del resultat** i un **comentari justificatiu** que queda lligat de manera explícita a la transició `RESOLVE`. Les imatges es guarden a **Supabase Storage** (no al sistema de fitxers del backend), de manera que el client només rep una URL pública per renderitzar-les.
+
+### Per què aquestes decisions
+
+| Decisió | Alternativa descartada | Per què |
+|---|---|---|
+| **Pujades sempre a través del backend** | Pujada directa des del mòbil amb la `anon` key de Supabase | El backend és l'únic punt on s'apliquen les regles de negoci (qui pot pujar quin tipus d'imatge a quina incidència). Així evitem haver de replicar aquesta lògica amb policies RLS al bucket. |
+| **Bucket públic + URL pública** | Bucket privat + signed URLs | Les fotos d'incidències al campus no són sensibles. Les signed URLs caduquen i requereixen renovació al client; per a un TFG no aporten valor i sí complexitat. |
+| **`Comment.transitionEvent` opcional** | Crear un model `TransitionLog` separat | Una sola taula serveix per a comentaris de discussió i comentaris de transició. La UI els separa amb un `filter()` (mateix patró que els *event comments* de GitHub). |
+| **`Image.uploadedById` opcional** | Inferir-ho a partir del `type` (INITIAL → createdBy, RESOLUTION → assignedTo) | Fàcil d'afegir ara, impossible de recuperar després si demà cal auditar exactament qui va pujar una foto excepcional. Cost real: una columna nul·lable. |
+| **`prisma db push` enlloc de `migrate dev`** | `prisma migrate dev --name X` | El camp `Report.location: geography(Point, 4326)` necessita PostGIS; el *shadow database* que crea Prisma per validar migracions no té PostGIS instal·lat i la migració inicial falla. `db push` sincronitza directament contra el DB real saltant-se el shadow DB. La contrapartida: no queda registre del canvi a `prisma/migrations/`, però per a un TFG és acceptable. |
+
+### Canvis al schema Prisma
+
+Tres modificacions al fitxer `backend/prisma/schema.prisma`:
+
+```prisma
+// 1. Nou enum unificat (abans existia només com a tipus TypeScript)
+enum IncidentEvent {
+  ASSIGN
+  START
+  REASSIGN
+  RESOLVE
+  CLOSE
+  REJECT
+}
+
+// 2. Comment guanya un camp opcional per lligar-se a una transició
+model Comment {
+  // ...
+  transitionEvent IncidentEvent?
+}
+
+// 3. Image guanya l'autor de la pujada (FK opcional a User)
+model Image {
+  // ...
+  uploadedById String?
+  uploadedBy   User?   @relation("UploadedImages", fields: [uploadedById], references: [user_id])
+}
+
+model User {
+  // ...
+  imagesUploaded Image[] @relation("UploadedImages")
+}
+```
+
+Aplicació del canvi:
+
+```bash
+cd backend
+npx prisma db push   # sincronitza contra Supabase Postgres
+npx prisma generate  # regenera el client TypeScript
+```
+
+### Configuració de Supabase Storage
+
+Es crea un bucket **`report-images`** marcat com a **Public** (les fotos són accessibles sense autenticació via URL pública). Les pujades sempre es fan des del backend amb el `service_role key`, que té permís total i salta les *Row Level Security policies*; per tant no cal definir cap policy al bucket.
+
+Al fitxer `backend/.env` cal afegir:
+
+```
+SUPABASE_URL=https://<projecte>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service_role secret>
+SUPABASE_STORAGE_BUCKET=report-images
+```
+
+> ⚠️ **Important**: el `service_role key` permet bypass total del RLS. No s'ha de filtrar mai (no committejar el `.env`, no enviar-lo al client). El backend l'usa exclusivament des del servei `services/storage.ts`.
+
+### Backend: nou endpoint i ampliació de l'existent
+
+#### `POST /api/reports/:id/images` — pujar imatge
+
+Endpoint nou per adjuntar imatges a una incidència. Body **multipart/form-data** amb:
+- `image` (camp file) → la imatge a pujar.
+- `type` (camp text) → `INITIAL` | `RESOLUTION` | `PROGRESS`.
+
+**Pipeline d'execució:**
+
+```
+[Mòbil]                     [Backend]                              [Supabase]
+   │                           │                                       │
+   ├── multipart upload ──────>│                                       │
+   │   (image + type)          │                                       │
+   │                           ├── multer (memoryStorage, max 8 MB)    │
+   │                           │                                       │
+   │                           ├── controller validates:               │
+   │                           │   - file present                      │
+   │                           │   - mimetype in whitelist             │
+   │                           │   - type valid                        │
+   │                           │                                       │
+   │                           ├── service.addReportImage:             │
+   │                           │   - report exists?                    │
+   │                           │   - role check segons type:           │
+   │                           │     · INITIAL → només createdBy       │
+   │                           │     · RESOLUTION/PROGRESS → assignedTo│
+   │                           │     · ADMIN sempre permès             │
+   │                           │                                       │
+   │                           ├── storage.uploadReportImage ─────────>├─ bucket: report-images
+   │                           │                                       │  path: <reportId>/<uuid>.<ext>
+   │                           │                                       │
+   │                           │<──────────── publicUrl ───────────────┤
+   │                           │                                       │
+   │                           ├── prisma.image.create                 │
+   │                           │   { url, type, reportId, uploadedById }│
+   │                           │                                       │
+   │<───── 201 Created ────────┤                                       │
+   │     { image: {...} }      │                                       │
+```
+
+**Validacions de tipus i mida**:
+- Mimetypes acceptats: `image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`.
+- Mida màxima: 8 MB (configurat al `multer({ limits: { fileSize: 8 * 1024 * 1024 } })`).
+- **Defensa en profunditat**: el bucket de Supabase pot opcionalment activar els toggles "Restrict file size" i "Restrict MIME types" amb els mateixos valors. No són necessaris (el backend ja les aplica) però protegeixen davant de descuits futurs.
+
+**Codis d'error**:
+| HTTP | Quan |
+|---|---|
+| 400 | Falta `image` o `type` invàlid |
+| 403 | L'usuari autenticat no té permís per pujar aquell `type` a aquesta incidència |
+| 404 | La incidència no existeix |
+| 415 | Mimetype no suportat |
+| 500 | Error pujant a Supabase Storage o creant la fila Image |
+
+#### `PATCH /api/reports/:id/transition` — accepta `comment` opcional
+
+S'amplia l'endpoint existent. La signatura del body passa de `{ event, assignedToId? }` a `{ event, assignedToId?, comment? }`. Si arriba `comment`, el servei `transitionReport()` el crea com a fila `Comment` **dins la mateixa transacció Prisma** que actualitza l'estat de la incidència, amb el camp `transitionEvent` igual a l'`event` disparat:
+
+```ts
+// services/report.ts, dins transitionReport()
+if (trimmedComment) {
+  const [, , updated] = await prisma.$transaction([
+    prisma.comment.create({
+      data: {
+        content: trimmedComment,
+        transitionEvent: event,    // ← marca el comentari com a esdeveniment
+        reportId,
+        authorId: userId,
+      },
+    }),
+    prisma.report.update({ where: { report_id: reportId }, data: {} }), // touch
+    updateReport,
+  ]);
+  return updated;
+}
+```
+
+L'**atomicitat** és crítica: o es transiciona i es crea el comentari, o no es fa cap de les dues coses. Així evitem situacions inconsistents on l'estat canvia però el comentari justificatiu es perd per un error.
+
+### Backend: nous fitxers i serveis
+
+| Fitxer | Acció | Funció |
+|---|---|---|
+| `backend/src/services/storage.ts` | Creat | Wraps `@supabase/supabase-js`. Inicialització *lazy* del client (només es crea quan es fa la primera pujada, així el backend arrenca encara que les vars de Supabase no estiguin definides). Funció `uploadReportImage(reportId, buffer, mimetype)` que puja al bucket i retorna la URL pública. Path generat: `<reportId>/<uuid>.<ext>` per evitar col·lisions de noms. |
+| `backend/src/services/report.ts` | Modificat | `transitionReport()` accepta `options: { assignedToId?, comment? }` (canvi de signatura). Nou `addReportImage()` amb les autoritzacions per `type` descrites més amunt. |
+| `backend/src/controllers/report.ts` | Modificat | Nou controlador `uploadImage` amb validació de mimetype + tipus i mapatge d'errors a 403/404/415. `transition` ara llegeix també `comment` del body. |
+| `backend/src/routes/reports.ts` | Modificat | Afegit `multer` amb `memoryStorage` (sense fitxers temporals al disc) i nova ruta `POST /:id/images`. |
+| `backend/src/config/env.ts` | Modificat | Lectura de `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET` (amb default `report-images`). Avís per `console.warn` si no estan definides, però no atura el procés. |
+| `backend/src/types/index.ts` | Modificat | Re-exportació de `IncidentEvent` directament des de l'enum de Prisma per tenir una sola font de veritat. |
+
+**Dependències backend afegides:**
+- `@supabase/supabase-js` — client oficial; només s'usa la part de Storage.
+- `multer` + `@types/multer` — parsing de bodies multipart al middleware Express.
+
+### Mòbil: integració amb el hardware
+
+#### Permisos i plugins (`app.json`)
+
+S'afegeixen els plugins d'Expo amb missatges de permís en català (es mostren a l'usuari quan es demana l'accés per primera vegada):
+
+```json
+"plugins": [
+  ["expo-location", {
+    "locationAlwaysAndWhenInUsePermission": "CityFix necessita la teva ubicació..."
+  }],
+  ["expo-image-picker", {
+    "photosPermission": "CityFix necessita accés a la galeria...",
+    "cameraPermission": "CityFix necessita la càmera..."
+  }]
+]
+```
+
+A més, claus `infoPlist` per iOS (`NSLocationWhenInUseUsageDescription`, `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`) i permissions `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `CAMERA`, `READ_MEDIA_IMAGES` per Android. Sense aquestes entrades l'app peta a iOS i obre un diàleg buit a Android.
+
+#### Captura de la ubicació al crear una incidència
+
+A `app/(app)/(tabs)/create.tsx`, en muntar la pantalla:
+
+1. `Location.requestForegroundPermissionsAsync()` → demana permís d'ubicació *while-in-use*. Si l'usuari el denega, la pantalla mostra clarament "Sense permís de ubicació" i utilitzarà el centre del campus com a *fallback* (no bloqueja la creació).
+2. `Location.getCurrentPositionAsync({ accuracy: Balanced })` → obté la posició una sola vegada (no escolta canvis). `Balanced` és un compromís entre precisió i bateria adequat per a aquest cas d'ús (no necessitem 1 m de precisió).
+3. Es mostra l'estat real al panel d'ubicació: `loading` (spinner), `granted` (lat/lng amb 5 decimals), `denied` (avís + fallback).
+
+Quan l'usuari prem "Enviar incidència":
+1. `createReport({ ..., latitude, longitude })` — primer es crea la incidència sense imatge.
+2. Si hi ha foto seleccionada, es fa `uploadReportImage(report.report_id, photoUri, 'INITIAL')`. Aquesta segona crida és independent: si falla, l'usuari rep un missatge clar però **la incidència ja està creada** (no es pot reintentar tota l'operació, només la pujada de la foto).
+
+Aquesta separació en dos passos és deliberada: simplifica el contracte de l'API (`POST /reports` no necessita ser multipart) i fa que la creació sigui resilient — perdre la foto és recuperable, perdre el report és frustrant.
+
+#### Captura de fotos amb cámera o galeria
+
+`expo-image-picker` exposa dues API simètriques:
+- `launchCameraAsync({ quality: 0.7 })` — obre la càmera. Demana automàticament `requestCameraPermissionsAsync()` si no s'ha demanat abans.
+- `launchImageLibraryAsync({ quality: 0.7 })` — obre el selector de la galeria amb `requestMediaLibraryPermissionsAsync()`.
+
+`quality: 0.7` redueix la mida del fitxer (l'aplicació dels propis dispositius sol generar JPEG ~0.92, i passar a 0.7 redueix la mida a un 30-50% sense pèrdua visual). Així pugem menys MB al bucket i la pujada és més ràpida en xarxes mòbils.
+
+L'usuari pot eliminar la foto seleccionada (botó `×` al damunt del *preview*) abans d'enviar.
+
+#### Pujada multipart des de React Native
+
+A `app/src/api/reports.ts`, la funció `uploadReportImage()` construeix un `FormData` amb la convenció especial de RN per a fitxers locals:
+
+```ts
+form.append('image', {
+  uri: imageUri,        // file:///... que torna ImagePicker
+  name: filename,
+  type: mimetype,
+} as any);
+form.append('type', type);
+```
+
+I la crida Axios necessita dues opcions especials per evitar que el client serialitzi el `FormData` com a JSON:
+
+```ts
+client.post(url, form, {
+  headers: { 'Content-Type': 'multipart/form-data' },
+  transformRequest: (d) => d,    // ← deixa passar el FormData tal qual
+  timeout: 30000,                // pujades poden ser lentes en 4G
+});
+```
+
+Sense `transformRequest: (d) => d`, Axios crida `JSON.stringify(form)` i el backend rep un body buit; aquest és un *gotcha* clàssic de RN+Axios.
+
+#### Flux de resolució del tècnic
+
+A `app/(app)/incident/[id].tsx`, quan un tècnic té una incidència en `IN_PROGRESS` assignada a ell:
+
+1. El botó **"Marcar resolta"** ja no dispara directament la transició: ara obre un **modal** (`<Modal animationType="slide">` que llisca des de baix, estil iOS).
+2. El modal **exigeix una foto** de resolució (botó *Confirmar* deshabilitat fins que s'adjunti). Permet **comentari opcional** explicant com s'ha resolt.
+3. En confirmar, l'app fa **dues crides en sèrie**:
+   - `uploadReportImage(reportId, uri, 'RESOLUTION')` — la incidència encara està en `IN_PROGRESS`, així que l'usuari encara figura com a `assignedTo` i el backend l'autoritza per pujar `RESOLUTION`.
+   - `transitionReport(reportId, { event: 'RESOLVE', comment })` — aquí XState canvia l'estat a `VALIDATED` i, dins la mateixa transacció, crea el `Comment` lligat a la transició.
+
+L'ordre importa: si fes la transició primer, l'usuari deixaria de ser `assignedTo` (el RESOLVE no canvia l'assignat però el VALIDATED ja és estat final per al tècnic) i en alguns escenaris futurs (canvi de regla de negoci) el segon pas podria fallar.
+
+#### Timeline d'activitat al detall de la incidència
+
+Al detall, els comentaris ara es separen en dues seccions:
+
+- **Activitat** — comentaris amb `transitionEvent != null`. Es renderitzen com a *timeline entries* amb una icona i color que reflecteix l'esdeveniment (verd `checkmark-done` per `RESOLVE`, blau `play` per `START`, groc `person-add` per `ASSIGN`, etc.). Inclouen *@autor* i temps relatiu.
+- **Comentaris** — comentaris amb `transitionEvent = null`. Estètica neutra com fins ara.
+
+Aquesta separació és purament client-side: el detall de la incidència fa una sola consulta `GET /api/reports/:id` (amb `include: { comments: true }`) i el client agrupa amb un `filter()`.
+
+#### Etiqueta de tipus a la galeria de fotos
+
+Cada imatge mostra un *badge* a la part superior dreta amb el seu `type` (`INICIAL`, `RESOLUCIÓ` o `PROGRÉS`), de manera que l'usuari pot distingir d'un cop d'ull si està veient la foto del problema o la del resultat.
+
+### Mòbil: nous fitxers i modificats
+
+| Fitxer | Acció | Descripció |
+|---|---|---|
+| `app/app.json` | Modificat | Plugins `expo-location` i `expo-image-picker`, claus `infoPlist` iOS, `permissions` Android. |
+| `app/src/api/reports.ts` | Modificat | `transitionReport(id, { event, assignedToId?, comment? })` (canvi de signatura). Nou `uploadReportImage(reportId, uri, type)` amb la configuració multipart correcta per RN. |
+| `app/src/types/index.ts` | Modificat | `IncidentEvent`, `ReportComment.transitionEvent`, `ReportImage.uploadedById`. |
+| `app/app/(app)/(tabs)/create.tsx` | Modificat | Captura GPS amb `expo-location`, càmera i galeria amb `expo-image-picker`, *preview* eliminable, pujada `INITIAL` després de crear el report. |
+| `app/app/(app)/incident/[id].tsx` | Modificat | Modal de resolució que exigeix foto + permet comentari, ordre upload→transition, *timeline* d'activitat amb icones per esdeveniment, *badge* de tipus a cada imatge. |
+| `.gitignore` | Modificat | Patró `.env` (sense barra inicial) per ignorar fitxers `.env` a qualsevol nivell, no només a l'arrel. Es desfà el *tracking* de `backend/.env`. |
+
+**Dependències mòbils afegides:**
+- `expo-location` — accés al GPS amb gestió integrada de permisos.
+- `expo-image-picker` — accés a càmera i galeria amb gestió integrada de permisos.
+
+### Ajust del check de domini institucional al registre
+
+Durant la preparació del *test plan* (crear un compte de tècnic per provar el flux complet) ens adonem que el check de domini UAB del registre no encaixa amb el cas d'ús real dels tècnics. El servei `registerUser` aplicava `isUabEmail()` **a tots els registres**, però:
+
+- Els **TECHNICAL** són sovint **contractistes externs** (Eulen, Ferrovial, jardineria, electricistes…) sense correu `@uab.cat`. Forçar-los a tenir un correu institucional bloqueja el cas d'ús real.
+- El que aporta confiança al rol TECHNICAL **no és el domini, sinó la invitació mateixa**: un admin l'ha hagut d'emetre explícitament des de `POST /api/invites` i la persona ha de coincidir amb l'email de la invitació pendent.
+
+Decisió: la regla del domini UAB s'aplica només quan és l'única defensa disponible.
+
+| Cas | Domini UAB obligatori? | Per què |
+|---|---|---|
+| Registre públic (rol forçat a `STUDENT`) | **Sí** | No hi ha invitació; sense aquest filtre qualsevol persona externa podria registrar-se. |
+| Invitació amb `role = 'ADMIN'` | **Sí** | Els admins són personal intern de la UAB; han de tenir correu institucional. |
+| Invitació amb `role = 'TECHNICAL'` | **No** | La invitació ja avala l'usuari; el correu pot ser de l'empresa contractista. |
+
+**Canvis aplicats:**
+
+- `backend/src/services/auth.ts` → s'elimina el `isUabEmail()` global al principi de `registerUser`. Es mou cap a dues posicions: dins la branca privilegiada **només si `invite.role === 'ADMIN'`**, i a la branca pública (estudiant) com a primera línia abans de crear l'usuari.
+- `app/app/(auth)/register.tsx` → l'esquema Zod construeix el camp `email` de forma diferent segons el mode: en mode `'student'` aplica `.refine(isUabEmail)`, en mode `'invited'` només valida format de correu. La label del camp passa de "Correu UAB" a "Correu electrònic" quan estàs en mode invitació, i el placeholder canvia de `niu@uab.cat` a `el.teu@correu.com`. Així el client no rebutja correus que el backend acceptaria, i els missatges UI són coherents amb el cas d'ús.
+
+Aquesta separació il·lustra el principi de **defensa apropiada**: aplica controls allà on són necessaris (registre obert, accés privilegiat real) i no on només afegeixen fricció (un tècnic extern amb una invitació personalitzada).
+
+### Caducitat i revocació d'invitacions
+
+Originalment una invitació `PENDING` vivia indefinidament a la taula `invites`: si l'admin enviava un token al destinatari equivocat, o si l'usuari mai es registrava, el token quedava actiu per sempre. Això suposa un **risc de seguretat petit però evitable**: si un token es filtra (Slack mal configurat, captura de pantalla, email reenviat…), qualsevol persona el pot fer servir mesos després.
+
+S'introdueixen dos mecanismes complementaris:
+
+**1. Caducitat automàtica (7 dies)**
+
+S'afegeix un camp `expiresAt: DateTime` al model `Invite` amb default `now() + 7 days` a nivell de base de dades:
+
+```prisma
+model Invite {
+  // ...
+  expiresAt DateTime @default(dbgenerated("(now() + interval '7 days')"))
+}
+```
+
+El servei `createInvite` també l'estableix explícitament a 7 dies des del moment de creació (constant `INVITE_TTL_DAYS = 7` a `services/invite.ts`), de manera que el comportament queda visible al codi. El default a la DB és la xarxa de seguretat per si en un futur es creen invitacions per via no estàndard.
+
+A `services/auth.ts`, just després de validar que la invitació existeix i està `PENDING`, afegim un check explícit:
+
+```ts
+if (invite.expiresAt < new Date()) {
+  throw new Error('Aquesta invitació ha caducat. Demana\'n una de nova a l\'administrador.');
+}
+```
+
+> **Nota**: no s'introdueix un nou estat `EXPIRED` a l'enum `InviteStatus`. La regla és: *vàlida = `status === 'PENDING' && expiresAt > now()`*. La UI pot derivar el badge "caducada" client-side. Així evitem haver d'executar un cron per re-etiquetar invitacions vençudes; són dades sense efecte si ningú les fa servir.
+
+**2. Revocació manual**
+
+Nou endpoint `PATCH /api/invites/:id/revoke` (només `ADMIN`) que canvia l'estat de `PENDING` a `REVOKED`. Si la invitació ja està `USED` o `REVOKED` retorna **409 Conflict**; si no existeix, **404 Not Found**. Permet a l'admin "tornar enrere" si:
+
+- S'ha creat una invitació amb un email equivocat.
+- Es vol cancel·lar abans dels 7 dies (p. ex. l'usuari ja no és contractista).
+
+L'endpoint queda muntat al router juntament amb els existents `GET /api/invites` i `POST /api/invites`, i utilitza el servei `revokeInvite()` que valida l'estat actual abans de modificar.
+
+**Per què aquesta combinació**
+
+| Mecanisme | Cobertura |
+|---|---|
+| **Caducitat automàtica** | Casos passius (l'usuari no es registra mai, l'admin oblida una invitació) |
+| **Revocació manual** | Casos actius (s'ha creat per error, l'usuari ja no fa falta) |
+
+Junts cobreixen els dos vectors d'invitació "zombi" sense necessitat d'un cron job ni infraestructura addicional. Per a un futur productiu es podria afegir un cron setmanal que esborri invitacions amb estat final (`USED`, `REVOKED` o caducades > 30 dies) per mantenir la taula neta, però per a un TFG és innecessari.
+
+**Fitxers modificats:**
+
+- `backend/prisma/schema.prisma` → camp `expiresAt` al model `Invite`.
+- `backend/src/services/invite.ts` → `createInvite` ara estableix `expiresAt`; nou `revokeInvite(id)` que valida que l'estat sigui `PENDING`. Constant `INVITE_TTL_DAYS = 7` exposa el TTL al codi.
+- `backend/src/services/auth.ts` → check d'expiració dins `registerUser` per a registres privilegiats.
+- `backend/src/controllers/invite.ts` → controlador `revoke` amb mapatge a 404/409.
+- `backend/src/routes/invites.ts` → nova ruta `PATCH /:id/revoke`.
+
+### Comentaris de progrés i fotos de progrés del tècnic
+
+Després de provar el flux complet d'una incidència, detectem que el cicle de vida és massa rígid: el tècnic només pot deixar constància de la seva feina al moment final (`RESOLVE`) i únicament a través del comentari de transició. Els casos reals freqüents que no estaven coberts:
+
+- "He passat avui però necessito demanar peces, vindré demà." — el tècnic no pot anotar res perquè no canvia d'estat.
+- "Veig que el problema és més gros del que semblava, deixo una foto." — no hi ha forma de pujar una foto intermèdia.
+
+S'afegeixen dos mecanismes complementaris:
+
+**1. Comentari de discussió (`POST /api/reports/:id/comments`)**
+
+Endpoint nou que crea un `Comment` **sense `transitionEvent`** (el camp existia al model però només l'omplíem en transicions). Cas d'ús: anotar progrés o aclariments en qualsevol moment, sense canviar l'estat.
+
+```ts
+// services/report.ts
+export const addComment = async (params: {
+  reportId; content; userId; role
+}) => {
+  // Validacions: content no buit, < 2000 chars
+  // Autorització: només creador, assignat o admin (evitar soroll d'estudiants no relacionats)
+  return prisma.comment.create({
+    data: { content, reportId, authorId: userId },  // transitionEvent queda null
+    include: { author: { select: { user_id, name, nickname } } },
+  });
+};
+```
+
+L'autorització és intencionadament estricta: estudiants que no han creat la incidència ni n'estan assignats no poden comentar. Si demà es vol obrir a comentaris públics només cal afegir un altre rol al check.
+
+Diferència respecte al comentari de transició:
+
+| | Comentari de **transició** | Comentari de **discussió** (nou) |
+|---|---|---|
+| Endpoint | `PATCH /reports/:id/transition` (camp `comment` opcional) | `POST /reports/:id/comments` |
+| Quan | Només al canviar d'estat | Sempre |
+| `transitionEvent` | L'esdeveniment (`RESOLVE`, `START`...) | `null` |
+| UI | Secció **"Activitat"** (timeline amb icones) | Secció **"Comentaris"** |
+
+**2. Foto de progrés (`type: 'PROGRESS'`)**
+
+L'enum `TypeImage` ja tenia el valor `PROGRESS` i l'endpoint `POST /api/reports/:id/images` ja l'acceptava amb les autoritzacions correctes (només l'assignat o un admin). El que faltava era exposar-ho a la UI mòbil:
+
+- Nou botó **"Foto de progrés"** a la card d'accions del tècnic, només visible quan `state === 'IN_PROGRESS'` (té sentit només mentre s'està treballant en la incidència).
+- Reutilitza l'`Alert.alert()` natiu com a *action sheet* per oferir Càmera o Galeria.
+- Crida `uploadReportImage(reportId, uri, 'PROGRESS')` i refresca el report.
+
+La galeria del detall ja mostrava `images.map(...)`, i cada imatge té el seu badge de tipus (INICIAL / RESOLUCIÓ / PROGRÉS), així que les noves fotos s'integren automàticament a la mateixa galeria amb la seva etiqueta corresponent.
+
+**Fitxers modificats:**
+
+- `backend/src/services/report.ts` → nou `addComment()` amb validacions i autorització.
+- `backend/src/controllers/report.ts` → controlador `addComment` amb mapatge a 400/403/404.
+- `backend/src/routes/reports.ts` → nova ruta `POST /:id/comments`.
+- `app/src/api/reports.ts` → helper `addComment(reportId, content)`.
+- `app/app/(app)/incident/[id].tsx` → input multiline + botó "Enviar" sota la secció Comentaris (visible si `canComment`); botó "Foto de progrés" a la card d'accions del tècnic en estat `IN_PROGRESS`; `offerProgressPhoto()` que utilitza l'`Alert` natiu com a action sheet.
+
+Amb aquests dos canvis, el tècnic té tota la llibertat per documentar el procés sense estar lligat al moment de transicionar, mantenint l'auditabilitat (cada comentari porta `authorId` i `createdAt`) i la separació visual entre activitat (esdeveniments d'estat) i discussió (notes lliures).
+
+### Tancament de la incidència: model d'aprovació
+
+Quan implementem el flux complet sorgeix una pregunta: **qui valida que una incidència estigui realment resolta** abans de tancar-la? Considerem tres opcions:
+
+| Opció | Qui valida | Veredicte |
+|---|---|---|
+| **A.** L'estudiant que va reportar la incidència aprova/rebutja la resolució | Estudiant | Descartada — l'estudiant **no és el propietari** del bé públic. Pot ser parcial (vol punts → aprova de pressa) o massa exigent. No s'ajusta al model UAB on la institució és el "client final" del manteniment. |
+| **B.** Només l'admin valida i tanca, sense intervenció de l'estudiant | Admin | Massa rígid — perd el coneixement local de qui va reportar el problema. |
+| **C.** Híbrid: l'estudiant pot comentar després del RESOLVE, l'admin decideix amb tota la informació | Admin (informat per l'estudiant) | **Escollida.** Coherent amb que l'admin sigui qui dictamina, però aprofita el feedback del reporter ("el fanal funciona però hi ha un cable solt"). Reutilitza els comentaris de discussió que ja teníem implementats; no requereix nous camps al schema ni nous endpoints. |
+
+**Resum de l'opció C:**
+
+```
+Estudiant reporta            → state OPEN
+Admin assigna a tècnic       → state ASSIGNED
+Tècnic comença               → state IN_PROGRESS
+Tècnic resol amb foto+comentari → state VALIDATED
+                                        ↓
+       ┌────────────────────────────────┴────────────────────────────┐
+       │ Estudiant veu banner i pot afegir comentari (opcional)      │
+       │ Tècnic veu "Pendent de tancament per part de l'administrador" │
+       │ Admin llegeix tots els comentaris i decideix:               │
+       │   • Tancar (CLOSE) → state CLOSED                            │
+       │   • Refusar (REJECT) → torna a IN_PROGRESS, tècnic refà     │
+       └─────────────────────────────────────────────────────────────┘
+```
+
+**Per què cap canvi al schema ni a la màquina d'estats:**
+
+- La màquina d'estats XState ja tenia el guard correcte: `CLOSE` i `REJECT` només per `isAdmin`. El bug latent era que la **UI mòbil del tècnic mostrava un botó "Tancar"** que en realitat hauria fallat amb 400 si algú l'hagués clicat (cap usuari l'havia disparat encara).
+- L'estudiant no necessita aprovar via cap mecanisme nou: pot deixar comentaris de discussió amb l'endpoint `POST /api/reports/:id/comments` que ja existeix.
+- L'admin tanca amb el `PATCH /reports/:id/transition` existent (event `CLOSE`).
+
+**Canvis aplicats a la UI mòbil:**
+
+- [app/app/(app)/incident/[id].tsx](../app/app/(app)/incident/%5Bid%5D.tsx):
+  - **Treta** la `ActionButton` "Tancar" del tècnic. Substituïda per un missatge informatiu *"Pendent de tancament per part de l'administrador"* quan el tècnic veu una incidència seva en `VALIDATED`.
+  - **Afegit** un *banner* verd quan el reporter (creator) obre una incidència seva en `VALIDATED`: *"El tècnic ha marcat la incidència com a resolta. L'administrador la tancarà aviat. Si veus que el problema no està resolt o vols afegir informació, deixa un comentari aquí sota."* Visualment guia l'estudiant cap a l'input de comentaris si té alguna observació.
+- [app/app/(app)/(tabs)/home.tsx](../app/app/(app)/(tabs)/home.tsx):
+  - Nova secció **"Per revisar (N)"** al `StudentHome` que apareix només si l'estudiant té incidències seves en `VALIDATED`. Mostra fins a 3 ReportCards i un text-call-to-action per recordar-li que pot comentar abans del tancament definitiu. Si no en té cap, la secció s'amaga.
+
+**Auto-tancament als 7 dies (descartat):**
+
+A l'opció A original es proposava auto-aprovar passats 7 dies sense resposta de l'estudiant, perquè la decisió depenia d'ell. A l'opció C la decisió **sempre** és de l'admin, així que un auto-tancament temporal no té sentit conceptual: no estem esperant una resposta de l'estudiant per progressar.
+
+Si en el futur es vol afegir un mecanisme similar per evitar que les incidències quedin enquistades en `VALIDATED` per oblit de l'admin, la implementació natural és: **dashboard alerta visual** ("Aquesta incidència porta 14 dies en VALIDATED, recorda tancar-la"). És més una *to-do list* per a l'admin que una regla automàtica de transició.
+
+### Millores del panel d'administració web
+
+Després de tenir el flux complet operatiu, el dashboard web es queda curt: el llistat d'incidències només permet filtrar per estat, no hi ha cap cercador, l'admin no té una vista dedicada per assignar/tancar incidències pendents, les fotos no s'expandeixen i no hi ha cap manera de recomanar tècnics adequats per a cada incidència. Implementem una sèrie de millores que el converteixen en una eina real de gestió.
+
+**1. Camps nous a `User` per al perfil de tècnic**
+
+```prisma
+model User {
+  // ... camps existents
+  position     String?   // p. ex. "Electricista", "Jardiner" — text descriptiu
+  workCategory Category? // àmbit principal — utilitzat per al matching
+  company      String?   // empresa contractista (Eulen, Ferrovial...)
+}
+```
+
+Decisió de disseny: **`workCategory` com a `Category` (única) i no com a `Category[]`**. Per al TFG és suficient i la UI és més senzilla. Si un tècnic és polivalent, l'admin pot ignorar la recomanació i assignar-lo manualment. Els tres camps són `nullable` perquè a STUDENT i ADMIN no tenen sentit, i a tècnics existents no els forcem (es poden poblar gradualment via Supabase Studio o a través de la UI).
+
+**2. Filtres + cercador al llistat d'incidències**
+
+Endpoint `GET /api/reports` ampliat amb 5 nous query params:
+
+| Param | Tipus | Descripció |
+|---|---|---|
+| `q` | string | Cerca en `title` + `description` (case-insensitive). |
+| `createdById` | uuid | Filtra per autor del report. |
+| `assignedToId` | uuid | Filtra per tècnic assignat. |
+| `dateFrom` | YYYY-MM-DD | Reports creats a partir d'aquest dia (inclusiu). |
+| `dateTo` | YYYY-MM-DD | Reports creats fins aquest dia (inclusiu — s'amplia automàticament al final del dia, 23:59:59). |
+
+A `frontend/src/pages/ReportsListPage.tsx`:
+- **Cercador** amb icona de lupa, debouncat a 300 ms perquè cada caràcter no dispari una crida.
+- **Selectors** poblats dinàmicament: estudiants (per al filtre de creador) i tècnics (per al filtre d'assignat). Endpoint nou `GET /api/users/students` per a la primera llista.
+- **Date pickers** HTML5 nadius per "Des de" i "Fins" — sense dependències addicionals.
+- **Filtres persistents a la URL** via `useSearchParams`, així es poden compartir o rellegir sense perdre l'estat.
+- **Botó "Netejar filtres"** que reset-eja tot, només visible si hi ha filtres actius.
+- **Comptador** de resultats al header.
+
+**3. Lightbox d'imatges al detall**
+
+Component nou `frontend/src/components/ImageLightbox.tsx`. Quan l'admin fa clic a una imatge del detall:
+
+- **Modal de pantalla completa** amb fons fosc translúcid + blur.
+- **Navegació** entre imatges amb fletxes laterals i tecles `←` / `→`.
+- **Tancament** amb la `X`, clic al fons o tecla `Esc`.
+- **Comptador** "1 / 3" centrat a la part superior.
+- **Bloqueig de l'scroll del body** mentre el modal és obert (`document.body.style.overflow = 'hidden'`) per evitar que la pàgina es mogui darrere.
+
+A la galeria, cada imatge mostra **un badge de tipus** ("INICIAL" / "RESOLUCIÓ" / "PROGRÉS") a la cantonada superior i una icona de "expand" centrada quan el cursor passa per sobre, perquè l'usuari sàpiga que és clicable.
+
+**4. Pàgina nova: `/assignments` — assignacions pendents amb tècnics recomanats**
+
+Aquesta és la pàgina més rica funcionalment. Mostra **totes les incidències en estat `OPEN`** (no assignades) i, per a cada una, un panel desplegable amb els tècnics actius dividits en dues seccions:
+
+- **Recomanats** — Aquells tècnics amb `workCategory === report.category`. Marcats amb una estrella verda i un anell `ring-emerald-200`.
+- **Altres tècnics disponibles** — La resta.
+
+L'**algoritme de rànquing** dins de cada secció:
+
+```ts
+function rankTechnicians(technicians, category) {
+  return technicians
+    .map((t) => ({
+      ...t,
+      matchesCategory: t.workCategory === category,
+      workload: t._count?.reportsAssigned ?? 0,
+    }))
+    .sort((a, b) => {
+      if (a.matchesCategory !== b.matchesCategory) return a.matchesCategory ? -1 : 1;
+      if (a.workload !== b.workload) return a.workload - b.workload;
+      return (b.points ?? 0) - (a.points ?? 0);
+    });
+}
+```
+
+És a dir, per ordre de prioritat:
+
+1. **Match de categoria** primer (recomanats).
+2. **Càrrega actual ascendent** (menys feina = més disponible). Per calcular-ho, ampliem `getAllTechnicians` perquè faci un `_count: { reportsAssigned: { where: { state: { in: ['ASSIGNED', 'IN_PROGRESS'] } } } }` — així el frontend rep el nombre de tasques actives sense haver de fer una segona crida.
+3. **Punts descendent** com a desempat (gamificació premia els més actius).
+
+Cada fila de tècnic mostra: nom + nickname + posició + workCategory amb badge + companyia en cursiva + càrrega actual + punts. Un sol clic al botó "Assignar" dispara `transitionReport(reportId, 'ASSIGN', techId)` i refresca la llista.
+
+**5. Pàgina nova: `/validations` — validacions pendents de tancament**
+
+Mostra **totes les incidències en estat `VALIDATED`** (resoltes pel tècnic, esperant decisió de l'admin). Per cada una:
+
+- Badge automàtic **"Fa N dies"** taronja si la incidència porta més de 7 dies sense tancar-se (com a recordatori visual, no com a auto-tancament — l'admin segueix sent qui decideix).
+- Botons d'acció ràpida:
+  - **"Tancar definitivament"** (verd) → dispara `CLOSE` → `CLOSED`.
+  - **"Rebutjar resolució"** (vermell) → dispara `REJECT` → torna a `IN_PROGRESS` perquè el tècnic refaci la feina.
+  - **"Veure detall"** per anar al detall complet i llegir comentaris/imatges abans de decidir.
+
+Confirmació amb `confirm()` natiu abans de qualsevol acció destructiva.
+
+**6. Sidebar i rutes**
+
+Dues entrades noves al menú lateral, entre "Incidències" i "Mapa":
+
+- 🧰 **Assignacions** → `/assignments`
+- ✅ **Validacions** → `/validations`
+
+Aquestes pàgines es converteixen en el **dia a dia de l'admin**: en lloc d'haver d'anar al llistat genèric i filtrar a mà, té dos *worklists* dedicats que mostren exactament la feina que requereix la seva atenció.
+
+**Fitxers creats o modificats:**
+
+| Fitxer | Acció | Descripció |
+|---|---|---|
+| `backend/prisma/schema.prisma` | Modificat | `position`, `workCategory`, `company` opcionals al `User`. |
+| `backend/src/controllers/user.ts` | Modificat | `getAllTechnicians` retorna nous camps + `_count.reportsAssigned`. Nou `getAllStudents`. |
+| `backend/src/routes/users.ts` | Modificat | Nova ruta `GET /api/users/students`. |
+| `backend/src/controllers/report.ts` | Modificat | `getAll` accepta 5 nous query params i els passa al servei. |
+| `backend/src/services/report.ts` | Modificat | `getAllReports` amb `where` dinàmic per `q`/`createdById`/`assignedToId`/`dateFrom`/`dateTo` (Prisma `mode: 'insensitive'` per al `q`). |
+| `frontend/src/types/index.ts` | Modificat | `User` amb camps de tècnic + interfaces `Technician` i `StudentSummary`. |
+| `frontend/src/api/users.ts` | Modificat | `getStudents` afegit. `getTechnicians` retorna `Technician[]`. |
+| `frontend/src/api/reports.ts` | Modificat | `getReports(filters)` amb objecte de filtres complet. |
+| `frontend/src/components/ImageLightbox.tsx` | Creat | Modal d'expansió d'imatges amb navegació + tecles. |
+| `frontend/src/pages/ReportDetailPage.tsx` | Modificat | Imatges clicables que obren el lightbox + badges de tipus. |
+| `frontend/src/pages/ReportsListPage.tsx` | Modificat | Cercador + 5 filtres + persistència URL + reset. |
+| `frontend/src/pages/AssignmentsPage.tsx` | Creat | Worklist d'OPEN amb tècnics recomanats. |
+| `frontend/src/pages/ValidationsPage.tsx` | Creat | Worklist de VALIDATED amb accions ràpides CLOSE/REJECT. |
+| `frontend/src/components/Layout.tsx` | Modificat | Dues entrades noves a la sidebar. |
+| `frontend/src/App.tsx` | Modificat | Rutes `/assignments` i `/validations` registrades. |
+
+**Per què no afegim un endpoint específic `GET /api/reports/:id/recommended-technicians`:**
+
+Vam considerar fer la recomanació al backend, però per a l'escala d'un TFG (poques desenes de tècnics per organització) és més senzill enviar tots els tècnics actius una sola vegada quan obrim la pàgina d'assignacions i fer el rànquing client-side amb `useMemo`. Així evitem un endpoint nou, una segona crida per cada incidència, i l'admin pot veure les llistes "recomanats" / "altres" alhora sense esperes. Si en un futur el sistema escalés a centenars de tècnics, llavors sí caldria moure la lògica al backend amb paginació.
+
+**Configuració inicial dels nous camps:**
+
+Els camps `position`, `workCategory` i `company` són `null` per defecte als tècnics existents. Per a poder provar la recomanació amb dades reals, l'admin pot:
+
+1. **Via Supabase Studio**: editar la fila a la taula `users` (camp per camp).
+2. **Via UI** *(pendent)*: una pantalla d'edició al panel d'admin per gestionar el perfil dels tècnics. No s'inclou aquesta iteració per limitar l'abast; per al TFG és acceptable poblar-ho via Supabase Studio.
+
+### Lliçons apreses
+
+- **Prisma + PostGIS + Supabase pooler**: `prisma migrate dev` falla perquè el shadow DB que crea Prisma no té PostGIS i el camp `geography(Point, 4326)` no es pot recrear. La solució per a desenvolupament és `prisma db push`, que sincronitza directament. Per a producció caldria un shadow DB dedicat amb PostGIS pre-instal·lat.
+- **Axios + React Native + multipart**: cal `transformRequest: (d) => d` perquè Axios respecti el `FormData` enlloc d'aplicar `JSON.stringify`. És un dels errors més comuns quan es passa de web a RN.
+- **Ordre de les operacions a la resolució**: cal pujar la imatge **abans** de transicionar perquè el tècnic encara compleixi la condició d'autorització (`assignedToId === userId`).
+- **Atomicitat de transicions amb comentari**: utilitzar `prisma.$transaction([...])` garanteix que estat i comentari avancen junts; sense això podríem deixar incidències amb estat canviat però sense la justificació corresponent.
+- **`db push` enlloc de migracions versionades**: per a un TFG és el camí més senzill. En un projecte productiu caldria mantenir l'històric a `prisma/migrations/` i generar la migració manualment amb `prisma migrate diff` quan el shadow DB no és viable.
+
+### Estat al final de la integració hardware
+
+L'aplicació mòbil ja és funcionalment completa per al cicle de vida d'una incidència:
+
+- **L'estudiant** captura ubicació real, fa una foto del problema, descriu i envia → la foto va a Supabase Storage com a `INITIAL`, la URL es guarda al DB, la incidència es llista al mapa amb el seu marcador.
+- **L'admin** (al panel web) assigna la incidència a un tècnic i pot afegir un comentari de l'assignació (futur — actualment ho fa per UI web sense comentari).
+- **El tècnic** veu la incidència assignada al mòbil, prem "Començar" (transició `START`), i quan ha resolt la incidència obre el modal de resolució, fa una foto del resultat, escriu un comentari justificatiu i confirma → la foto puja com a `RESOLUTION` i es crea un `Comment` amb `transitionEvent = RESOLVE`, tot dins la mateixa transacció.
+- **Qualsevol usuari** que obri el detall de la incidència veu la galeria amb fotos etiquetades per tipus, una *timeline* d'activitat amb cada transició important, i la conversa de comentaris separada.
+
+Queden com a treball futur: enviament de comentaris de discussió (no de transició) des del mòbil, suport per a comentaris en la transició `ASSIGN` des del panel web, captura GPS d'alta precisió quan el tècnic confirma que ha treballat sobre el lloc, i possible migració del bucket a privat amb signed URLs si en un futur les fotos contenen informació sensible.
+

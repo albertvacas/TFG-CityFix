@@ -40,6 +40,15 @@ export const getAllTechnicians = async (_req: AuthRequest, res: Response): Promi
         surname: true,
         nickname: true,
         points: true,
+        position: true,
+        workCategory: true,
+        company: true,
+        // Càrrega actual: comptem tasques assignades en estat ASSIGNED o IN_PROGRESS
+        _count: {
+          select: {
+            reportsAssigned: { where: { state: { in: ['ASSIGNED', 'IN_PROGRESS'] } } },
+          },
+        },
       },
     });
     res.json({ technicians });
@@ -56,6 +65,23 @@ export const getPrivileged = async (_req: AuthRequest, res: Response): Promise<v
   try {
     const users = await getPrivilegedUsers();
     res.json({ users });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * GET /api/users/students — Llista tots els estudiants actius.
+ * Pensat per al filtre "creador" del llistat d'incidències al panel admin.
+ */
+export const getAllStudents = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const students = await prisma.user.findMany({
+      where: { role: 'STUDENT', active: true },
+      select: { user_id: true, name: true, surname: true, nickname: true },
+      orderBy: { name: 'asc' },
+    });
+    res.json({ students });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

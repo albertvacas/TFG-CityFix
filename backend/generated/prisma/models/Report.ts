@@ -656,10 +656,6 @@ export type EnumPriorityFieldUpdateOperationsInput = {
   set?: $Enums.Priority
 }
 
-export type NullableEnumCategoryFieldUpdateOperationsInput = {
-  set?: $Enums.Category | null
-}
-
 export type FloatFieldUpdateOperationsInput = {
   set?: number
   increment?: number
