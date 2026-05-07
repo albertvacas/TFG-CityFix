@@ -1,6 +1,8 @@
 import { Request } from 'express';
 import { Role, Category, IncidentEvent as PrismaIncidentEvent, TypeImage } from '../../generated/prisma';
 
+export type { Category };
+
 // Payload que se almacena dentro del JWT
 export interface JwtPayload {
   userId: string;
@@ -21,6 +23,20 @@ export interface RegisterDTO {
   nickname: string;
   role?: Role;
   token?: string; // Token d'invitació, obligatori si role és ADMIN o TECHNICAL
+  // Camps específics de tècnic (s'apliquen només si la invitació és TECHNICAL)
+  position?: string;
+  company?: string;
+  workCategory?: Category;
+}
+
+// DTO per a actualitzar el perfil propi (mobile, secció "Configuració")
+export interface UpdateProfileDTO {
+  name?: string;
+  surname?: string;
+  // Camps de tècnic — només es persisteixen si l'usuari té rol TECHNICAL
+  position?: string | null;
+  company?: string | null;
+  workCategory?: Category | null;
 }
 
 export interface LoginDTO {

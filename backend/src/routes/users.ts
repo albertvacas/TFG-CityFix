@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middlewares/auth';
-import { getProfile, getAllTechnicians, getAllStudents, getPrivileged, revoke } from '../controllers/user';
+import { getProfile, updateProfile, getAllTechnicians, getAllStudents, getPrivileged, revoke } from '../controllers/user';
 
 export const userRouter = Router();
 
@@ -9,6 +9,9 @@ userRouter.use(authenticate);
 
 // GET /api/users/profile — Perfil de l'usuari autenticat
 userRouter.get('/profile', getProfile);
+
+// PATCH /api/users/profile — Actualitza el perfil propi (qualsevol rol autenticat)
+userRouter.patch('/profile', updateProfile);
 
 // GET /api/users/technicians — Llistar tècnics actius (només ADMIN)
 userRouter.get('/technicians', authorize('ADMIN'), getAllTechnicians);

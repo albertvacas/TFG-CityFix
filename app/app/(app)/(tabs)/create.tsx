@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,13 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { CATEGORY_IONICONS, CATEGORY_LABELS } from '../../../src/mocks/reports';
 import { createReport, uploadReportImage } from '../../../src/api/reports';
+import { LocationPicker } from '../../../src/components/LocationPicker';
 import type { ReportCategory } from '../../../src/types';
 
 const CATEGORIES: ReportCategory[] = [
@@ -46,7 +47,27 @@ export default function CreateScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [coords, setCoords] = useState<Coords | null>(null);
   const [locStatus, setLocStatus] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle');
+  const [locMode, setLocMode] = useState<'gps' | 'map'>('gps');
+  const [pickedCoords, setPickedCoords] = useState<Coords | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Reset del formulari quan l'usuari deixa el tab. Així, en tornar a entrar,
+  // el formulari està net i no arrossega text/foto/coords del darrer intent.
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setTitle('');
+        setDescription('');
+        setCategory(null);
+        setPhotoUri(null);
+        setLocMode('gps');
+        setPickedCoords(null);
+        setSubmitting(false);
+        // No netegem `coords` ni `locStatus` perquè la posició GPS s'obté de
+        // nou al següent muntatge (i mantenir-la evita un flicker innecessari).
+      };
+    }, []),
+  );
 
   // Demanar permís i obtenir ubicació al muntar
   useEffect(() => {
@@ -67,9 +88,20 @@ export default function CreateScreen() {
     })();
   }, []);
 
-  const canSubmit = title.length > 2 && description.length > 5 && category !== null && !submitting;
+  // Coords efectives segons el mode escollit per l'usuari
+  const effectiveCoords: Coords =
+    locMode === 'map' ? pickedCoords ?? UAB_CENTER : coords ?? UAB_CENTER;
 
-  const effectiveCoords: Coords = coords ?? UAB_CENTER;
+  // Si el mode és 'map' i encara no ha picat el mapa, no pot enviar (l'usuari
+  // ha de confirmar la ubicació explícitament). Si és 'gps' i no hi ha coords,
+  // es fa servir el centre del campus com a fallback (el botó queda actiu).
+  const locationReady = locMode === 'gps' || pickedCoords !== null;
+  const canSubmit =
+    title.length > 2 &&
+    description.length > 5 &&
+    category !== null &&
+    locationReady &&
+    !submitting;
 
   const pickFromCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -247,37 +279,122 @@ export default function CreateScreen() {
 
           {/* Ubicació */}
           <Text className="text-sm font-semibold text-gray-700 mb-2">Ubicació</Text>
-          <View className="rounded-2xl bg-white border border-gray-100 p-4 mb-5">
-            <View className="flex-row items-center">
+
+          {/* Toggle de mode GPS / Mapa */}
+          <View className="flex-row mb-3 self-start rounded-lg overflow-hidden border border-gray-200">
+            <Pressable
+              onPress={() => setLocMode('gps')}
+              style={{
+                backgroundColor: locMode === 'gps' ? '#1d4ed8' : '#ffffff',
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
               <Ionicons
-                name={locStatus === 'granted' ? 'location' : 'location-outline'}
-                size={18}
-                color={locStatus === 'granted' ? '#1d4ed8' : '#9ca3af'}
+                name="locate-outline"
+                size={14}
+                color={locMode === 'gps' ? '#ffffff' : '#6b7280'}
               />
-              <View className="ml-2 flex-1">
-                {locStatus === 'loading' && (
-                  <Text className="text-sm text-gray-500">Obtenint la teva ubicació…</Text>
-                )}
-                {locStatus === 'granted' && coords && (
-                  <>
-                    <Text className="text-sm text-gray-800 font-medium">Ubicació actual</Text>
-                    <Text className="text-xs text-gray-500">
-                      {coords.latitude.toFixed(5)}, {coords.longitude.toFixed(5)}
+              <Text
+                style={{
+                  color: locMode === 'gps' ? '#ffffff' : '#374151',
+                  fontSize: 12,
+                  fontWeight: '600',
+                  marginLeft: 6,
+                }}
+              >
+                Ubicació actual
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setLocMode('map')}
+              style={{
+                backgroundColor: locMode === 'map' ? '#1d4ed8' : '#ffffff',
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              <Ionicons
+                name="map-outline"
+                size={14}
+                color={locMode === 'map' ? '#ffffff' : '#6b7280'}
+              />
+              <Text
+                style={{
+                  color: locMode === 'map' ? '#ffffff' : '#374151',
+                  fontSize: 12,
+                  fontWeight: '600',
+                  marginLeft: 6,
+                }}
+              >
+                Triar al mapa
+              </Text>
+            </Pressable>
+          </View>
+
+          {locMode === 'gps' ? (
+            <View className="rounded-2xl bg-white border border-gray-100 p-4 mb-5">
+              <View className="flex-row items-center">
+                <Ionicons
+                  name={locStatus === 'granted' ? 'location' : 'location-outline'}
+                  size={18}
+                  color={locStatus === 'granted' ? '#1d4ed8' : '#9ca3af'}
+                />
+                <View className="ml-2 flex-1">
+                  {locStatus === 'loading' && (
+                    <Text className="text-sm text-gray-500">Obtenint la teva ubicació…</Text>
+                  )}
+                  {locStatus === 'granted' && coords && (
+                    <>
+                      <Text className="text-sm text-gray-800 font-medium">Ubicació actual</Text>
+                      <Text className="text-xs text-gray-500">
+                        {coords.latitude.toFixed(5)}, {coords.longitude.toFixed(5)}
+                      </Text>
+                    </>
+                  )}
+                  {locStatus === 'denied' && (
+                    <>
+                      <Text className="text-sm text-gray-800 font-medium">Sense permís d'ubicació</Text>
+                      <Text className="text-xs text-gray-500">
+                        Tria "Triar al mapa" per indicar la ubicació manualment, o s'utilitzarà el centre del campus.
+                      </Text>
+                    </>
+                  )}
+                </View>
+                {locStatus === 'loading' && <ActivityIndicator color="#1d4ed8" />}
+              </View>
+            </View>
+          ) : (
+            <View className="mb-5">
+              <LocationPicker
+                initialCoords={pickedCoords ?? coords ?? UAB_CENTER}
+                onChange={setPickedCoords}
+              />
+              <View className="flex-row items-center mt-2 px-1">
+                <Ionicons
+                  name={pickedCoords ? 'location' : 'location-outline'}
+                  size={14}
+                  color={pickedCoords ? '#1d4ed8' : '#9ca3af'}
+                />
+                {pickedCoords ? (
+                  <Text className="text-xs text-gray-700 ml-1">
+                    Ubicació seleccionada:{' '}
+                    <Text className="font-semibold text-gray-900">
+                      {pickedCoords.latitude.toFixed(5)}, {pickedCoords.longitude.toFixed(5)}
                     </Text>
-                  </>
-                )}
-                {locStatus === 'denied' && (
-                  <>
-                    <Text className="text-sm text-gray-800 font-medium">Sense permís de ubicació</Text>
-                    <Text className="text-xs text-gray-500">
-                      S'utilitzarà el centre del campus ({UAB_CENTER.latitude.toFixed(4)}, {UAB_CENTER.longitude.toFixed(4)}).
-                    </Text>
-                  </>
+                  </Text>
+                ) : (
+                  <Text className="text-xs text-gray-500 ml-1 italic">
+                    Toca el mapa per col·locar el marcador on és la incidència.
+                  </Text>
                 )}
               </View>
-              {locStatus === 'loading' && <ActivityIndicator color="#1d4ed8" />}
             </View>
-          </View>
+          )}
 
           <Text className="text-xs text-gray-500 mb-5">
             La prioritat la determinarà l'administrador quan revisi la incidència.

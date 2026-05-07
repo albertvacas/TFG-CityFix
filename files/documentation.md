@@ -2214,6 +2214,120 @@ Els camps `position`, `workCategory` i `company` són `null` per defecte als tè
 1. **Via Supabase Studio**: editar la fila a la taula `users` (camp per camp).
 2. **Via UI** *(pendent)*: una pantalla d'edició al panel d'admin per gestionar el perfil dels tècnics. No s'inclou aquesta iteració per limitar l'abast; per al TFG és acceptable poblar-ho via Supabase Studio.
 
+### Refinaments posteriors: UX, reutilització i visibilitat per rol
+
+Després de l'iteració d'admin, durant les proves d'integració apareixen tres tipus de polidesa que val la pena documentar perquè afecten transversalment al producte:
+
+**1. Component `TechnicianAssignmentList` reutilitzat al detall**
+
+A `/assignments` ja teníem el llistat de tècnics recomanats (match de `workCategory`) + altres disponibles, cada un amb el seu botó "Assignar". A la pàgina **detall d'una incidència en estat `OPEN`**, en canvi, tan sols apareixia un `<select>` amb tots els tècnics i un botó "Assignar" genèric — UX més pobra i sense la lògica de recomanació.
+
+Solució: extreure el llistat a un component reutilitzable.
+
+- Nou fitxer `frontend/src/components/TechnicianAssignmentList.tsx` que encapsula:
+  - La funció `rankTechnicians()` (exportada per si en algun altre lloc cal el rànquing sense la UI).
+  - El render amb dues seccions ("Recomanats" / "Altres tècnics disponibles") i les fileres per tècnic amb el botó "Assignar" en el seu color (verd / blau).
+  - Props: `technicians`, `category`, `onAssign(techId)`, `assigningTechId` (per loading state per fila).
+- `AssignmentsPage.tsx`: refactoritzada per fer servir `<TechnicianAssignmentList>` dins de cada targeta. Menys línies, mateix comportament.
+- `ReportDetailPage.tsx`: substituït el `<select>` + botó genèric per `<TechnicianAssignmentList>` quan `report.state === 'OPEN'`. La resta d'estats (`ASSIGNED`, `IN_PROGRESS`, `VALIDATED`) mantenen els botons d'acció (Iniciar, Resoldre, Tancar, etc.). Per a la transició `ASSIGN` el handler ja no fa servir cap `selectedTechId`: hi ha un `handleAssignTechnician(techId)` dedicat que el component crida amb el techId de la fila.
+
+Resultat: l'admin veu **la mateixa UX d'assignació** tant si entra per `/assignments` com si va directament al detall via `/reports/:id`. Sense codi duplicat ni divergències futures.
+
+**2. Sidebar amb icones Lucide enlloc d'emojis**
+
+Per consistència amb el mòbil (que ja fa servir `Ionicons` outline), s'instal·la `lucide-react` (biblioteca SVG outline lleugera, *tree-shakeable*) i es substitueixen els emojis del menú lateral del dashboard:
+
+| Antic | Nou (`lucide-react`) |
+|---|---|
+| 📊 Dashboard | `LayoutDashboard` |
+| 📋 Incidències | `ClipboardList` |
+| 🧰 Assignacions | `Wrench` |
+| ✅ Validacions | `CheckCircle2` |
+| 🗺️ Mapa | `Map` |
+| 🔑 Invitacions | `KeyRound` |
+| (cap) Tancar sessió | `LogOut` |
+
+Cada icona es renderitza a 18 px (16 px al logout) amb `strokeWidth={2}`, hereta el color del `NavLink` pare i passa automàticament a `text-indigo-700` quan la ruta és activa. Visualment alineat amb el pes de la tipografia Tailwind i els *outline* del mòbil.
+
+**3. Mapa de selecció manual d'ubicació al mòbil**
+
+L'estudiant pot reportar una incidència que no s'està veient *en aquest moment* (per exemple, un fanal trencat que ha vist en passar i en torna a casa). El GPS actual no serveix; cal un selector manual.
+
+- Nou component `app/src/components/LocationPicker.tsx`: WebView amb Leaflet interactiu (la mateixa stack que la resta de mapes). Marcador `draggable` + tap al mapa per recol·locar-lo. Cada moviment emet un `postMessage` cap a React Native amb les noves coordenades. Pista visual a dalt: *"Toca el mapa per col·locar el marcador"*.
+- `create.tsx`: nou estat `locMode: 'gps' | 'map'` amb un *toggle* a la secció Ubicació:
+  - **"Ubicació actual"** (per defecte) — flux GPS existent.
+  - **"Triar al mapa"** — apareix el `LocationPicker` (240 px d'alçada). Si l'usuari encara no ha picat al mapa, el botó "Enviar" queda **desactivat** (per evitar enviar amb la posició per defecte sense voler-ho).
+- L'`effectiveCoords` final triat per al `POST /api/reports` es deriva del mode actiu, així no calen branques diferents al `handleSubmit`.
+
+**4. Reset del formulari de creació en sortir del tab**
+
+Es detecta que si l'estudiant escriu mig formulari i navega a un altre tab, en tornar a Reportar es trobava la informació anterior. Comportament que té sentit en alguns contextos (esborranys), però aquí va contra l'expectativa: cada nova incidència s'ha de poder començar de zero.
+
+- A `create.tsx` s'afegeix un `useFocusEffect` (de `expo-router`) amb una funció de **cleanup**. La funció es dispara quan el tab perd el focus, i neteja `title`, `description`, `category`, `photoUri`, `locMode`, `pickedCoords` i `submitting`. Es preserva `coords` i `locStatus` perquè la posició GPS ja és vàlida i mantenir-la evita un *flicker* en obrir el tab de nou.
+- Hot reload o canvi d'orientació no provoquen un blur del tab → l'edició no es perd dins d'una mateixa sessió de redacció.
+
+**5. Visibilitat per rol forçada al backend**
+
+Bug latent de seguretat: `GET /api/reports` retornava **totes** les incidències a qualsevol usuari autenticat. La UI mòbil ja filtrava client-side (`getReportsByRole`), però un estudiant que cridés l'API directament amb el seu JWT podia veure incidències d'altres estudiants — un *information disclosure*.
+
+Solució a `services/report.ts`:
+
+```ts
+const viewerScope =
+  filters?.viewer?.role === 'STUDENT'
+    ? { createdById: filters.viewer.userId }
+    : filters?.viewer?.role === 'TECHNICAL'
+    ? { assignedToId: filters.viewer.userId }
+    : {};
+
+return prisma.report.findMany({
+  where: {
+    ...viewerScope,
+    ...(filters?.state && { state: filters.state }),
+    // ... resta de filtres explícits
+  },
+  // ...
+});
+```
+
+El controlador injecta sempre `viewer` a partir de `req.user`:
+
+```ts
+viewer: { role: req.user!.role, userId: req.user!.userId }
+```
+
+Comportament resultant:
+
+| Rol | Què veu via `GET /api/reports` |
+|---|---|
+| `STUDENT` | Només les incidències que ell ha creat (`createdById = userId`) |
+| `TECHNICAL` | Només les que té assignades (`assignedToId = userId`) |
+| `ADMIN` | Totes (cap restricció implícita) |
+
+Els filtres explícits de query string (`createdById`, `assignedToId`, `state`, `q`, `dateFrom/To`) s'apliquen **per damunt** del scope. Per a un admin això vol dir poder filtrar per creador concret; per a un estudiant els seus filtres explícits són sempre subset del seu propi scope (no pot ampliar visibilitat).
+
+Conseqüències a la UI:
+- **Mapa mòbil**: l'estudiant ara només veu els seus pins; el tècnic, els que té assignats.
+- **Reports tab mòbil**: el filtre client-side `getReportsByRole` esdevé redundant però es manté com a defensa en profunditat.
+- **Dashboard web**: cap canvi (l'admin segueix veient tot).
+
+**Nota sobre el detall (`GET /api/reports/:id`)**: aquesta ruta NO s'ha restringit en aquesta iteració. En la pràctica el risc és baix perquè els UUIDs són essencialment inenumerable i ningú no comparteix IDs entre usuaris, però per a un projecte productiu real caldria afegir-hi una verificació anàloga (un `STUDENT` només pot llegir els seus, un `TECHNICAL` només els assignats). Es deixa com a *to-do* per a un sprint futur.
+
+**Sobre la menció de "filtrar amb PostGIS"**: la primera proposta de l'usuari era filtrar al DB amb PostGIS. Important aclarir-ho: PostGIS s'usa exclusivament per a consultes geoespacials (radi, polígons, distàncies). El que cal aquí és un *where* per FK (`createdById` / `assignedToId`), que es resol amb SQL/Prisma estàndard. PostGIS no hi entra; el camp `Report.location` (PostGIS `geography(Point, 4326)`) s'utilitzarà només quan implementem consultes del tipus "incidències a menys de 100 m del meu pin", que ja seria una funcionalitat futura.
+
+**Fitxers afegits o modificats en aquesta iteració:**
+
+| Fitxer | Acció | Descripció |
+|---|---|---|
+| `frontend/src/components/TechnicianAssignmentList.tsx` | Creat | Llista reutilitzable de tècnics recomanats / altres amb botó "Assignar" per fila. Exporta `rankTechnicians()`. |
+| `frontend/src/pages/AssignmentsPage.tsx` | Modificat | Substituït el codi inline per `<TechnicianAssignmentList>`. |
+| `frontend/src/pages/ReportDetailPage.tsx` | Modificat | Substituït el `<select>` per `<TechnicianAssignmentList>` quan estat `OPEN`. Nou handler `handleAssignTechnician`. |
+| `frontend/src/components/Layout.tsx` | Modificat | Icones Lucide en lloc d'emojis al menú lateral; icona `LogOut` al botó. Dependència nova: `lucide-react`. |
+| `app/src/components/LocationPicker.tsx` | Creat | WebView+Leaflet interactiu per triar la ubicació al mapa. |
+| `app/app/(app)/(tabs)/create.tsx` | Modificat | Toggle GPS/Mapa amb `LocationPicker`. `useFocusEffect` que neteja el formulari en sortir del tab. |
+| `backend/src/services/report.ts` | Modificat | `getAllReports()` accepta `viewer: { role, userId }` i aplica scope implícit. |
+| `backend/src/controllers/report.ts` | Modificat | El controller `getAll` passa sempre `viewer` extret de `req.user`. |
+
 ### Lliçons apreses
 
 - **Prisma + PostGIS + Supabase pooler**: `prisma migrate dev` falla perquè el shadow DB que crea Prisma no té PostGIS i el camp `geography(Point, 4326)` no es pot recrear. La solució per a desenvolupament és `prisma db push`, que sincronitza directament. Per a producció caldria un shadow DB dedicat amb PostGIS pre-instal·lat.
@@ -2232,4 +2346,135 @@ L'aplicació mòbil ja és funcionalment completa per al cicle de vida d'una inc
 - **Qualsevol usuari** que obri el detall de la incidència veu la galeria amb fotos etiquetades per tipus, una *timeline* d'activitat amb cada transició important, i la conversa de comentaris separada.
 
 Queden com a treball futur: enviament de comentaris de discussió (no de transició) des del mòbil, suport per a comentaris en la transició `ASSIGN` des del panel web, captura GPS d'alta precisió quan el tècnic confirma que ha treballat sobre el lloc, i possible migració del bucket a privat amb signed URLs si en un futur les fotos contenen informació sensible.
+
+### Perfil del tècnic, reassignació en marxa i comentari obligatori al rebuig
+
+Aquesta iteració tanca tres mancances detectades a la fase anterior:
+
+1. Els camps específics de tècnic (`position`, `workCategory`, `company`) ja existien al schema des del Sprint 3 — eren la base de l'algoritme de recomanació del panel admin — però **no hi havia cap manera de capturar-los**. Es creaven sempre `null` perquè el formulari de registre no els demanava i no existia cap pantalla d'edició de perfil. Un tècnic donat d'alta amb el flux d'invitació entrava al sistema "buit" i mai no apareixia com a recomanat.
+2. La màquina d'estats no contemplava el cas que un tècnic comencés una incidència (`IN_PROGRESS`) i no la pogués acabar — baixa, canvi d'empresa, especialitat equivocada. L'única sortida era esperar a què la marqués com a resolta o que un admin manipulés el DB directament.
+3. El rebuig d'una resolució (`VALIDATED → IN_PROGRESS` via `REJECT`) deixava el tècnic sense informació del motiu. La transició era silenciosa i els comentaris ja existien al model com a opcionals, però el panel web no els demanava.
+
+#### Decisions de disseny
+
+**Camps de tècnic com a opcionals al formulari, però visibles al perfil.** Al formulari de registre amb invitació es mostren `Posició`, `Empresa` i un selector de `Àmbit principal` amb chips. No els forcem perquè una invitació pot ser per a un `ADMIN` (que no té sentit que tingui aquests camps) i el client no sap el rol de la invitació fins que el backend la resol. La sanitització la fa el servei: només si `invite.role === 'TECHNICAL'` persisteix els camps; per a `ADMIN` els ignora silenciosament. Aquesta defensa al backend evita que un usuari maliciós omplís un `workCategory` per a un compte d'admin enviant el camp manualment.
+
+**Edició posterior via `PATCH /api/users/profile`, no `PUT`.** El mètode `PATCH` permet enviar només els camps que canvien. El servei distingeix entre `undefined` (no toca el camp) i `null` (esborra el valor explícitament), cosa imprescindible per poder buidar la `position` o `workCategory` d'un tècnic que canvia d'especialitat. Aquesta semàntica només es pot expressar en JSON amb un PATCH.
+
+**Camps de tècnic blocats per rol al backend, no al frontend.** El servei `updateOwnProfile` aplica `name` i `surname` a qualsevol rol, però els camps de tècnic només si `user.role === 'TECHNICAL'`. Si un estudiant intenta enviar `position`, el backend ho ignora sense error. El client mòbil ja amaga aquests inputs per als rols no-tècnic, però la validació al backend és la que dona la garantia real.
+
+**`REASSIGN` des de `IN_PROGRESS` torna a `ASSIGNED`, no a `OPEN`.** La transició existent `ASSIGNED → REASSIGN → OPEN` és per al cas en què l'admin s'ha equivocat d'assignat i vol tornar a començar el procés de tria. La nova transició `IN_PROGRESS → REASSIGN → ASSIGNED` és diferent: la incidència ja s'ha començat i hi ha hagut feina, només cal canviar la persona que la continua. Anar a `OPEN` perdria la traçabilitat del fet que estava en marxa. Per això la transició preserva l'estat "assignat" i només canvia el `assignedToId`.
+
+**Comentari obligatori al `REJECT`, opcional al `REASSIGN`.** El rebuig és un acte amb pes — l'admin diu al tècnic que la feina no està ben feta — i sense motiu escrit acabaria en confusió o desconfiança. El servei `transition` a backend retorna `400` si es rep `REJECT` sense `comment` no buit. La reassignació, en canvi, sovint és per causes administratives (baixa, canvi d'empresa) i imposar-ne un text seria fricció innecessària; es deixa opcional.
+
+#### Implementació
+
+**Backend** (`backend/src/`):
+
+| Fitxer | Acció | Descripció |
+|---|---|---|
+| `types/index.ts` | Modificat | `RegisterDTO` afegeix `position?`, `company?`, `workCategory?`. Nou `UpdateProfileDTO` amb els mateixos camps a més de `name?` i `surname?`. |
+| `services/auth.ts` | Modificat | A `registerUser`, només persisteix els camps de tècnic si `invite.role === 'TECHNICAL'`. Per a invitacions d'`ADMIN` els ignora encara que els enviï el client (defensiu). |
+| `controllers/auth.ts` | Modificat | El controlador de registre passa els nous camps al servei. |
+| `services/user.ts` | Modificat | Nou `updateOwnProfile(userId, data)` que aplica un patch parcial: `undefined` no toca el camp, `null` l'esborra. Els camps de tècnic només s'apliquen si `user.role === 'TECHNICAL'`. |
+| `controllers/user.ts` | Modificat | Nou `updateProfile` exposat com a `PATCH /api/users/profile`. Retorna l'usuari actualitzat amb tots els camps que el `getProfile` també retorna ara (`position`, `workCategory`, `company`). |
+| `routes/users.ts` | Modificat | Registra `PATCH /profile`. La ruta és per a qualsevol usuari autenticat (sense `authorize()`), perquè cada usuari edita el seu propi perfil. |
+| `machines/stateMachine.ts` | Modificat | Afegida la transició `REASSIGN` a l'estat `IN_PROGRESS` amb `target: 'ASSIGNED'` i `guard: 'isAdmin'`. Coexisteix amb la `REASSIGN` original des de `ASSIGNED`. |
+| `services/report.ts` | Modificat | A la transició, quan és `REASSIGN` i el nou estat és `ASSIGNED` actualitza `assignedToId` al nou tècnic; quan és `REASSIGN` i el nou estat és `OPEN`, posa `assignedToId = null`. Així cobreix els dos camins de la `REASSIGN`. |
+| `controllers/report.ts` | Modificat | A `transition`, retorna 400 si l'esdeveniment és `REJECT` i el `comment` és absent o buit. La validació es fa al controller (no al servei) per separar el contracte HTTP de la lògica de domini. |
+
+**Mòbil** (`app/`):
+
+| Fitxer | Acció | Descripció |
+|---|---|---|
+| `src/types/index.ts` | Modificat | `User` afegeix `position`, `workCategory`, `company`. `RegisterPayload` també. Nou `UpdateProfilePayload`. |
+| `src/api/auth.ts` | Modificat | Afegida la funció `updateProfile(payload)` que crida `PATCH /users/profile`. |
+| `src/context/AuthContext.tsx` | Modificat | Exposa `setUser` perquè la pantalla de configuració pugui actualitzar l'usuari en memòria després d'un PATCH sense haver de tornar a llegir el perfil sencer. |
+| `app/(auth)/register.tsx` | Modificat | En mode "amb invitació" mostra els camps `Posició` (text), `Empresa` (text) i `Àmbit principal` (selector amb chips de les 9 categories). Tots són opcionals. El `workCategory` s'envia només si l'usuari el selecciona. |
+| `app/(app)/settings.tsx` | Creat | Pantalla de configuració del compte, accessible des del perfil. Per a tots els rols permet editar `name` i `surname`. Per a `TECHNICAL` afegeix la secció "Dades del tècnic" amb els tres camps. Camps buits s'envien com a `null` per esborrar el valor anterior. |
+| `app/(app)/(tabs)/profile.tsx` | Modificat | Per a `TECHNICAL` mostra una secció "Dades professionals" amb `Posició`, `Empresa` i `Àmbit`. Substituïda l'opció "Configuració" per "Editar perfil" que navega a `/settings`. |
+| `app/(app)/_layout.tsx` | Modificat | Registra la ruta `settings` al `Stack`. |
+
+**Web** (`frontend/`):
+
+| Fitxer | Acció | Descripció |
+|---|---|---|
+| `src/types/index.ts` | Modificat | `STATE_TRANSITIONS.IN_PROGRESS` passa de `['RESOLVE']` a `['RESOLVE', 'REASSIGN']`. |
+| `src/api/reports.ts` | Modificat | `transitionReport` accepta un quart paràmetre `comment` opcional que envia al body. |
+| `src/pages/ReportDetailPage.tsx` | Modificat | Afegit estat de modal i nou component intern `TransitionModal`. El handler `handleTransition` intercepta `REJECT` i `REASSIGN` des de `IN_PROGRESS` i obre el modal en lloc d'enviar la transició directament. La `REASSIGN` des de `ASSIGNED` continua igual (sense modal, com abans). |
+
+#### Flux d'una reassignació en marxa
+
+1. Una incidència està en `IN_PROGRESS` perquè un tècnic l'havia començat.
+2. L'admin obre el detall i prem "Reassignar".
+3. S'obre el modal amb un `<select>` que llista tots els tècnics actius excloent l'actualment assignat. Si la `category` de la incidència coincideix amb el `workCategory` d'algun tècnic, l'opció es marca amb el sufix "· recomanat". Comentari opcional.
+4. En confirmar, el client crida `PATCH /reports/:id/transition` amb `{ event: 'REASSIGN', assignedToId: <nouTècnic>, comment? }`.
+5. El controller valida l'event, el servei carrega l'estat i crea l'actor XState. La transició `IN_PROGRESS → REASSIGN` és guardada per `isAdmin` i resol a `ASSIGNED`. El servei actualitza `assignedToId` (nou tècnic) i, si hi ha comentari, crea un `Comment` amb `transitionEvent: 'REASSIGN'` dins la mateixa transacció.
+6. La incidència queda en estat `ASSIGNED` apuntant al nou tècnic, que la veurà al seu llistat al mòbil i podrà prémer "Començar" (transició `START` ja existent) per tornar-la a posar en marxa.
+
+#### Flux d'un rebuig amb motiu
+
+1. El tècnic resol la incidència (`IN_PROGRESS → RESOLVE → VALIDATED`) i adjunta foto + comentari.
+2. L'admin obre el detall, mira la foto i conclou que no està ben resolta.
+3. Prem "Rebutjar" i s'obre el modal amb un `<textarea>` obligatori.
+4. Si l'envia buit, el client mostra error inline; si el deixa intentar enviar igualment, el backend respon 400.
+5. Quan el comentari hi és, la transició `VALIDATED → REJECT → IN_PROGRESS` s'aplica i el `Comment` amb `transitionEvent: 'REJECT'` queda al timeline. El tècnic veurà la incidència de nou en `IN_PROGRESS` amb el motiu visible al mòbil i podrà tornar a treballar-hi.
+
+#### Lliçons apreses
+
+- **Patch parcial amb semàntica triple-estat**: distingir `undefined` (no toca), `null` (esborra) i valor (assigna) en un endpoint PATCH és imprescindible quan l'usuari pot voler buidar un camp opcional. Una API que només distingís entre "envia el camp" i "no l'envies" no permetria buidar la `workCategory` d'un tècnic sense afegir-hi un endpoint específic.
+- **Validació RBAC al servei, no al controller**: que `updateOwnProfile` ignori els camps de tècnic per a `STUDENT/ADMIN` en lloc de retornar 403 simplifica el client (no ha de filtrar segons rol abans d'enviar) i tanca un possible bypass si algun dia s'expandís el formulari sense actualitzar el filtre.
+- **Una mateixa transició amb dos comportaments (REASSIGN)**: XState ho gestiona amb naturalitat — dues entrades `on.REASSIGN` a estats diferents — i el servei discrimina pel `newState`. No cal inventar dos events distints (`REASSIGN_FROM_OPEN` vs `REASSIGN_IN_PROGRESS`); el contracte de la API queda més simple i el frontend tampoc no ha de saber el detall.
+- **Validació d'entrada al controller per a obligatorietat condicional**: el contracte "REJECT exigeix comment" és més una regla del transport HTTP que del domini. Posar-la al controller deixa el servei agnòstic d'aquesta exigència i fa més fàcil reusar-lo en altres camins (per exemple, un job intern que rebutgi automàticament passades 24h sense resposta).
+
+### Edició de la prioritat per part de l'administrador
+
+#### Motivació
+
+El camp `priority` (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`) existeix al schema des del Sprint 2 amb `@default(MEDIUM)`, però fins ara era pràcticament cosmètic: el formulari mòbil no el demana, el servei `createReport` no l'accepta i el panel web només el mostrava com a `<PriorityBadge>` sense forma d'editar-lo. Conseqüència: totes les incidències del sistema acabaven amb `MEDIUM` i les ponderacions del *heatmap* del mapa (que pesa pels valors `LOW=1, MEDIUM=2, HIGH=3, CRITICAL=4` a [services/geo.ts](backend/src/services/geo.ts)) eren funcionalment planes.
+
+A més, el formulari de creació al mòbil prometia explícitament a l'usuari "La prioritat la determinarà l'administrador quan revisi la incidència" ([create.tsx:399-401](app/app/(app)/(tabs)/create.tsx#L399)), promesa que el panel web no complia.
+
+#### Decisions de disseny
+
+**Endpoint separat, no part de la màquina d'estats.** Canviar la prioritat **no és una transició** — no afecta el cicle de vida (`OPEN → ASSIGNED → IN_PROGRESS → …`) i, de fet, l'admin ha de poder ajustar-la en qualsevol moment, també amb la incidència `CLOSED` (per a analítica retrospectiva). Per això es crea `PATCH /api/reports/:id/priority` separat de `PATCH /api/reports/:id/transition`. Si haguéssim afegit un `event` tipus `SET_PRIORITY` a XState, hauríem hagut d'afegir auto-loops a tots els estats i barrejaríem dos conceptes diferents (cicle de vida vs metadata).
+
+**Restricció a `ADMIN` al middleware, no al controller.** La ruta s'embolica amb `authorize('ADMIN')` directament a `routes/reports.ts`. Mantenir aquest filtre al middleware (i no dins del controller) fa que l'enforçament sigui declaratiu i visible des del fitxer de rutes — és l'únic lloc on cal mirar per saber qui pot accedir a què.
+
+**El client web no permet desactivar el dropdown per la resta de rols** perquè el panel web només l'usen els `ADMIN`. La pantalla `ReportDetailPage` ja està dins de `<ProtectedRoute>` amb scope d'admin; no cal afegir defensa redundant a la UI.
+
+**Selector a la sidebar, no a la capçalera.** La capçalera del detall conté badges de lectura ràpida (`ReportStatusBadge`, `PriorityBadge`, categoria). Convertir-ne un en dropdown trencaria la consistència visual de "tot són badges". En lloc d'això, s'afegeix una targeta nova "Prioritat" a la sidebar, mantenint el badge a la capçalera per a la lectura ràpida i posant el control d'edició al costat de la resta d'accions administratives ("Detalls", "Accions"). Ambdues vistes queden sincronitzades pel mateix estat `report` del component.
+
+**Sense modal de confirmació.** El canvi és reversible (només és metadata, no afecta el flux ni notifica ningú) i el `<select>` ja és explícit. Imposar un modal seria fricció.
+
+#### Implementació
+
+**Backend** (`backend/src/`):
+
+| Fitxer | Acció | Descripció |
+|---|---|---|
+| `services/report.ts` | Modificat | Nou `updateReportPriority(reportId, priority)` que comprova existència i fa un `prisma.report.update({ data: { priority } })`. No toca cap altre camp ni la `lastModified` explícitament (Prisma ja la manté). |
+| `controllers/report.ts` | Modificat | Nou `updatePriority` amb validació de l'enum (`['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']`). Retorna 400 si la prioritat és invàlida, 404 si la incidència no existeix. |
+| `routes/reports.ts` | Modificat | `PATCH /:id/priority` amb middleware `authorize('ADMIN')`. |
+
+**Frontend** (`frontend/src/`):
+
+| Fitxer | Acció | Descripció |
+|---|---|---|
+| `api/reports.ts` | Modificat | Afegida `updateReportPriority(id, priority)` que crida `PATCH /reports/:id/priority`. |
+| `pages/ReportDetailPage.tsx` | Modificat | Nova targeta "Prioritat" a la sidebar amb la `PriorityBadge` actual al costat d'un `<select>` editable. Handler `handlePriorityChange` que ignora si l'usuari selecciona el mateix valor. Estat `priorityLoading` per deshabilitar el control durant la petició. |
+
+#### Flux complet
+
+1. Un alumne crea una incidència des del mòbil. El backend l'emmagatzema amb `priority = MEDIUM` (per defecte del schema).
+2. La incidència apareix al panel d'assignacions de l'admin amb el badge `MEDIUM`.
+3. L'admin obre el detall, llegeix la descripció i mira la foto.
+4. A la targeta "Prioritat" de la sidebar tria el valor adequat al `<select>`. El client crida `PATCH /reports/:id/priority`. El backend valida i actualitza.
+5. El component re-renderitza amb el `report` retornat: tant el badge de la capçalera com el del select queden sincronitzats.
+
+#### Lliçons apreses
+
+- **Distingir cicle de vida de metadata**: la regla "tot el que canvia un report passa per la màquina d'estats" és atractiva per simetria, però barreja conceptes. Una transició és un esdeveniment puntual amb pre/post-condicions; un canvi de prioritat és edició de metadata. Tractar-los igual hauria forçat afegir un event sintètic a XState i auto-loops a tots els estats.
+- **El `@default` del schema no equival a "té un valor sensat"**: que tots els reports tinguin `MEDIUM` no significa que el sistema estigui prioritzant; significa que ningú no ha decidit. Documentar-ho com a deute tècnic abans (la frase del mòbil) ha permès tancar-ho ràpidament quan ha tocat.
+- **Una promesa a la UI obliga a complir-la**: el text "la prioritat la determinarà l'administrador" del formulari mòbil era una promesa que el sistema no complia. Aquestes mentides petites s'acumulen i degraden la confiança del producte; pagar-les ràpid val la pena.
 

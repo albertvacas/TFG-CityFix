@@ -1,5 +1,5 @@
 import client from './client';
-import type { Report, IncidentEvent, State } from '../types';
+import type { Report, IncidentEvent, State, Priority } from '../types';
 
 export interface ReportFilters {
   q?: string;
@@ -31,9 +31,16 @@ export const transitionReport = async (
   id: string,
   event: IncidentEvent,
   assignedToId?: string,
+  comment?: string,
 ): Promise<Report> => {
-  const body: { event: IncidentEvent; assignedToId?: string } = { event };
+  const body: { event: IncidentEvent; assignedToId?: string; comment?: string } = { event };
   if (assignedToId) body.assignedToId = assignedToId;
+  if (comment) body.comment = comment;
   const { data } = await client.patch<{ report: Report }>(`/reports/${id}/transition`, body);
+  return data.report;
+};
+
+export const updateReportPriority = async (id: string, priority: Priority): Promise<Report> => {
+  const { data } = await client.patch<{ report: Report }>(`/reports/${id}/priority`, { priority });
   return data.report;
 };

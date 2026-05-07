@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getReportById, transitionReport } from '../api/reports';
+import { getReportById, transitionReport, updateReportPriority } from '../api/reports';
 import { getTechnicians } from '../api/users';
 import ReportStatusBadge from '../components/ReportStatusBadge';
 import PriorityBadge from '../components/PriorityBadge';
 import ImageLightbox from '../components/ImageLightbox';
-import type { Report, Technician, IncidentEvent } from '../types';
+import TechnicianAssignmentList from '../components/TechnicianAssignmentList';
+import type { Report, Technician, IncidentEvent, Priority } from '../types';
 import { STATE_TRANSITIONS, CATEGORY_LABELS } from '../types';
+
+const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
+  { value: 'LOW', label: 'Baixa' },
+  { value: 'MEDIUM', label: 'Mitjana' },
+  { value: 'HIGH', label: 'Alta' },
+  { value: 'CRITICAL', label: 'Crítica' },
+];
 
 const eventLabels: Record<IncidentEvent, { label: string; className: string }> = {
   ASSIGN: { label: 'Assignar', className: 'bg-yellow-600 hover:bg-yellow-700' },
@@ -22,11 +30,19 @@ export default function ReportDetailPage() {
   const navigate = useNavigate();
   const [report, setReport] = useState<Report | null>(null);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [selectedTechId, setSelectedTechId] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [assigningTechId, setAssigningTechId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  // Modal d'una transició que requereix (o accepta) un comentari + tècnic.
+  // Emprat per a:
+  //   - REJECT: comentari obligatori (motiu del rebuig)
+  //   - REASSIGN des d'IN_PROGRESS: tècnic obligatori + comentari opcional
+  const [transitionModal, setTransitionModal] = useState<IncidentEvent | null>(null);
+  const [modalComment, setModalComment] = useState('');
+  const [modalTechId, setModalTechId] = useState<string>('');
+  const [priorityLoading, setPriorityLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -41,19 +57,90 @@ export default function ReportDetailPage() {
 
   const handleTransition = async (event: IncidentEvent) => {
     if (!report) return;
-    if (event === 'ASSIGN' && !selectedTechId) {
-      setError('Selecciona un tècnic per assignar la incidència.');
+
+    // REJECT: comentari obligatori amb el motiu del rebuig.
+    // REASSIGN des d'IN_PROGRESS: cal triar un nou tècnic. Des d'ASSIGNED es
+    // manté el comportament actual (torna a OPEN sense modal).
+    if (event === 'REJECT' || (event === 'REASSIGN' && report.state === 'IN_PROGRESS')) {
+      setModalComment('');
+      setModalTechId('');
+      setTransitionModal(event);
       return;
     }
+
+    setError('');
+    setActionLoading(true);
+    try {
+      const updated = await transitionReport(report.report_id, event);
+      setReport(updated);
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message);
+      else setError('Error en la transició.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAssignTechnician = async (techId: string) => {
+    if (!report) return;
+    setError('');
+    setAssigningTechId(techId);
+    try {
+      const updated = await transitionReport(report.report_id, 'ASSIGN', techId);
+      setReport(updated);
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message);
+      else setError('Error assignant la incidència.');
+    } finally {
+      setAssigningTechId(null);
+    }
+  };
+
+  const handlePriorityChange = async (next: Priority) => {
+    if (!report || next === report.priority) return;
+    setError('');
+    setPriorityLoading(true);
+    try {
+      const updated = await updateReportPriority(report.report_id, next);
+      setReport(updated);
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message);
+      else setError('Error actualitzant la prioritat.');
+    } finally {
+      setPriorityLoading(false);
+    }
+  };
+
+  const closeTransitionModal = () => {
+    setTransitionModal(null);
+    setModalComment('');
+    setModalTechId('');
+  };
+
+  const submitTransitionModal = async () => {
+    if (!report || !transitionModal) return;
+
+    const trimmed = modalComment.trim();
+    if (transitionModal === 'REJECT' && !trimmed) {
+      setError('Cal indicar el motiu del rebuig.');
+      return;
+    }
+    if (transitionModal === 'REASSIGN' && !modalTechId) {
+      setError('Cal seleccionar un nou tècnic per reassignar la incidència.');
+      return;
+    }
+
     setError('');
     setActionLoading(true);
     try {
       const updated = await transitionReport(
         report.report_id,
-        event,
-        event === 'ASSIGN' ? selectedTechId : undefined,
+        transitionModal,
+        transitionModal === 'REASSIGN' ? modalTechId : undefined,
+        trimmed || undefined,
       );
       setReport(updated);
+      closeTransitionModal();
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
       else setError('Error en la transició.');
@@ -164,6 +251,33 @@ export default function ReportDetailPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Priority — editable per ADMIN. La incidència es crea amb MEDIUM
+              per defecte; aquest selector és la palanca per ajustar-ho quan
+              l'admin revisa la incidència acabada d'arribar. */}
+          <div className="rounded-xl bg-white p-6 ring-1 ring-gray-200">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Prioritat
+            </h2>
+            <div className="flex items-center gap-3">
+              <PriorityBadge priority={report.priority} />
+              <select
+                value={report.priority}
+                onChange={(e) => handlePriorityChange(e.target.value as Priority)}
+                disabled={priorityLoading}
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+              >
+                {PRIORITY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {priorityLoading && (
+              <p className="mt-2 text-xs text-gray-500">Actualitzant…</p>
+            )}
+          </div>
+
           {/* Details */}
           <div className="rounded-xl bg-white p-6 ring-1 ring-gray-200">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Detalls</h2>
@@ -208,39 +322,32 @@ export default function ReportDetailPage() {
                 <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>
               )}
 
-              {/* Technician selector for ASSIGN */}
-              {report.state === 'OPEN' && (
-                <div className="mb-3">
-                  <label className="mb-1 block text-xs font-medium text-gray-600">
-                    Seleccionar tècnic
-                  </label>
-                  <select
-                    value={selectedTechId}
-                    onChange={(e) => setSelectedTechId(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  >
-                    <option value="">— Escull un tècnic —</option>
-                    {technicians.map((t) => (
-                      <option key={t.user_id} value={t.user_id}>
-                        {t.name} {t.surname} (@{t.nickname})
-                      </option>
+              {/* Quan la incidència és OPEN, mostrem la mateixa llista que a la pàgina
+                  d'Assignacions: tècnics recomanats (match de workCategory) i resta,
+                  cada fila amb el seu botó "Assignar". */}
+              {report.state === 'OPEN' ? (
+                <TechnicianAssignmentList
+                  technicians={technicians}
+                  category={report.category}
+                  onAssign={handleAssignTechnician}
+                  assigningTechId={assigningTechId}
+                />
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {availableEvents
+                    .filter((event) => event !== 'ASSIGN')
+                    .map((event) => (
+                      <button
+                        key={event}
+                        onClick={() => handleTransition(event)}
+                        disabled={actionLoading}
+                        className={`w-full rounded-lg px-3 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${eventLabels[event].className}`}
+                      >
+                        {actionLoading ? '...' : eventLabels[event].label}
+                      </button>
                     ))}
-                  </select>
                 </div>
               )}
-
-              <div className="flex flex-col gap-2">
-                {availableEvents.map((event) => (
-                  <button
-                    key={event}
-                    onClick={() => handleTransition(event)}
-                    disabled={actionLoading}
-                    className={`w-full rounded-lg px-3 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${eventLabels[event].className}`}
-                  >
-                    {actionLoading ? '...' : eventLabels[event].label}
-                  </button>
-                ))}
-              </div>
             </div>
           )}
         </div>
@@ -254,6 +361,162 @@ export default function ReportDetailPage() {
           onClose={() => setLightboxIdx(null)}
         />
       )}
+
+      {/* Modal de transició amb comentari/tècnic.
+          - REJECT: comentari obligatori (motiu del rebuig).
+          - REASSIGN des d'IN_PROGRESS: cal triar un nou tècnic + comentari opcional. */}
+      {transitionModal && (
+        <TransitionModal
+          event={transitionModal}
+          report={report}
+          technicians={technicians}
+          comment={modalComment}
+          onCommentChange={setModalComment}
+          techId={modalTechId}
+          onTechChange={setModalTechId}
+          loading={actionLoading}
+          error={error}
+          onCancel={closeTransitionModal}
+          onConfirm={submitTransitionModal}
+        />
+      )}
+    </div>
+  );
+}
+
+interface TransitionModalProps {
+  event: IncidentEvent;
+  report: Report;
+  technicians: Technician[];
+  comment: string;
+  onCommentChange: (v: string) => void;
+  techId: string;
+  onTechChange: (v: string) => void;
+  loading: boolean;
+  error: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+function TransitionModal({
+  event,
+  report,
+  technicians,
+  comment,
+  onCommentChange,
+  techId,
+  onTechChange,
+  loading,
+  error,
+  onCancel,
+  onConfirm,
+}: TransitionModalProps) {
+  const isReject = event === 'REJECT';
+  const isReassign = event === 'REASSIGN';
+  // Excloem el tècnic actualment assignat de la llista de reassignació; no té
+  // sentit "reassignar" a la mateixa persona.
+  const eligibleTechnicians = isReassign
+    ? technicians.filter((t) => t.user_id !== report.assignedTo?.user_id)
+    : technicians;
+
+  const title = isReject ? 'Rebutjar incidència' : 'Reassignar incidència';
+  const description = isReject
+    ? 'Indica el motiu pel qual rebutges la resolució. L\'autor i el tècnic veuran aquest missatge al timeline.'
+    : 'Tria un nou tècnic per continuar la incidència. Pots adjuntar un comentari per explicar el canvi.';
+  const confirmLabel = isReject ? 'Rebutjar' : 'Reassignar';
+  const confirmClass = isReject
+    ? 'bg-red-600 hover:bg-red-700'
+    : 'bg-gray-700 hover:bg-gray-800';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+            <p className="mt-1 text-sm text-gray-500">{description}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            aria-label="Tancar"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>
+        )}
+
+        {isReassign && (
+          <div className="mb-4">
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Nou tècnic
+            </label>
+            <select
+              value={techId}
+              onChange={(e) => onTechChange(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">— Selecciona un tècnic —</option>
+              {eligibleTechnicians.map((t) => (
+                <option key={t.user_id} value={t.user_id}>
+                  {t.name} {t.surname} (@{t.nickname})
+                  {t.workCategory === report.category ? ' · recomanat' : ''}
+                </option>
+              ))}
+            </select>
+            {report.assignedTo && (
+              <p className="mt-1.5 text-xs text-gray-500">
+                Actualment assignat a <span className="font-medium">{report.assignedTo.name}</span>{' '}
+                (@{report.assignedTo.nickname}).
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="mb-4">
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+            {isReject ? 'Motiu del rebuig' : 'Comentari (opcional)'}
+            {isReject && <span className="ml-1 text-red-500">*</span>}
+          </label>
+          <textarea
+            value={comment}
+            onChange={(e) => onCommentChange(e.target.value)}
+            rows={4}
+            placeholder={
+              isReject
+                ? 'Ex: La fotografia no demostra que el problema estigui resolt…'
+                : 'Ex: El tècnic original està de baixa, traspasso la feina a…'
+            }
+            className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={loading}
+            className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 disabled:opacity-50"
+          >
+            Cancel·lar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${confirmClass}`}
+          >
+            {loading ? '...' : confirmLabel}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

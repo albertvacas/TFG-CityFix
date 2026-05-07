@@ -1,7 +1,20 @@
 import { Response } from 'express';
 import { prisma } from '../config/db';
 import { AuthRequest } from '../types';
-import { revokeUser, getPrivilegedUsers } from '../services/user';
+import { revokeUser, getPrivilegedUsers, updateOwnProfile } from '../services/user';
+import { Category } from '../../generated/prisma';
+
+const VALID_CATEGORIES: Category[] = [
+  'LIGHTING',
+  'URBAN_FURNITURE',
+  'PAVEMENT',
+  'CLEANING',
+  'GREEN_AREAS',
+  'SIGNAGE',
+  'ACCESSIBILITY',
+  'TECHNOLOGY',
+  'OTHER',
+];
 
 export const getProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -16,6 +29,9 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
         role: true,
         active: true,
         points: true,
+        position: true,
+        workCategory: true,
+        company: true,
         createdAt: true,
       },
     });
@@ -26,6 +42,41 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
     }
     res.json({ user });
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * PATCH /api/users/profile — Actualitza el perfil propi.
+ * Per al mòbil: el tècnic pot modificar position/company/workCategory; tots els
+ * usuaris poden modificar name/surname. Camps no enviats es deixen com estan.
+ */
+export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { name, surname, position, company, workCategory } = req.body ?? {};
+
+    if (workCategory !== undefined && workCategory !== null && !VALID_CATEGORIES.includes(workCategory)) {
+      res.status(400).json({ error: `workCategory invàlida. Vàlides: ${VALID_CATEGORIES.join(', ')}` });
+      return;
+    }
+
+    const user = await updateOwnProfile(req.user!.userId, {
+      name,
+      surname,
+      position,
+      company,
+      workCategory,
+    });
+    res.json({ user });
+  } catch (error: any) {
+    if (error.message?.includes('no trobat')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    if (error.message?.includes('buit') || error.message?.includes('buits')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     res.status(500).json({ error: error.message });
   }
 };

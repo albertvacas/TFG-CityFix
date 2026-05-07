@@ -5,6 +5,19 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../../src/context/AuthContext';
+import type { ReportCategory } from '../../src/types';
+
+const CATEGORY_OPTIONS: { value: ReportCategory; label: string }[] = [
+  { value: 'LIGHTING', label: 'Il·luminació' },
+  { value: 'URBAN_FURNITURE', label: 'Mobiliari urbà' },
+  { value: 'PAVEMENT', label: 'Via pública' },
+  { value: 'CLEANING', label: 'Neteja' },
+  { value: 'GREEN_AREAS', label: 'Zones verdes' },
+  { value: 'SIGNAGE', label: 'Senyalització' },
+  { value: 'ACCESSIBILITY', label: 'Accessibilitat' },
+  { value: 'TECHNOLOGY', label: 'Tecnologia' },
+  { value: 'OTHER', label: 'Altres' },
+];
 
 const UAB_DOMAINS = ['uab.cat', 'autonoma.cat', 'e-campus.uab.cat'];
 
@@ -14,6 +27,8 @@ const isUabEmail = (email: string) => {
 };
 
 type RegisterMode = 'student' | 'invited';
+
+const CATEGORY_VALUES = CATEGORY_OPTIONS.map((c) => c.value) as [ReportCategory, ...ReportCategory[]];
 
 const buildSchema = (mode: RegisterMode) =>
   z.object({
@@ -33,6 +48,12 @@ const buildSchema = (mode: RegisterMode) =>
     token: mode === 'invited'
       ? z.string().min(1, 'El codi d\'invitació és obligatori')
       : z.string().optional(),
+    // Camps específics de tècnic — només mostrats en mode "invited". Els
+    // ignorem si la invitació és ADMIN; el backend ja s'encarrega d'aplicar-los
+    // només a TECHNICAL.
+    position: z.string().optional(),
+    company: z.string().optional(),
+    workCategory: z.enum(CATEGORY_VALUES).optional(),
   });
 
 type FormData = {
@@ -42,6 +63,9 @@ type FormData = {
   email: string;
   password: string;
   token?: string;
+  position?: string;
+  company?: string;
+  workCategory?: ReportCategory;
 };
 
 export default function RegisterScreen() {
@@ -55,14 +79,38 @@ export default function RegisterScreen() {
     handleSubmit,
     formState: { errors },
     reset,
+    watch,
+    setValue,
   } = useForm<FormData>({
     resolver: zodResolver(buildSchema(mode)) as any,
-    defaultValues: { name: '', surname: '', nickname: '', email: '', password: '', token: '' },
+    defaultValues: {
+      name: '',
+      surname: '',
+      nickname: '',
+      email: '',
+      password: '',
+      token: '',
+      position: '',
+      company: '',
+      workCategory: undefined,
+    },
   });
+
+  const watchedCategory = watch('workCategory');
 
   const switchMode = (m: RegisterMode) => {
     setMode(m);
-    reset({ name: '', surname: '', nickname: '', email: '', password: '', token: '' });
+    reset({
+      name: '',
+      surname: '',
+      nickname: '',
+      email: '',
+      password: '',
+      token: '',
+      position: '',
+      company: '',
+      workCategory: undefined,
+    });
   };
 
   const onSubmit = async (data: FormData) => {
@@ -78,6 +126,11 @@ export default function RegisterScreen() {
       if (mode === 'invited') {
         payload.token = data.token;
         payload.role = 'TECHNICAL'; // El backend ignora això i usa invite.role
+        // Camps específics de tècnic. Els enviem buits si no estan omplerts; el
+        // backend els persisteix només si la invitació és per TECHNICAL.
+        if (data.position?.trim()) payload.position = data.position.trim();
+        if (data.company?.trim()) payload.company = data.company.trim();
+        if (data.workCategory) payload.workCategory = data.workCategory;
       }
       await register(payload);
     } catch (err: any) {
@@ -257,6 +310,93 @@ export default function RegisterScreen() {
               <Text className="mt-2 text-xs text-gray-400">
                 Demana el codi a un administrador per registrar-te com a personal tècnic.
               </Text>
+            </View>
+          )}
+
+          {/* Camps específics de tècnic — només visibles en mode invited.
+              El backend els persisteix únicament si la invitació és per TECHNICAL;
+              per a un ADMIN s'ignoren silenciosament. */}
+          {mode === 'invited' && (
+            <View className="mb-2">
+              <View className="mb-3 mt-2 flex-row items-center">
+                <View className="h-px flex-1 bg-gray-200" />
+                <Text className="mx-3 text-xs font-semibold uppercase text-gray-400">
+                  Dades del tècnic (opcional)
+                </Text>
+                <View className="h-px flex-1 bg-gray-200" />
+              </View>
+
+              {/* Position */}
+              <View className="mb-4">
+                <Text className="mb-1.5 text-sm font-medium text-gray-700">Posició / Càrrec</Text>
+                <Controller
+                  control={control}
+                  name="position"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <TextInput
+                      className="rounded-xl border border-gray-300 px-4 py-3.5 text-base text-gray-900"
+                      placeholder="ex: Electricista, Jardiner…"
+                      placeholderTextColor="#9ca3af"
+                      value={value ?? ''}
+                      onChangeText={onChange}
+                      onBlur={onBlur}
+                    />
+                  )}
+                />
+              </View>
+
+              {/* Company */}
+              <View className="mb-4">
+                <Text className="mb-1.5 text-sm font-medium text-gray-700">Empresa</Text>
+                <Controller
+                  control={control}
+                  name="company"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <TextInput
+                      className="rounded-xl border border-gray-300 px-4 py-3.5 text-base text-gray-900"
+                      placeholder="ex: Eulen, Ferrovial…"
+                      placeholderTextColor="#9ca3af"
+                      value={value ?? ''}
+                      onChangeText={onChange}
+                      onBlur={onBlur}
+                    />
+                  )}
+                />
+              </View>
+
+              {/* Work category (chips) */}
+              <View className="mb-4">
+                <Text className="mb-1.5 text-sm font-medium text-gray-700">Àmbit principal</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {CATEGORY_OPTIONS.map((opt) => {
+                    const selected = watchedCategory === opt.value;
+                    return (
+                      <Pressable
+                        key={opt.value}
+                        onPress={() =>
+                          setValue('workCategory', selected ? undefined : opt.value, {
+                            shouldDirty: true,
+                          })
+                        }
+                        className="rounded-full px-3 py-1.5"
+                        style={{
+                          backgroundColor: selected ? '#1d4ed8' : '#f3f4f6',
+                        }}
+                      >
+                        <Text
+                          className="text-xs font-medium"
+                          style={{ color: selected ? '#ffffff' : '#374151' }}
+                        >
+                          {opt.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text className="mt-2 text-xs text-gray-400">
+                  Determina quines incidències et recomanarà l'admin per assignar-te.
+                </Text>
+              </View>
             </View>
           )}
 

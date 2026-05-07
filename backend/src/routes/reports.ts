@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { authenticate } from '../middlewares/auth';
-import { create, getById, getAll, transition, uploadImage, addComment } from '../controllers/report';
+import { authenticate, authorize } from '../middlewares/auth';
+import { create, getById, getAll, transition, updatePriority, uploadImage, addComment } from '../controllers/report';
 
 export const reportRouter = Router();
 
@@ -25,6 +25,9 @@ reportRouter.get('/:id', getById);
 
 // PATCH /api/reports/:id/transition - Transicionar estado (RBAC validado por XState)
 reportRouter.patch('/:id/transition', transition);
+
+// PATCH /api/reports/:id/priority - Actualitzar prioritat (només ADMIN)
+reportRouter.patch('/:id/priority', authorize('ADMIN'), updatePriority);
 
 // POST /api/reports/:id/images - Pujar una imatge (INITIAL / RESOLUTION / PROGRESS)
 reportRouter.post('/:id/images', upload.single('image'), uploadImage);

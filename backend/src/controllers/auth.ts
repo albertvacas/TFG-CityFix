@@ -3,7 +3,7 @@ import { registerUser, loginUser } from '../services/auth';
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, name, surname, password, nickname, role, token } = req.body;
+    const { email, name, surname, password, nickname, role, token, position, company, workCategory } = req.body;
 
     if (!email || !name || !surname || !password || !nickname) {
       res.status(400).json({ error: 'Faltan campos obligatorios' });
@@ -16,7 +16,18 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const user = await registerUser({ email, name, surname, password, nickname, role, token });
+    const user = await registerUser({
+      email,
+      name,
+      surname,
+      password,
+      nickname,
+      role,
+      token,
+      position,
+      company,
+      workCategory,
+    });
     res.status(201).json(user);
   } catch (error: any) {
     if (error.code === 'P2002') {

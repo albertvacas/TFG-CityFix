@@ -67,6 +67,12 @@ export const incidentMachine = setup({
           target: 'VALIDATED',
           guard: 'isTechnicalOrAdmin',
         },
+        // Reassignació en marxa: si el tècnic actual no pot completar la feina,
+        // l'admin pot tornar-la a 'ASSIGNED' apuntant a un altre tècnic.
+        REASSIGN: {
+          target: 'ASSIGNED',
+          guard: 'isAdmin',
+        },
       },
     },
     VALIDATED: {

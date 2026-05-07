@@ -1,5 +1,6 @@
 import { prisma } from '../config/db';
 import { envs } from '../config/env';
+import { UpdateProfileDTO } from '../types';
 
 /**
  * Revoca l'accés d'un usuari ADMIN o TECHNICAL.
@@ -52,6 +53,64 @@ export const revokeUser = async (userId: string) => {
   });
   const { password, ...result } = updatedUser;
   return result;
+};
+
+/**
+ * Actualitza el perfil propi de l'usuari autenticat (ús des del mòbil).
+ * Els camps de tècnic (position, company, workCategory) només es persisteixen
+ * si l'usuari té rol TECHNICAL — per a STUDENT i ADMIN s'ignoren silenciosament.
+ * Els camps `null` esborren explícitament el valor; els `undefined` no toquen res.
+ */
+export const updateOwnProfile = async (userId: string, data: UpdateProfileDTO) => {
+  const user = await prisma.user.findUnique({ where: { user_id: userId } });
+  if (!user) throw new Error('Usuari no trobat');
+
+  const updateData: Record<string, unknown> = {};
+
+  if (data.name !== undefined) {
+    const trimmed = data.name.trim();
+    if (!trimmed) throw new Error('El nom no pot estar buit');
+    updateData.name = trimmed;
+  }
+  if (data.surname !== undefined) {
+    const trimmed = data.surname.trim();
+    if (!trimmed) throw new Error('Els cognoms no poden estar buits');
+    updateData.surname = trimmed;
+  }
+
+  // Camps de tècnic: només els apliquem si l'usuari és TECHNICAL.
+  if (user.role === 'TECHNICAL') {
+    if (data.position !== undefined) {
+      updateData.position = data.position === null ? null : data.position.trim() || null;
+    }
+    if (data.company !== undefined) {
+      updateData.company = data.company === null ? null : data.company.trim() || null;
+    }
+    if (data.workCategory !== undefined) {
+      updateData.workCategory = data.workCategory;
+    }
+  }
+
+  const updated = await prisma.user.update({
+    where: { user_id: userId },
+    data: updateData,
+    select: {
+      user_id: true,
+      email: true,
+      name: true,
+      surname: true,
+      nickname: true,
+      role: true,
+      active: true,
+      points: true,
+      position: true,
+      workCategory: true,
+      company: true,
+      createdAt: true,
+    },
+  });
+
+  return updated;
 };
 
 /**

@@ -1,13 +1,23 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  ClipboardList,
+  Wrench,
+  CheckCircle2,
+  Map as MapIcon,
+  KeyRound,
+  LogOut,
+  type LucideIcon,
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: '📊' },
-  { to: '/reports', label: 'Incidències', icon: '📋' },
-  { to: '/assignments', label: 'Assignacions', icon: '🧰' },
-  { to: '/validations', label: 'Validacions', icon: '✅' },
-  { to: '/map', label: 'Mapa', icon: '🗺️' },
-  { to: '/invites', label: 'Invitacions', icon: '🔑' },
+const navItems: { to: string; label: string; icon: LucideIcon }[] = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/reports', label: 'Incidències', icon: ClipboardList },
+  { to: '/assignments', label: 'Assignacions', icon: Wrench },
+  { to: '/validations', label: 'Validacions', icon: CheckCircle2 },
+  { to: '/map', label: 'Mapa', icon: MapIcon },
+  { to: '/invites', label: 'Invitacions', icon: KeyRound },
 ];
 
 export default function Layout() {
@@ -23,23 +33,26 @@ export default function Layout() {
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`
-              }
-            >
-              <span>{item.icon}</span>
-              {item.label}
-            </NavLink>
-          ))}
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <Icon size={18} strokeWidth={2} />
+                {item.label}
+              </NavLink>
+            );
+          })}
         </nav>
 
         <div className="border-t border-gray-200 p-4">
@@ -49,8 +62,9 @@ export default function Layout() {
           </div>
           <button
             onClick={logout}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
           >
+            <LogOut size={16} strokeWidth={2} />
             Tancar sessió
           </button>
         </div>

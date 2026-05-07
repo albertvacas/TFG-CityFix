@@ -1,8 +1,9 @@
 import { View, Text, Pressable, ScrollView, SafeAreaView, Alert } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../src/context/AuthContext';
 import { useReports } from '../../../src/hooks/useReports';
-import { getReportsByRole } from '../../../src/mocks/reports';
+import { getReportsByRole, CATEGORY_LABELS } from '../../../src/mocks/reports';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -87,9 +88,34 @@ export default function ProfileScreen() {
           <DataRow label="Membre des de" value={new Date(user.createdAt).toLocaleDateString('ca-ES')} />
         </View>
 
+        {/* Dades professionals (només tècnics) */}
+        {user.role === 'TECHNICAL' && (
+          <>
+            <Text className="text-xs font-semibold text-gray-500 uppercase mb-2 mt-2">
+              Dades professionals
+            </Text>
+            <View className="rounded-2xl bg-white border border-gray-100 mb-5">
+              <DataRow label="Posició" value={user.position ?? '—'} />
+              <Divider />
+              <DataRow label="Empresa" value={user.company ?? '—'} />
+              <Divider />
+              <DataRow
+                label="Àmbit"
+                value={user.workCategory ? CATEGORY_LABELS[user.workCategory] : '—'}
+              />
+            </View>
+          </>
+        )}
+
         {/* Opcions */}
         <Text className="text-xs font-semibold text-gray-500 uppercase mb-2 mt-2">Configuració</Text>
         <View className="rounded-2xl bg-white border border-gray-100 mb-6">
+          <OptionRow
+            icon="person-outline"
+            label="Editar perfil"
+            onPress={() => router.push('/settings')}
+          />
+          <Divider />
           <OptionRow icon="notifications-outline" label="Notificacions" />
           <Divider />
           <OptionRow icon="language-outline" label="Idioma" trailing="Català" />
@@ -133,9 +159,19 @@ function DataRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function OptionRow({ icon, label, trailing }: { icon: IoniconName; label: string; trailing?: string }) {
+function OptionRow({
+  icon,
+  label,
+  trailing,
+  onPress,
+}: {
+  icon: IoniconName;
+  label: string;
+  trailing?: string;
+  onPress?: () => void;
+}) {
   return (
-    <Pressable className="flex-row items-center px-4 py-3.5 active:bg-gray-50">
+    <Pressable onPress={onPress} className="flex-row items-center px-4 py-3.5 active:bg-gray-50">
       <Ionicons name={icon} size={18} color="#374151" style={{ marginRight: 12 }} />
       <Text className="text-sm text-gray-800 flex-1">{label}</Text>
       {trailing && <Text className="text-sm text-gray-400 mr-2">{trailing}</Text>}

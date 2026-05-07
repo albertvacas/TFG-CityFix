@@ -2,7 +2,7 @@ import { createActor } from 'xstate';
 import { prisma } from '../config/db';
 import { incidentMachine } from '../machines/stateMachine';
 import { CreateReportDTO, IncidentEvent } from '../types';
-import { Role, State, TypeImage } from '../../generated/prisma';
+import { Priority, Role, State, TypeImage } from '../../generated/prisma';
 import { uploadReportImage } from './storage';
 
 // Include compartit perquè totes les respostes de Report tinguin la mateixa forma
@@ -54,14 +54,28 @@ export const getAllReports = async (filters?: {
   assignedToId?: string;
   dateFrom?: Date;
   dateTo?: Date;
+  /** Visibilitat segons rol del peticionari. Si es passa, s'aplica un filtre
+   *  implícit a la consulta perquè estudiants i tècnics només vegin les seves. */
+  viewer?: { role: Role; userId: string };
 }) => {
   // dateTo s'interpreta com a fi de dia (inclusiu)
   const dateToInclusive = filters?.dateTo
     ? new Date(filters.dateTo.getTime() + 24 * 60 * 60 * 1000 - 1)
     : undefined;
 
+  // Filtre implícit per visibilitat segons rol. ADMIN no afegeix res (veu tot).
+  // Per a STUDENT i TECHNICAL combinem els filtres explícits del client (que
+  // l'admin pot fer servir des del dashboard) amb la restricció de propietat.
+  const viewerScope =
+    filters?.viewer?.role === 'STUDENT'
+      ? { createdById: filters.viewer.userId }
+      : filters?.viewer?.role === 'TECHNICAL'
+      ? { assignedToId: filters.viewer.userId }
+      : {};
+
   return prisma.report.findMany({
     where: {
+      ...viewerScope,
       ...(filters?.state && { state: filters.state }),
       ...(filters?.createdById && { createdById: filters.createdById }),
       ...(filters?.assignedToId && { assignedToId: filters.assignedToId }),
@@ -80,6 +94,25 @@ export const getAllReports = async (filters?: {
     },
     include: REPORT_LIST_INCLUDE,
     orderBy: { createdAt: 'desc' },
+  });
+};
+
+/**
+ * Actualitza només la prioritat d'una incidència. Pensat per a l'admin quan
+ * revisa la incidència acabada de crear (els reports entren sempre amb el
+ * default MEDIUM). No toca cap altre camp i no genera transició d'estat.
+ */
+export const updateReportPriority = async (reportId: string, priority: Priority) => {
+  const exists = await prisma.report.findUnique({
+    where: { report_id: reportId },
+    select: { report_id: true },
+  });
+  if (!exists) throw new Error('Incidencia no encontrada');
+
+  return prisma.report.update({
+    where: { report_id: reportId },
+    data: { priority },
+    include: REPORT_INCLUDE,
   });
 };
 
@@ -123,6 +156,12 @@ export const transitionReport = async (
     data: {
       state: newState,
       ...(event === 'ASSIGN' && options?.assignedToId ? { assignedToId: options.assignedToId } : {}),
+      // REASSIGN des de IN_PROGRESS torna a ASSIGNED i ha d'apuntar al nou tècnic;
+      // des de ASSIGNED torna a OPEN i alliberem l'assignació (assignedToId = null).
+      ...(event === 'REASSIGN' && newState === 'ASSIGNED' && options?.assignedToId
+        ? { assignedToId: options.assignedToId }
+        : {}),
+      ...(event === 'REASSIGN' && newState === 'OPEN' ? { assignedToId: null } : {}),
       ...(newState === 'CLOSED' ? { resolvedAt: new Date() } : {}),
     },
     include: REPORT_INCLUDE,

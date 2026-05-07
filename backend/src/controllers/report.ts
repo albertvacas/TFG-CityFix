@@ -1,7 +1,9 @@
 import { Response } from 'express';
 import { AuthRequest, IncidentEvent } from '../types';
 import * as reportService from '../services/report';
-import { State, TypeImage } from '../../generated/prisma';
+import { Priority, State, TypeImage } from '../../generated/prisma';
+
+const VALID_PRIORITIES: Priority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
 export const create = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -51,9 +53,34 @@ export const getAll = async (req: AuthRequest, res: Response): Promise<void> => 
       assignedToId,
       dateFrom: dateFrom && !isNaN(dateFrom.getTime()) ? dateFrom : undefined,
       dateTo: dateTo && !isNaN(dateTo.getTime()) ? dateTo : undefined,
+      // Visibilitat per rol: STUDENT veu només les seves; TECHNICAL només les
+      // assignades; ADMIN veu tot. Es força al backend per evitar que un usuari
+      // pugui llegir incidències d'altres cridant l'API directament.
+      viewer: { role: req.user!.role, userId: req.user!.userId },
     });
     res.json({ reports });
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updatePriority = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { priority } = req.body ?? {};
+    if (!priority || !VALID_PRIORITIES.includes(priority)) {
+      res.status(400).json({
+        error: `Prioritat invàlida. Vàlides: ${VALID_PRIORITIES.join(', ')}`,
+      });
+      return;
+    }
+
+    const report = await reportService.updateReportPriority(req.params.id as string, priority);
+    res.json({ report });
+  } catch (error: any) {
+    if (error.message?.includes('no encontrada') || error.message?.includes('no trobada')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
     res.status(500).json({ error: error.message });
   }
 };
@@ -75,6 +102,13 @@ export const transition = async (req: AuthRequest, res: Response): Promise<void>
 
     if (event === 'ASSIGN' && !assignedToId) {
       res.status(400).json({ error: 'ASSIGN requiere "assignedToId"' });
+      return;
+    }
+
+    // REJECT obliga a deixar constància del motiu — el comentari és la traça
+    // que l'autor i el tècnic veuran al timeline.
+    if (event === 'REJECT' && (typeof comment !== 'string' || !comment.trim())) {
+      res.status(400).json({ error: 'REJECT requereix un comentari amb el motiu del rebuig' });
       return;
     }
 

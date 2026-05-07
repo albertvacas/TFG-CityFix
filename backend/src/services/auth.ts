@@ -47,6 +47,17 @@ export const registerUser = async (data: RegisterDTO) => {
       );
     }
 
+    // Camps de tècnic: només s'apliquen si la invitació és per a un TECHNICAL.
+    // Per a ADMIN els ignorem encara que el client els enviï (defensiu).
+    const technicalFields =
+      invite.role === 'TECHNICAL'
+        ? {
+            position: data.position?.trim() || null,
+            company: data.company?.trim() || null,
+            workCategory: data.workCategory ?? null,
+          }
+        : {};
+
     // Transacció atòmica: crear usuari (amb inviteId) + marcar invitació com USED
     const [user] = await prisma.$transaction([
       prisma.user.create({
@@ -58,6 +69,7 @@ export const registerUser = async (data: RegisterDTO) => {
           nickname: data.nickname,
           role: invite.role,
           inviteId: invite.id,
+          ...technicalFields,
         },
       }),
       prisma.invite.update({

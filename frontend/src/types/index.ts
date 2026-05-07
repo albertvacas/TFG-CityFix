@@ -92,10 +92,12 @@ export interface Invite {
 }
 
 // Map of valid transitions per state (for the admin UI)
+// REASSIGN des d'IN_PROGRESS torna a ASSIGNED (escollint un nou tècnic), per
+// als casos en què el tècnic original no pot continuar amb la feina.
 export const STATE_TRANSITIONS: Record<State, IncidentEvent[]> = {
   OPEN: ['ASSIGN'],
   ASSIGNED: ['START', 'REASSIGN'],
-  IN_PROGRESS: ['RESOLVE'],
+  IN_PROGRESS: ['RESOLVE', 'REASSIGN'],
   VALIDATED: ['CLOSE', 'REJECT'],
   CLOSED: [],
 };

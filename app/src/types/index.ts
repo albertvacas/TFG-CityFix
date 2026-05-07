@@ -9,6 +9,10 @@ export interface User {
   role: Role;
   active: boolean;
   points: number;
+  // Camps específics per a tècnics (null per a STUDENT/ADMIN)
+  position?: string | null;
+  workCategory?: ReportCategory | null;
+  company?: string | null;
   createdAt: string;
 }
 
@@ -25,6 +29,18 @@ export interface RegisterPayload {
   nickname: string;
   token?: string; // Codi d'invitació (només TECHNICAL/ADMIN)
   role?: 'ADMIN' | 'TECHNICAL'; // Opcional, només si s'usa token
+  // Camps de tècnic (només s'envien al backend si la invitació és TECHNICAL)
+  position?: string;
+  company?: string;
+  workCategory?: ReportCategory;
+}
+
+export interface UpdateProfilePayload {
+  name?: string;
+  surname?: string;
+  position?: string | null;
+  company?: string | null;
+  workCategory?: ReportCategory | null;
 }
 
 export type ReportState = 'OPEN' | 'ASSIGNED' | 'IN_PROGRESS' | 'VALIDATED' | 'CLOSED';
