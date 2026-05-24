@@ -62,6 +62,16 @@ export type Comment = Prisma.CommentModel
  */
 export type Image = Prisma.ImageModel
 /**
+ * Model PushToken
+ * 
+ */
+export type PushToken = Prisma.PushTokenModel
+/**
+ * Model Notification
+ * 
+ */
+export type Notification = Prisma.NotificationModel
+/**
  * Model Invite
  * 
  */

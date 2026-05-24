@@ -83,6 +83,8 @@ model User {
   reportsCreated  Report[]  @relation("CreatedReports")
   comments        Comment[]
   imagesUploaded  Image[]   @relation("UploadedImages")
+  pushTokens      PushToken[]
+  notifications   Notification[]
 
   createdAt       DateTime  @default(now())
   lastModified    DateTime  @updatedAt
@@ -105,6 +107,7 @@ model Report{
 
   images          Image[]
   comments        Comment[]
+  notifications   Notification[]
 
   createdById     String
   createdBy       User     @relation("CreatedReports", fields: [createdById], references: [user_id])
@@ -115,6 +118,14 @@ model Report{
   createdAt       DateTime  @default(now())
   lastModified    DateTime @updatedAt
   resolvedAt      DateTime?
+
+  // Camps escrits pel sistema d'auto-classificació IA (Sprint 6).
+  // `aiSummary` és un resum d'una línia per facilitar lectura ràpida al
+  // dashboard. `aiClassifiedAt` serveix tant d'auditoria (sabem que va ser
+  // l'IA i quan) com de senyal per al frontend (no executar de nou si ja
+  // està classificat).
+  aiSummary       String?
+  aiClassifiedAt  DateTime?
 
   @@map("reports")
 }
@@ -157,6 +168,54 @@ enum InviteStatus {
   PENDING
   USED
   REVOKED
+}
+
+enum NotificationType {
+  REPORT_ASSIGNED
+  REPORT_REASSIGNED
+  REPORT_UNASSIGNED
+  REPORT_STATE_CHANGED
+}
+
+// Token de push d'un dispositiu concret. Un usuari pot tenir-ne diversos
+// (mòbil + tauleta). Quan Expo ens diu que un token està mort (DeviceNotRegistered)
+// el marquem com a inactiu en lloc d'esborrar-lo, per tenir traça històrica.
+model PushToken {
+  id           String   @id @default(uuid())
+  token        String   @unique
+  platform     String   // 'ios' | 'android'
+  active       Boolean  @default(true)
+
+  userId       String
+  user         User     @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+
+  @@index([userId, active])
+  @@map("push_tokens")
+}
+
+// Notificació persistida al sistema (campana / badge / historial in-app).
+// El push és efímer: si el dispositiu està apagat es perd. Aquesta taula és
+// la "veritat" del que ha passat i el que el client mòbil ha de mostrar.
+model Notification {
+  id           String           @id @default(uuid())
+  type         NotificationType
+  title        String
+  body         String
+  read         Boolean          @default(false)
+
+  userId       String
+  user         User             @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+
+  reportId     String?
+  report       Report?          @relation(fields: [reportId], references: [report_id], onDelete: SetNull)
+
+  createdAt    DateTime         @default(now())
+
+  @@index([userId, read, createdAt])
+  @@map("notifications")
 }
 
 model Invite {

@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -10,6 +11,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useEventStream, type DashboardEvent } from '../hooks/useEventStream';
+import { emitLiveEvent } from '../hooks/liveEvents';
 
 const navItems: { to: string; label: string; icon: LucideIcon }[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -22,6 +25,17 @@ const navItems: { to: string; label: string; icon: LucideIcon }[] = [
 
 export default function Layout() {
   const { user, logout } = useAuth();
+
+  // Re-emet cada esdeveniment SSE al bus intern perquè les pàgines hi puguin
+  // reaccionar (refrescar la llista, actualitzar el mapa, etc.) sense
+  // necessitat d'obrir-se cada una la seva connexió.
+  const onEvent = useCallback((event: DashboardEvent) => {
+    emitLiveEvent(event);
+  }, []);
+
+  // Només els admins arriben aquí (passen per ProtectedRoute), però per
+  // precaució també condicionem per rol.
+  useEventStream(user?.role === 'ADMIN', onEvent);
 
   return (
     <div className="flex h-screen bg-gray-50">

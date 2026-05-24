@@ -53,6 +53,13 @@
           "photosPermission": "CityFix necessita accés a la galeria per adjuntar fotos a les teves incidències.",
           "cameraPermission": "CityFix necessita la càmera per fer fotos de les incidències que reportis o resolguis."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#4f46e5"
+        }
       ]
     ]
   }

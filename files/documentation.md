@@ -2478,3 +2478,894 @@ A més, el formulari de creació al mòbil prometia explícitament a l'usuari "L
 - **El `@default` del schema no equival a "té un valor sensat"**: que tots els reports tinguin `MEDIUM` no significa que el sistema estigui prioritzant; significa que ningú no ha decidit. Documentar-ho com a deute tècnic abans (la frase del mòbil) ha permès tancar-ho ràpidament quan ha tocat.
 - **Una promesa a la UI obliga a complir-la**: el text "la prioritat la determinarà l'administrador" del formulari mòbil era una promesa que el sistema no complia. Aquestes mentides petites s'acumulen i degraden la confiança del producte; pagar-les ràpid val la pena.
 
+---
+
+# Sprint 5: Sistema de Notificacions (Push + Temps Real)
+
+## Resum
+
+En aquest sprint s'ha construït el sistema de notificacions del producte, format per dues peces complementàries que comparteixen un únic punt d'orquestració al backend:
+
+1. **Push notifications** a la app mòbil (Expo Push Service) per a estudiants i tècnics. Els estudiants reben un avís cada vegada que la seva incidència canvia d'estat; els tècnics quan se'ls assigna o reassigna una tasca; tots dos quan algú comenta a una incidència en què hi estan implicats.
+2. **Server-Sent Events (SSE)** al panell web admin: el dashboard, la llista d'incidències i el mapa s'actualitzen en temps real quan passa qualsevol cosa rellevant al sistema, sense haver de refrescar la pàgina ni fer polling.
+
+El resultat és que **un únic esdeveniment de domini** (per exemple, "un admin ha assignat l'incident X al tècnic Y") es propaga simultàniament cap a tres destinataris: una entrada persistent a la base de dades (historial in-app), un push al mòbil del tècnic, i un missatge SSE als admins connectats al dashboard. Tot orquestrat per una sola capa de servei (`NotificationService`), invocada des dels punts del codi on ja passen els canvis (transicions del report, comentaris, canvi de prioritat).
+
+---
+
+## Context tecnològic
+
+### Push notifications i el paper d'Expo
+
+Quan parlem de "notificacions push" a un mòbil, en realitat parlem de dos serveis propietaris: **APNs** (Apple Push Notification service) per a iOS i **FCM** (Firebase Cloud Messaging) per a Android. Cada un requereix la seva pròpia integració, credencials i certificats — feina considerable per a un projecte que ja viu dins l'ecosistema Expo.
+
+**Expo Push Service** és un servei intermedi gratuït que actua de proxy entre la nostra API i APNs/FCM:
+
+```
+                  ┌───────────────────┐
+                  │  Backend (Node)   │
+                  └─────────┬─────────┘
+                            │ POST /push/send
+                            ▼
+                  ┌───────────────────┐
+                  │ Expo Push Service │
+                  └────┬─────────┬────┘
+                       │         │
+                  ┌────▼───┐ ┌───▼────┐
+                  │  APNs  │ │  FCM   │
+                  │ (iOS)  │ │(Android)│
+                  └────┬───┘ └───┬────┘
+                       │         │
+                       ▼         ▼
+                    ┌────────────────┐
+                    │  Dispositiu    │
+                    └────────────────┘
+```
+
+A canvi, les nostres apps no envien ni reben tokens nadius (FCM/APNs); fan servir un **Expo Push Token** amb el format `ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]` que identifica un dispositiu concret + la nostra app concreta. Aquest token és el que el mòbil envia al backend i el que el backend posa al camp `to` quan demana enviar una notificació.
+
+L'avantatge d'aquesta arquitectura és que la part del backend és **un sol endpoint HTTP**: cap SDK, cap certificat, cap `google-services.json` ni `apns-key.p8`. L'inconvenient és que estem afegint un servei tercer al camí crític — però Expo el manté gratuïtament i és la pràctica recomanada al seu ecosistema.
+
+### Server-Sent Events: streaming HTTP server→client
+
+**SSE** és una tecnologia W3C estàndard per fer streaming **unidireccional** del servidor al client sobre HTTP. Funciona així:
+
+- El client obre una connexió HTTP normal (GET) a un endpoint amb `Content-Type: text/event-stream`.
+- El servidor manté la connexió oberta i escriu missatges amb un format simple (`event: nom\ndata: {...}\n\n`) cada vegada que té alguna cosa per dir.
+- El navegador exposa l'API `EventSource` que parsega aquest format automàticament i dispara listeners.
+
+Comparat amb WebSockets / Socket.io, SSE té tres virtuts importants per al nostre cas d'ús:
+
+| | SSE | Socket.io |
+|---|---|---|
+| Direcció | Server→client només | Bidireccional |
+| Protocol | HTTP estàndard | Protocol propi sobre WS |
+| Reconnexió automàtica | **Sí, gratuïta** | Sí, configurable |
+| Travessa proxies | Trivial (és HTTP) | Pot fallar |
+| Llibreria al client | **Cap** (`EventSource` és nadiu) | `socket.io-client` |
+
+Com que el dashboard admin **només rep esdeveniments** (no n'envia), no necessitem la bidireccionalitat de WebSockets. Triant SSE evitem una dependència i un protocol propietari, i obtenim reconnexió automàtica sense escriure-la nosaltres.
+
+L'única limitació real d'`EventSource`: **no permet capçaleres personalitzades**, així que no podem enviar `Authorization: Bearer ...`. Aquí és on entra el sistema de tickets efímers (vegeu més avall).
+
+---
+
+## Visió general de l'arquitectura
+
+L'esquema de la propagació d'un esdeveniment, de principi a fi, té aquest aspecte:
+
+```
+            [acció d'un usuari]
+                    │
+                    ▼
+       ┌────────────────────────┐
+       │  controller (REST)     │
+       │  /reports/:id/transition │
+       └─────────────┬──────────┘
+                     │
+                     ▼
+       ┌────────────────────────┐
+       │  reportService         │
+       │  - valida XState       │
+       │  - prisma.update       │
+       └─────────────┬──────────┘
+                     │   (després del commit)
+                     ▼
+       ┌────────────────────────┐
+       │  NotificationService   │
+       │  onReportTransitioned()│
+       └──┬──────────┬─────────┬┘
+          │          │         │
+          ▼          ▼         ▼
+     ┌────────┐  ┌──────┐  ┌─────────┐
+     │ DB     │  │ Expo │  │ SSE hub │
+     │ insert │  │ Push │  │ broad-  │
+     │ notif. │  │ API  │  │ cast    │
+     └────────┘  └───┬──┘  └────┬────┘
+                     │          │
+                     ▼          ▼
+                 ┌──────┐   ┌────────┐
+                 │ Móvil│   │ Admin  │
+                 │ Push │   │ Web    │
+                 └──────┘   └────────┘
+```
+
+Una sola crida (`onReportTransitioned`) acaba: persistint a la BD, enviant push al mòbil del destinatari i emetent un esdeveniment SSE als admins. Els tres canals comparteixen el mateix payload conceptual ("el report X ha canviat d'estat"), però cada un l'expressa al seu format natiu.
+
+---
+
+## Catàleg de mòduls i mètodes
+
+Per facilitar la lectura, abans de la descripció en detall, aquí teniu un cop d'ull a TOT el que s'ha creat amb una frase per cada element:
+
+### Backend
+
+#### `services/expoPush.ts`
+Capa fina sobre l'API HTTP de Expo Push Service.
+- `sendPushBatch(messages)` — envia un lot de fins a 100 missatges a `/push/send` i retorna els tickets (acceptació d'encolat).
+- `fetchReceipts(ids)` — consulta `/push/getReceipts` per saber el resultat real d'un enviament minuts després.
+- `isValidExpoPushToken(token)` — regex que descarta tokens malformats abans de fer crides HTTP.
+
+#### `services/sse.ts`
+Hub en memòria de connexions SSE.
+- `addClient(userId, role, res)` — registra un client nou, configura les capçaleres SSE, envia handshake i retorna una funció de cleanup.
+- `broadcastToRole(role, event)` — escriu l'esdeveniment a tots els clients connectats amb el rol indicat.
+- `getConnectedCount()` — utilitari opcional per a debug / mètriques.
+- *(intern)* heartbeat cada 25 s perquè els proxies no tallin la connexió per inactivitat.
+
+#### `services/streamTicket.ts`
+Tickets efímers d'un sol ús per autenticar la connexió SSE sense exposar el JWT.
+- `issueTicket(userId, role)` — genera 32 bytes aleatoris i els associa a un `{userId, role, expiresAt = ara+60s}`.
+- `consumeTicket(ticket)` — valida i esborra el ticket; retorna les dades de l'usuari o `null` si invàlid/caducat.
+- *(intern)* neteja periòdica dels tickets caducats no consumits.
+
+#### `services/notification.ts` (NotificationService)
+Punt únic d'orquestració de notificacions. **És el mòdul central de tot el sprint**.
+- `onReportCreated(reportId)` — emet SSE als admins quan es crea una incidència.
+- `onReportPriorityChanged(reportId, priority)` — emet SSE als admins quan un admin canvia la prioritat.
+- `onReportTransitioned({...})` — la funció més complexa: persisteix notificació, envia push i emet SSE per a una transició d'estat. Decideix recipients en funció de l'event (`ASSIGN`, `REASSIGN`, `START`, `RESOLVE`, etc.).
+- `onCommentAdded({...})` — persisteix notificació i envia push als implicats (autor del report + tècnic assignat), excloent l'autor del comentari. SSE als admins.
+- `registerPushToken({userId, token, platform})` — upsert d'un Expo Push Token a la taula `push_tokens`.
+- `unregisterPushToken(token)` — desactiva un token (al fer logout o quan Expo informa que està mort).
+- `listNotifications(userId, options)` — historial in-app per al mòbil; ordena per data desc, opcional `unreadOnly`.
+- `countUnreadNotifications(userId)` — comptador per a un badge de campana.
+- `markNotificationRead(id, userId)` — marca una notificació com a llegida (filtrant per userId per evitar que un usuari marqui les d'un altre).
+- `markAllNotificationsRead(userId)` — botó "marcar totes".
+- *(intern)* `persistAndPush({...})` — primitiva de baix nivell: crea la fila a `notifications` i envia push als tokens actius del destinatari, desactivant tokens si Expo retorna `DeviceNotRegistered`.
+- *(intern)* `notifyAdminsSse(event)` — wrapper amb captura d'errors sobre `broadcastToRole(ADMIN, ...)`.
+
+#### `controllers/events.ts`
+- `ticket(req, res)` — bescanvia el JWT validat pel middleware `authenticate` per un ticket efímer.
+- `stream(req, res)` — accepta el ticket de la query, el consumeix i obre la connexió SSE.
+
+#### `controllers/notification.ts`
+- `registerToken(req, res)` — POST /tokens. Valida format del token i la plataforma.
+- `unregisterToken(req, res)` — DELETE /tokens/:token.
+- `list(req, res)` — GET /notifications, retorna l'historial i el comptador de no llegides.
+- `markRead(req, res)` — PATCH /notifications/:id/read.
+- `markAllRead(req, res)` — PATCH /notifications/read-all.
+
+#### `routes/events.ts`
+Munta `POST /api/events/ticket` (amb `authenticate`) i `GET /api/events/stream` (sense, perquè EventSource no envia headers).
+
+#### `routes/notifications.ts`
+Munta el grup `/api/notifications` amb `authenticate` per a totes les rutes.
+
+#### Models nous a `prisma/schema.prisma`
+- `enum NotificationType` — categories de notificació (`REPORT_ASSIGNED`, `REPORT_REASSIGNED`, `REPORT_UNASSIGNED`, `REPORT_STATE_CHANGED`).
+- `model PushToken` — un token Expo per dispositiu, amb camp `active` per soft-delete.
+- `model Notification` — historial persistent de notificacions enviades a un usuari.
+
+### Frontend web (panel admin)
+
+#### `api/events.ts`
+- `requestStreamTicket()` — fa POST /api/events/ticket reutilitzant el JWT que axios injecta automàticament. Retorna l'string del ticket.
+
+#### `hooks/useEventStream.ts`
+- `useEventStream(enabled, onEvent)` — hook que demana ticket, obre `EventSource`, registra listeners per a cada tipus d'esdeveniment, i gestiona reconnexió manual quan la connexió cau (perquè el ticket ja ha estat consumit).
+- `type DashboardEvent` — discriminated union amb tots els tipus d'esdeveniment que pot rebre el dashboard. Ha de coincidir amb el `SseEvent` del backend.
+
+#### `hooks/liveEvents.ts`
+- `emitLiveEvent(event)` — el `Layout` ho crida per redistribuir un esdeveniment SSE entre les pàgines.
+- `useLiveEvent(type, handler)` — hook que les pàgines fan servir per subscriure's a un tipus concret d'esdeveniment.
+- *(intern)* un `EventTarget` singleton que connecta emisor i subscriptors sense provocar re-renders globals.
+
+#### Modificacions a pàgines existents
+- `components/Layout.tsx` — afegit `useEventStream(...)` (la connexió s'obre un sol cop aquí).
+- `pages/DashboardPage.tsx` — refactoritzat el fetch a una funció `refetch`, subscrita a `report.created` i `report.transitioned`.
+- `pages/ReportsListPage.tsx` — `refetch` subscrit a `report.created`, `report.transitioned`, `report.priority_changed`.
+- `pages/MapPage.tsx` — `refetch` subscrit a `report.created` i `report.transitioned` (markers / heatmap).
+- `pages/ReportDetailPage.tsx` — refetch del report obert subscrit a `transitioned`, `priority_changed` i `comment_added`, **filtrant per `event.reportId === id`**.
+
+### App mòbil
+
+#### `api/notifications.ts`
+- `registerPushToken(token, platform)` — POST /notifications/tokens. Cridat un cop l'usuari concedeix permís.
+- `unregisterPushToken(token)` — DELETE /notifications/tokens/:token. Cridat al fer logout.
+- `listNotifications(options)` — GET /notifications per a la pantalla d'inbox.
+- `markNotificationRead(id)` / `markAllNotificationsRead()` — PATCH per als botons de la campana.
+
+#### `hooks/usePushNotifications.ts`
+- `usePushNotifications(userId)` — hook principal. Quan canvia l'`userId`, demana permisos, obté el token Expo i el registra al backend. Al primer muntatge registra també els dos listeners globals.
+- `detachPushToken()` — funció (no hook) cridada des d'AuthContext en el logout per desactivar el token al backend abans d'esborrar el JWT.
+- *(intern)* `Notifications.setNotificationHandler({...})` — configuració global perquè les notificacions es vegin també amb l'app oberta.
+- *(intern)* `ensureAndroidChannel()` — crea el canal Android per defecte (Android 8+).
+- *(intern)* `obtainPushToken()` — orquestra la petició de permisos i la crida a `getExpoPushTokenAsync`.
+
+#### Modificacions a fitxers existents
+- `app/_layout.tsx` — afegida la crida `usePushNotifications(user?.user_id ?? null)`.
+- `src/context/AuthContext.tsx` — afegida la crida a `detachPushToken()` ABANS d'esborrar el JWT al logout.
+- `app.json` — afegit el plugin `expo-notifications` amb icona i color de marca.
+- `src/types/index.ts` — afegits `NotificationType` i `NotificationItem` per tipar respostes.
+
+---
+
+## Backend en detall
+
+### 1. Models de dades — `prisma/schema.prisma`
+
+S'han afegit dos models nous i un enum:
+
+```prisma
+enum NotificationType {
+  REPORT_ASSIGNED
+  REPORT_REASSIGNED
+  REPORT_UNASSIGNED
+  REPORT_STATE_CHANGED
+}
+
+model PushToken {
+  id          String   @id @default(uuid())
+  token       String   @unique
+  platform    String   // 'ios' | 'android'
+  active      Boolean  @default(true)
+  userId      String
+  user        User     @relation(...)
+  createdAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  type        NotificationType
+  title       String
+  body        String
+  read        Boolean          @default(false)
+  userId      String
+  reportId    String?
+  createdAt   DateTime         @default(now())
+}
+```
+
+Decisions de disseny:
+
+- **`PushToken` és una taula a part, no un camp del User**. Un usuari pot tenir múltiples dispositius (mòbil personal + tauleta) i cadascun té el seu token Expo. Modelar-ho com a 1-a-N permet enviar la notificació a tots els dispositius alhora i desactivar-los individualment quan Expo ens informi que algun ha caducat.
+- **El camp `active` substitueix l'esborrat dur**. Quan Expo retorna `DeviceNotRegistered` (l'usuari ha desinstal·lat l'app), no esborrem la fila: la marquem `active=false`. Així conservem traça històrica per debugar i podem reactivar-la si l'usuari torna a instal·lar amb el mateix token.
+- **`Notification` és el "historial" persistent del que ha passat**. El push és efímer: si el dispositiu està apagat es perd. Aquesta taula és el que mostraria una pantalla de "campana" / "novetats" dins l'app, i el que un client podria consultar amb `GET /api/notifications`. Té un índex `(userId, read, createdAt)` perquè la consulta típica ("dóna'm les meves notificacions, no llegides primer, ordenades per data") sigui eficient.
+- **`reportId` és opcional**. Si en el futur afegim notificacions desvinculades d'una incidència (avisos del sistema, manteniment), ja queda obert.
+
+#### Migració
+
+S'ha aplicat la migració `20260509193823_add_notifications_and_push_tokens`. Per un detall que ja apareix en sprints anteriors (la columna `geography` PostGIS de `reports` no existeix a la shadow database de Prisma), la generació automàtica via `migrate dev` falla. La hem creat manualment amb el SQL equivalent i l'hem aplicat amb `prisma db execute`, registrant-la després al log de migracions amb `prisma migrate resolve --applied`. El resultat és exactament el mateix; només canvia el camí.
+
+### 2. Client Expo Push API — `services/expoPush.ts`
+
+Un mòdul mínim que parla amb dues URLs d'Expo. No fem servir l'SDK oficial `expo-server-sdk` perquè el nostre ús és senzill i evitem una dependència.
+
+#### Tickets vs receipts: per què la diferència importa
+
+Quan crides `/push/send`, Expo accepta el missatge i el posa a una cua interna; et retorna un ticket dient "rebut, t'ho processo". Que un ticket tingui `status: 'ok'` **no vol dir que la notificació hagi arribat al dispositiu** — només que Expo l'ha encolada i la intentarà entregar. Per saber el resultat real cal consultar el `getReceipts` amb l'`id` del ticket uns minuts més tard. És el receipt qui ens dirà "entregada", "el dispositiu està desregistrat", "Apple ha rebutjat el missatge", etc.
+
+A la nostra implementació, el cas més important — `DeviceNotRegistered` — ja apareix immediatament al ticket en alguns errors, així que el detectem aviat. Per a una implementació industrial caldria un cron job que llegís els rebuts pendents i actualitzés tokens caducats; per al TFG, el mecanisme actual cobreix els casos visibles.
+
+### 3. SSE Hub — `services/sse.ts`
+
+És el "directori telefònic" dels admins connectats al dashboard. Manté un `Map<id, SseClient>` en memòria amb totes les connexions vives. Configura les capçaleres SSE estàndard (`text/event-stream`, `Connection: keep-alive`, `Cache-Control: no-cache`, `X-Accel-Buffering: no` perquè nginx no faci buffering).
+
+#### Heartbeat
+
+Cada 25 segons emetem una línia de comentari (`: heartbeat ...\n\n`) a tots els clients. És un truc senzill però necessari: si la connexió queda massa estona inactiva, alguns proxies (nginx, els load balancers cloud) la tallen. El comentari és invisible al client (`EventSource` l'ignora) però manté el túnel obert.
+
+#### Per què en memòria i no en Redis
+
+Aquesta solució funciona perfectament mentre tinguem **una sola instància del backend**. Si en algun moment escalem horitzontalment a N rèpliques, dues d'elles no compartirien el Map i un esdeveniment emès per la rèplica A no arribaria als admins connectats a la rèplica B. La solució estàndard és substituir el Map en memòria per un canal Redis pub/sub. Per al TFG, una sola instància cobreix l'escala demostrable; deixem la migració documentada com a treball futur.
+
+### 4. Tickets efímers per al stream — `services/streamTicket.ts`
+
+Aquest és el component més interessant des del punt de vista de seguretat.
+
+**El problema**: l'API `EventSource` del navegador **no admet capçaleres HTTP personalitzades**. No podem enviar `Authorization: Bearer <jwt>` quan obrim la connexió SSE. Tres solucions possibles:
+- (A) JWT directament al query param. Més simple, però **els query params apareixen als logs del servidor i es propaguen via `Referer`**. Si un proxy o un atac log-poisoning els captura, el JWT (vàlid hores o dies) està compromès.
+- (B) Usar `fetch` amb `ReadableStream` en lloc d'`EventSource`. Permet headers, però perdem la reconnexió automàtica i hem d'escriure'ns el parser SSE.
+- (C) Token efímer d'un sol ús a la query.
+
+Hem triat **(C)**, que és el patró estàndard en sistemes professionals. El flux:
+
+```
+1. Client (admin autenticat amb JWT)
+        │ POST /api/events/ticket  (header Authorization: Bearer <jwt>)
+        ▼
+2. Backend: valida JWT, genera token aleatori de 32 bytes,
+   l'associa a {userId, role, expiresAt = ara+60s} dins un Map
+        │ resposta: { ticket: "abc123...", expiresInSeconds: 60 }
+        ▼
+3. Client obre EventSource("/api/events/stream?ticket=abc123...")
+        │
+        ▼
+4. Backend (endpoint GET /stream): consumeix el ticket
+   (l'esborra del Map; un sol ús), comprova que no hagi caducat,
+   accepta o tanca la connexió.
+```
+
+Garanties que ofereix:
+
+- **El JWT mai viatja a la query string**, només al header `Authorization` del POST inicial.
+- Si un proxy o un log captura el ticket, **és inservible**: ja s'ha consumit (un sol ús) o caduca al minut.
+- Si l'atacant fa replay del POST per obtenir un ticket nou, ho veuríem perquè requereix el JWT — torna a ser el problema d'origen, no el problema del SSE.
+
+Aquesta és la mateixa filosofia que utilitzen serveis com **AWS Cognito** per autoritzar connexions WebSocket: bescanviar credencials de llarga vida per credencials de curta vida just abans d'establir el túnel.
+
+### 5. NotificationService — `services/notification.ts`
+
+És el cor de tot el sistema. Tothom que vol enviar una notificació passa per aquí. La capa pública parla **el llenguatge del domini** (no diu "envia push a l'usuari X", diu "ha passat un esdeveniment Y"). El servei decideix qui ha de saber-ho i com.
+
+Detalls concrets de cada esdeveniment:
+
+- **`onReportCreated`**: per requisit de producte, l'autor del report no s'auto-notifica. Només SSE als admins.
+- **`onReportTransitioned`**: la més complexa. Decideix recipients en funció de l'event XState i de qui era assignat abans:
+    - L'**autor del report** rep notificació en **qualsevol** transició (ASSIGN, START, REASSIGN, RESOLVE, REJECT, CLOSE). Aquesta és una regla deliberada del producte: l'estudiant ha d'estar al corrent de tot el cicle de vida de la seva incidència.
+    - Si l'event és `ASSIGN`, el nou tècnic rep "Nova tasca assignada".
+    - Si l'event és `REASSIGN`, el tècnic anterior rep "Tasca retirada" i el nou (si n'hi ha) "Tasca reassignada a tu".
+    - **Regla universal**: l'actor (qui ha fet la transició) mai es notifica a si mateix. Aquesta regla és el que evita que un tècnic rebi push de la seva pròpia acció `START`, per exemple.
+- **`onCommentAdded`**: notifica el creador del report i el tècnic assignat — exclou l'autor del comentari. Si l'autor és el mateix estudiant, només notifica el tècnic; si és el tècnic, només l'estudiant; si és un admin, els dos.
+
+#### Per què `Promise.allSettled` i no `await` directe
+
+Tot el que sigui xarxa externa (Expo Push, SSE) pot fallar per causes externes a la nostra request: Expo està caigut, un client web ha tancat la pestanya entre l'`emit` i el `write`, etc. Si hi posem `await` directe sense gestió, una transició d'estat fallaria perquè una notificació secundària no s'ha pogut entregar — exactament el que **no** volem. Resoldre amb `Promise.allSettled` significa: "intenta-ho tot, però no aturis res si una branca falla".
+
+A més, les crides al servei es fan amb `void notificationService.onReportTransitioned(...)` (no `await`) **després del commit de Prisma**: així la response HTTP del controlador es retorna a l'usuari sense esperar a que Expo respongui. Si Expo tarda 800 ms, el tècnic que ha clicat "iniciar" no se n'adona.
+
+### 6. Endpoints REST
+
+Tres rutes noves al backend:
+
+#### `/api/events`
+
+- `POST /api/events/ticket` (autenticat amb JWT, només ADMIN): emet un ticket efímer.
+- `GET /api/events/stream?ticket=...`: consumeix el ticket i obre el stream SSE. Aquesta ruta no passa pel middleware `authenticate` perquè EventSource no pot enviar headers; l'auth es fa via ticket.
+
+#### `/api/notifications` (totes autenticades)
+
+- `POST /tokens` `{ token, platform }`: registra (o reactiva) un Expo Push Token.
+- `DELETE /tokens/:token`: desactiva un token (al fer logout al mòbil).
+- `GET /` `?unreadOnly=true&limit=50`: llista les notificacions de l'usuari, amb comptador de no llegides.
+- `PATCH /:id/read`: marca una notificació concreta com a llegida.
+- `PATCH /read-all`: marca totes les no llegides com a llegides.
+
+### 7. Integració amb el flux existent
+
+El `NotificationService` és invocat des de `services/report.ts` en quatre punts:
+
+- `createReport()` → `onReportCreated(reportId)`
+- `updateReportPriority()` → `onReportPriorityChanged(reportId, priority)`
+- `transitionReport()` → `onReportTransitioned({...})`. Aquest és el cas més delicat: cal capturar l'estat i l'`assignedToId` ANTERIORS abans de fer l'update, perquè el `previousAssigneeId` és necessari per emetre notificacions correctes a una `REASSIGN` (sabem a qui se li ha "retirat" la tasca).
+- `addComment()` → `onCommentAdded({...})`. També cal capturar el títol del report per al cos del missatge.
+
+Cap d'aquestes crides té `await`: són tipus `void` i no bloquegen la response HTTP.
+
+---
+
+## Frontend web (panel admin) en detall
+
+### 1. Hook `useEventStream` — `hooks/useEventStream.ts`
+
+Encapsula tot el cicle de vida de la connexió SSE:
+
+1. Demana un ticket via `requestStreamTicket()` (POST /api/events/ticket).
+2. Obre `new EventSource('/api/events/stream?ticket=...')`. Com que Vite proxa `/api` al backend, no cal hardcoder host.
+3. Registra listeners per a cada tipus d'esdeveniment (`report.created`, `report.transitioned`, etc.). Han de coincidir noms-per-noms amb el que emet el backend.
+4. Si la connexió es trenca, l'auto-reconnexió nadiua d'`EventSource` no ens serveix perquè el ticket ja s'ha consumit. Ho gestionem manualment: en `onerror`, tanquem, esperem 3 s i tornem a fer tot el flux (ticket nou + connexió nova).
+
+Subtilesa important: el handler que rep el component es passa per **ref**, no per dependència de l'`useEffect`. Si el passéssim com a dependència, cada re-render del component (canvi de filtre, etc.) tancaria i tornaria a obrir la connexió. Amb el ref, el handler es manté actualitzat sense provocar reconnexió.
+
+### 2. Bus d'esdeveniments interns — `hooks/liveEvents.ts`
+
+Una capa molt fina entre `useEventStream` (que s'invoca un sol cop al `Layout`) i les pàgines individuals (Dashboard, Reports, Map...) que volen reaccionar als esdeveniments. Internament és un `EventTarget` global més dos helpers.
+
+Per què un `EventTarget` i no un `Context` de React: les pàgines que reaccionen (refrescant dades) no necessiten re-renderitzar quan arriba un esdeveniment — només cridar una funció. Un Context provocaria re-renders globals innecessaris.
+
+### 3. Cablejat al `Layout`
+
+Al `Layout`, una sola línia connecta tot:
+
+```tsx
+useEventStream(user?.role === 'ADMIN', (event) => emitLiveEvent(event));
+```
+
+A partir d'aquí, qualsevol pàgina pot subscriure's amb una línia:
+
+```tsx
+useLiveEvent('report.transitioned', refetch);
+```
+
+### 4. Pàgines cablejades
+
+- **DashboardPage**: refresca les agregacions quan arriben `report.created` i `report.transitioned` (que afecten estat i timeline). No reacciona a comentaris ni canvis de prioritat (no afecten les mètriques mostrades).
+- **ReportsListPage**: refresca la llista a `created`, `transitioned` i `priority_changed`.
+- **MapPage**: refresca markers/heatmap a `created` i `transitioned`.
+- **ReportDetailPage**: refresca el report **només si** l'esdeveniment és sobre el report obert (`event.reportId === id`). Reacciona a `transitioned`, `priority_changed` i `comment_added`. Aquesta és la pantalla on el temps real és més visible: si dos admins miren el mateix report i un l'assigna, l'altre veu el canvi sense recarregar.
+
+---
+
+## App mòbil en detall
+
+### 1. Dependències i configuració
+
+S'han instal·lat dues llibreries via `expo install`:
+- `expo-notifications`: permisos, gestió de tokens i listeners.
+- `expo-device`: detecta si l'aparell és físic. Push notifications només funcionen en dispositius reals (excepte algun cas amb Android i FCM al simulador).
+
+A `app.json` s'hi ha afegit el plugin `expo-notifications` amb el color de marca i la icona. Cap més canvi de permisos: Android i iOS demanen permís dinàmicament a la primera invocació.
+
+### 2. Hook `usePushNotifications` — `hooks/usePushNotifications.ts`
+
+És el punt d'entrada únic per al cicle de vida de les push al mòbil. Té tres responsabilitats:
+
+#### a) Configuració global
+
+```ts
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+```
+
+Per defecte, `expo-notifications` **no mostra** la notificació si arriba amb l'app oberta — assumeix que la pròpia UI ja reflecteix el canvi. Aquí forcem mostrar-la perquè per al nostre cas (canvi d'estat a una incidència que potser l'usuari no està mirant) sí que volem que aparegui el banner.
+
+#### b) Canal Android
+
+Android 8+ requereix que cada notificació estigui associada a un "canal" amb importància, vibració i color. Creem un canal `default` global. Si en el futur volem agrupar (per exemple, separar "tasques noves" de "comentaris"), n'afegim més.
+
+#### c) Obtenció i registre del token
+
+Quan canvia l'`userId` (login), executem aquest flux:
+
+1. Comprovem `Device.isDevice` — si som a un emulador, sortim sense error.
+2. Demanem permisos amb `getPermissionsAsync()` + `requestPermissionsAsync()`.
+3. Cridem `Notifications.getExpoPushTokenAsync({ projectId })`. Internament:
+    - El SDK demana un token a Expo Push Service.
+    - Expo li dóna un `ExponentPushToken[xxx]` lligat al `projectId` de la nostra app + l'identificador del dispositiu.
+4. Enviem el token al backend amb `POST /notifications/tokens` (axios ja injecta el JWT).
+
+#### d) Listeners
+
+Dos listeners globals:
+- `addNotificationReceivedListener`: dispara quan arriba una notif amb l'app **en primer pla**. Per ara només loguegem; aquí podrem actualitzar un badge global o disparar un toast custom.
+- `addNotificationResponseReceivedListener`: dispara quan l'usuari **tapeja** una notificació, indistintament de si l'app estava oberta, en background o tancada. Llegim `notification.request.content.data.reportId` i fem `router.push('/incident/[id]')` — això és el deep-link clàssic de qualsevol app mòbil.
+
+### 3. Logout
+
+Al `AuthContext.logout()` s'ha afegit una crida a `detachPushToken()` **abans** d'esborrar el JWT (perquè la crida `DELETE /notifications/tokens/:token` requereix autenticació). Si la crida falla (sense xarxa, etc.), no aturem el logout — desactivar el token és una operació best-effort.
+
+Per què cal: si l'usuari A fa logout i l'usuari B fa login al mateix dispositiu, sense aquest pas el dispositiu rebria les notificacions destinades a A.
+
+---
+
+## Flux complet, exemple end-to-end
+
+Imaginem el cas d'**un admin que assigna una incidència oberta a un tècnic**:
+
+1. L'admin (al panell web) selecciona el tècnic i prem "Assignar".
+2. El frontend fa `PATCH /api/reports/:id/transition` amb `{ event: 'ASSIGN', assignedToId: <userId> }`.
+3. Al controlador del backend, `transitionReport()` valida l'event amb XState, fa l'`UPDATE` a la BD i, després del commit, crida `notificationService.onReportTransitioned({...})`.
+4. `NotificationService`:
+    - Emet `broadcastToRole('ADMIN', { type: 'report.transitioned', from: 'OPEN', to: 'ASSIGNED', ... })`. Tots els admins connectats al stream reben el missatge.
+    - Crea una fila a `notifications` per al tècnic ("Nova tasca assignada").
+    - Crea una fila a `notifications` per a l'estudiant autor ("S'ha assignat la teva incidència").
+    - Cerca els tokens actius del tècnic i de l'estudiant; per cadascun, fa una crida `POST /push/send` a Expo amb el missatge corresponent.
+5. **Tècnic**: el seu mòbil mostra el banner "Nova tasca assignada — T'han assignat: Fanal trencat al carrer Gran". Tapeja → l'app obre `/incident/:id`.
+6. **Estudiant**: el seu mòbil mostra "S'ha assignat la teva incidència — Un tècnic s'encarregarà de: Fanal trencat al carrer Gran".
+7. **Admin (un altre, no el que ha fet l'acció)**: el seu dashboard veu en temps real que l'incidència ha desaparegut de la columna "Obertes" i ha aparegut a "Assignades". Si tenia el detall del report obert, els camps `state` i `assignedTo` s'han actualitzat sols.
+
+Tot això a partir d'**una sola request HTTP** de l'admin original, amb un únic punt d'orquestració (`NotificationService.onReportTransitioned`) que decideix recipients i canals.
+
+---
+
+## Decisions i compromisos
+
+- **SSE en lloc de Socket.io**: triat perquè el dashboard només rep esdeveniments. SSE evita una dependència, és HTTP estàndard i ja porta reconnexió automàtica. Documentat com a punt fort de cara a la defensa: una decisió d'arquitectura justificada amb criteri (mínim privilegi tecnològic), no per costum.
+- **Tickets efímers en lloc de JWT a la query**: el JWT és sensible i de llarga durada. El ticket és d'un sol ús i caduca al minut. La complexitat afegida (un endpoint més) val la pena per la garantia de seguretat.
+- **Notificacions persistides + push**: el push és efímer. Si el dispositiu està apagat o sense xarxa, la notificació es perd. Tenir la taula `notifications` ens permet (a) construir una pantalla de campana / inbox a futur, (b) auditar què s'ha enviat, (c) marcar com a llegit independentment de si el push s'ha mostrat.
+- **NotificationService com a únic punt d'orquestració**: els controladors no diuen "envia push al user X"; diuen "ha passat un esdeveniment de domini Y". Això vol dir que afegir un quart canal (correu electrònic, per exemple) o canviar el text d'un missatge no toca cap controlador. Tota la lògica de "qui ha de saber què" està concentrada en un sol fitxer.
+- **Sense cua de missatges (Redis/BullMQ)**: per al volum del TFG, `Promise.allSettled` directament a la request és suficient. Una cua és la peça que afegiríem si Expo comencés a fer servir minuts en respondre o si volguéssim retry automàtic. Documentat com a millora futura.
+- **Sense processador de receipts diferits**: actualment només reaccionem als errors immediats que retorna `sendPushBatch`. Per a una implementació industrial caldria un cron que cada 15 min llegís els rebuts pendents i actualitzés tokens caducats. És feina de polish per a un sprint posterior.
+- **EventTarget en memòria al SSE hub**: simple i suficient mentre el backend sigui mono-instància. Si escalem horitzontalment cal substituir-ho per Redis pub/sub. Documentat.
+
+---
+
+## Lliçons apreses
+
+- **EventSource és antic però brillant per a aquest cas**. La gent reflexa anar a WebSockets per "real-time" sense pensar si el cas és bidireccional. SSE té anys i resol aquest problema sense hipèrbole.
+- **El JWT no hauria d'aparèixer mai a un query string**. Costa temps adonar-se'n perquè "funciona" igualment, però és una pràctica que es queda als logs i al `Referer` per sempre. El patró del ticket efímer és una solució neta a un problema petit.
+- **Centralitzar la lògica de notificacions val la complexitat inicial**. La temptació era posar `prisma.notification.create` allà mateix on transiciona el report. Hauria deixat el codi escampat, amb regles diferents en cada lloc i sense un punt clar on afegir més canals al futur.
+- **L'asincronia "fora del camí crític" és una tècnica subtil però decisiva**. La diferència entre `await notificationService.onX(...)` i `void notificationService.onX(...)` són 100 ms invisibles a l'usuari final si tot va bé, però si Expo s'ha penjat són 30 segons d'espera o un timeout. Decidir-ho conscientment és part de pensar en latency budgets.
+- **Push notifications són una pell de plàtan amb tres capes**. APNs, FCM i Expo Push Service. Sense Expo, la integració hauria sigut un sprint sencer per ella sola. Aquí en una tarda hem tingut un sistema funcional. Aquest tipus de "outsource a un servei especialitzat" és una decisió que cal saber justificar.
+
+---
+
+# Sprint 6: Auto-classificació IA i Auto-assignació
+
+## Resum
+
+En aquest sprint s'han incorporat dues funcionalitats que tanquen el cicle complet de gestió d'incidències sense intervenció manual:
+
+1. **Auto-classificació IA**: cada nova incidència passa per un graf orquestrat amb **LangGraph** que crida **Google Gemini 2.0 Flash** amb el text + la imatge inicial i decideix automàticament la `category` correcta, la `priority` apropiada i un resum d'una línia. El resultat sobreescriu la categoria triada per l'usuari (l'IA actua com a revisor) i activa per primera vegada el camp `priority`, que fins ara es quedava sempre al default `MEDIUM`.
+
+2. **Auto-assignació en lot**: el panell admin pot seleccionar múltiples incidències OBERTES i prémer un sol botó perquè el sistema les reparteixi entre els tècnics seguint un algoritme de matching per `workCategory` + balanceig de càrrega.
+
+Les dues peces queden naturalment connectades: l'IA omple la categoria → l'auto-assignació la fa servir per triar tècnic. Junts, el flux complet d'una incidència ("alumne reporta → categoritzada → assignada a tècnic adient") pot passar **sense que cap admin hagi tocat res**, en uns 5 segons des de la creació.
+
+---
+
+## Context tecnològic
+
+### LangGraph i el patró d'orquestració
+
+**LangGraph** és la llibreria d'orquestració d'agents de l'ecosistema LangChain. La diferència amb LangChain a seques és que LangGraph modela el sistema com un **graf d'estats** amb nodes (passos) i arestes (transicions, possiblement condicionals). Això el fa adequat per a:
+
+- Fluxos amb branching condicional ("si la imatge no existeix, salta el node de visió").
+- Loops d'iteració ("torna a generar fins que validi").
+- Múltiples agents que comparteixen un estat global.
+- Observabilitat: cada pas és un node anomenat, no una funció anònima dins d'una callback.
+
+Per al nostre cas, hem dissenyat un graf molt senzill (2 nodes lineals) després de descartar deliberadament una arquitectura multi-agent més complexa. Justificació detallada a la secció "Decisions i compromisos".
+
+### Gemini 2.0 Flash
+
+És el model multimodal de Google amb generosos límits gratuïts a la seva API (Google AI Studio):
+
+- **15 RPM** (requests per minut), **1500 RPD** (requests per dia) al nivell gratuït.
+- Acepta **text + imatge** al mateix prompt — fa servir cross-attention multimodal nativament.
+- Latència típica: 1-2 segons per crida amb imatge.
+- **Sense targeta de crèdit** per al free tier — només compte de Google.
+- Format de resposta: text lliure (li demanem JSON al system prompt).
+
+És, ara mateix, l'únic model **gratuït + multimodal + via endpoint** que cobreix els tres requisits del sprint.
+
+---
+
+## Visió general de l'arquitectura
+
+```
+1. CREATE
+        Alumne crea report
+            │
+            ▼
+       prisma.create + setTimeout(3s)
+            │
+            ▼ ───────────────────────────────┐
+                                              │
+                                              ▼
+                                  ┌─────────────────────────┐
+                                  │   classifyReport()      │
+                                  │                         │
+                                  │  ┌───────────────────┐  │
+                                  │  │ LangGraph         │  │
+                                  │  │ ┌─────────────┐   │  │
+                                  │  │ │ Node 1: LLM │   │  │
+                                  │  │ │ Gemini 2.0  │   │  │
+                                  │  │ │ Flash       │   │  │
+                                  │  │ └──────┬──────┘   │  │
+                                  │  │        ▼          │  │
+                                  │  │ ┌─────────────┐   │  │
+                                  │  │ │ Node 2:     │   │  │
+                                  │  │ │ Rules       │   │  │
+                                  │  │ │ (validate + │   │  │
+                                  │  │ │ normalize)  │   │  │
+                                  │  │ └──────┬──────┘   │  │
+                                  │  └─────────┼─────────┘  │
+                                  │            ▼            │
+                                  │   prisma.update         │
+                                  │   broadcast SSE         │
+                                  └─────────────────────────┘
+                                              │
+                                              ▼
+                                  Admin dashboard refresca
+                                  (categoria + prioritat
+                                   + aiSummary visibles)
+
+2. AUTO-ASSIGN
+        Admin selecciona [r1, r2, r3] + clic "Auto-assignar"
+            │
+            ▼
+       autoAssignReports({ reportIds, actorId })
+            │
+            ▼
+       Per cada report en ordre:
+         filter techs amb workCategory == r.category
+           │
+           ├─ no candidats → skip + raó
+           │
+           └─ sort per (load asc, lastAssignedAt asc)
+                  │
+                  ▼
+              transitionReport(ASSIGN)  ← XState valida
+                  │
+                  ▼
+              load[chosen] += 1
+              SSE notifica admins
+              Push notif al tècnic
+            │
+            ▼
+       { assigned: [...], skipped: [...] } al frontend
+```
+
+---
+
+## Catàleg de mòduls i mètodes
+
+### Backend — Classificació IA
+
+#### `services/classification/llm.ts`
+Crida directa a Gemini Flash via LangChain.
+- `classifyWithGemini({title, description, userCategory, imageUrl})` — construeix el system prompt amb les categories i prioritats vàlides, envelopa la imatge en format multimodal (`{type: 'image_url', image_url: ...}`) i demana JSON estricte. Retorna el text cru perquè el node de regles el normalitzi.
+- *(intern)* `buildSystemPrompt()` — genera el prompt amb totes les categories i pistes humanes.
+- *(intern)* `CATEGORY_HINTS` i `PRIORITY_HINTS` — taules amb descripció breu de cada enum, donades al model perquè l'encerti millor.
+
+#### `services/classification/rules.ts`
+Capa determinista que normalitza la sortida del LLM.
+- `parseAndValidate(raw)` — parseja el JSON, normalitza categoria/prioritat al whitelist d'enums, retalla el resum a 100 caràcters. Si el JSON no parseja, retorna defaults segurs (`OTHER` / `MEDIUM`).
+- *(intern)* `stripMarkdown(raw)` — treu els blocs ```` ```json ... ``` ```` que Gemini afegeix de vegades.
+- *(intern)* `normalizeCategory`, `normalizePriority`, `normalizeSummary` — sanitització camp per camp.
+
+#### `services/classification/graph.ts`
+Definició del graf LangGraph.
+- `runClassificationGraph(input)` — API pública. Compila i executa el graf amb les dades del report; retorna l'objecte `ClassificationOutput` final.
+- *(intern)* `ClassificationState` — annotation de l'estat compartit entre nodes (input + raw + result).
+- *(intern)* `llmNode` — wrapper sobre `classifyWithGemini`.
+- *(intern)* `rulesNode` — wrapper sobre `parseAndValidate`.
+- *(intern)* la compilació del graf es fa una sola vegada al carregar el mòdul.
+
+#### `services/classification/index.ts`
+Punt d'entrada únic.
+- `classifyReport(reportId)` — fire-and-forget: llegeix el report (incloent imatge `INITIAL`), executa el graf, escriu `category`, `priority`, `aiSummary`, `aiClassifiedAt` a la BD, emet SSE `report.classified`. Captura tots els errors internament — un fallada de Gemini mai propaga al flux principal.
+
+### Backend — Auto-assignació
+
+#### `services/autoAssign.ts`
+- `autoAssignReports({reportIds, actorId})` — l'algoritme. Carrega tècnics elegibles (rol TECHNICAL, actius, amb `workCategory != null`), calcula càrrega actual de cadascun, itera els reports en ordre i n'assigna un per un. Manté un Map en memòria de càrrega que actualitza incrementalment perquè el següent report del lot no torni a anar al mateix tècnic. Cridat `transitionReport(ASSIGN)` per a cada assignació exitosa, així mantenim la integritat de la màquina d'estats XState. Retorna `{assigned: [...], skipped: [...]}` amb raons concretes.
+- `interface AutoAssignResult` — exportada perquè el frontend tipi la resposta.
+
+#### `controllers/autoAssign.ts`
+- `autoAssign(req, res)` — valida que `reportIds` sigui un array no buit de strings (límit defensiu de 50 per crida), crida el servei i retorna el resultat.
+
+#### Modificacions a fitxers existents
+- `services/sse.ts` — afegit `report.classified` al type union `SseEvent`.
+- `services/report.ts` — `createReport` dispara `classifyReport` amb `setTimeout(3000)` (perquè el mòbil tingui temps de pujar la imatge inicial).
+- `routes/reports.ts` — afegit `POST /reports/auto-assign` (ABANS de `/:id` perquè Express no l'interpreti com a id).
+- `prisma/schema.prisma` — afegits camps `aiSummary` (String?) i `aiClassifiedAt` (DateTime?) al model `Report`.
+- `config/env.ts` — afegida `GEMINI_API_KEY`. Si falta, només avís a la consola; la classificació es desactiva silenciosament i la resta de l'app funciona normalment.
+
+### Frontend web
+
+#### `api/reports.ts`
+- `autoAssignReports(reportIds)` — POST `/reports/auto-assign`. Retorna `AutoAssignResult` amb `assigned[]` i `skipped[]`.
+
+#### Modificacions a `pages/ReportsListPage.tsx`
+- **Multi-selecció**: `selectedIds: Set<string>` amb checkboxes per fila. Només es poden seleccionar reports amb `state === 'OPEN'`; els altres es renderitzen amb el checkbox deshabilitat.
+- **Header checkbox**: tri-state "select all visible OPEN".
+- **Botó "Auto-assignar (N)"**: apareix només quan hi ha selecció. Mostra spinner durant la crida.
+- **Sincronització auto**: quan canvia la llista (nous filtres, refresc SSE), neteja les seleccions que ja no són visibles.
+- **Modal de resultats**: després d'auto-assignar, mostra `assigned` (verd) i `skipped` (taronja) amb les raons.
+- **Visualització aiSummary**: subtítol indigo amb icona ✨ sota el títol del report a la taula.
+- **Listener SSE**: subscrit a `report.classified` per refrescar la llista quan l'IA acaba.
+
+#### Modificacions a `pages/ReportDetailPage.tsx`
+- **Badge "Classificat per IA"**: quan `aiClassifiedAt != null`. Tooltip amb la data exacta.
+- **Card "Resum IA"**: dins de la card de descripció, fons indigo, mostra `aiSummary`.
+- **Listener SSE**: subscrit a `report.classified` filtrant per id.
+
+#### Modificacions a `hooks/useEventStream.ts`
+- Afegit `report.classified` al type union i al `addEventListener`.
+
+#### Modificacions a `types/index.ts`
+- Afegits `aiSummary?` i `aiClassifiedAt?` al `Report`.
+
+### App mòbil
+
+#### Modificacions a `src/types/index.ts`
+- Afegits `aiSummary?` i `aiClassifiedAt?` al `Report` perquè quan el mòbil refresqui un detall (per exemple després d'una notificació), els tipus quadrin amb el que retorna el backend.
+
+---
+
+## Backend en detall
+
+### 1. Modelat dels camps IA
+
+S'han afegit dues columnes a la taula `reports`:
+
+```prisma
+aiSummary      String?
+aiClassifiedAt DateTime?
+```
+
+Decisions:
+- **Sobreescrivim `category` i `priority` directes** (no creem `aiCategory` / `aiPriority` separats). Un sol source of truth, més simple. La traçabilitat ve via `aiClassifiedAt`: si està posat, sabem que els valors van ser determinats per IA; si és null, els va triar l'usuari (o el sistema no l'ha pogut classificar).
+- **`aiSummary` és opcional**: en un report sense imatge i amb descripció molt curta, l'IA pot retornar resum buit. Si és null o `''`, el frontend simplement no el mostra.
+- **Sense camp `confidence`**: vam decidir auto-aplicar sempre, sense llindar de revisió humana. Afegir `confidence` sense que serveixi seria soroll.
+
+### 2. Per què LangGraph quan només tenim 2 nodes lineals
+
+Sincerament, un graf de 2 nodes lineals podria ser perfectament una funció:
+
+```ts
+const result = parseAndValidate(await classifyWithGemini(input));
+```
+
+Hem optat per LangGraph igualment per dues raons concretes:
+
+- **Extensibilitat real**: si en el futur volem afegir un node "router" inicial que decideixi si val la pena cridar Gemini (descripcions ambigües molt curtes, per exemple), o un node de "fallback" amb un model més barat quan Gemini no respon, ja tenim la infraestructura. Reescriure quan toqui hauria portat més temps que tenir-ho llest des d'ara.
+- **Observabilitat**: LangGraph s'integra natiu amb LangSmith (la plataforma de tracing de LangChain). Quan vulguem mesurar precisió a un dataset etiquetat o debugar una classificació concreta, els passos ja queden anomenats i traçables.
+
+És sobre-enginyeria petita, sí, però controlada i amb justificació. Documentat com a tal.
+
+### 3. El system prompt de Gemini
+
+Decisions clau del prompt:
+
+- **Llistem totes les categories AMB descripció humana**, no només els noms enum. Sense la pista "LIGHTING: enllumenat públic, fanals, làmpades" el model encerta menys.
+- **Demanem JSON estricte** sense markdown ni text al voltant. De totes maneres, el node de regles té un `stripMarkdown` defensiu perquè Gemini de vegades incompleix.
+- **Donem la categoria de l'usuari com a hint**, no com a ordre. Instruccions explícites: "si és coherent, mantén-la; si la imatge mostra una altra cosa, sobreescriu-la". Així respectem la intuïció humana però permetem la correcció.
+- **Tone temperature 0.1**: volem classificacions consistents, no creatives. Si li passes el mateix report dues vegades, ha de decidir el mateix.
+
+### 4. Per què `setTimeout(3000)` abans de classificar
+
+Hi ha un problema temporal: el mòbil crea el report en una crida HTTP (`POST /reports`) i puja la imatge en una segona crida (`POST /reports/:id/images`). Si disparem la classificació immediatament al `createReport`, l'IA classifica només amb text — perd la informació visual.
+
+Vam considerar tres alternatives:
+
+| Opció | Inconvenient |
+|---|---|
+| Classificar només quan arribi la imatge | Reports sense imatge mai es classifiquen |
+| Classificar a `createReport` AMB segona passada quan arribi imatge | 2 crides Gemini per report, doble cuota |
+| Delay de 3s post-create | "Hacky", però funciona en el 99% dels casos |
+
+Hem escollit la 3a com a compromís pragmàtic. Documentat com a deute tècnic; si en producció apareguessin casos on el mòbil tarda més de 3s a pujar imatge, refactor a opció 1 + fallback al cron job per a reports vells sense classificar.
+
+### 5. Algoritme d'auto-assignació
+
+La part interessant és l'**actualització incremental de càrrega**:
+
+```ts
+for (const reportId of params.reportIds) {
+  // ...
+  const chosen = candidates[0]!;  // el de menys càrrega
+  await transitionReport(...);    // ASSIGN via XState
+  chosen.load += 1;              // ← clau: actualitzem en memòria
+}
+```
+
+Sense aquest `chosen.load += 1`, si seleccionessis 5 reports de la mateixa categoria, **els 5 anirien al tècnic amb menys càrrega inicial**. Amb la actualització incremental, cada report veu la càrrega ja modificada pels anteriors del mateix lot, i el repartiment és equitatiu.
+
+El segon factor d'ordenació és **`lastAssignedAt`**: quan dos tècnics tenen la mateixa càrrega, dóna prioritat al que fa més temps que no rep res. És un round-robin suau que evita que el primer per ordre alfabètic sempre rebi els empats.
+
+### 6. Per què crida `transitionReport` i no fa l'`UPDATE` directe
+
+Tot i que des d'aquí podríem fer `prisma.report.update({ assignedToId, state: 'ASSIGNED' })` directament, fem servir `transitionReport(ASSIGN)`. Així:
+
+- La màquina d'estats XState valida la transició (només es pot ASSIGN des d'OPEN).
+- Es disparen les notificacions push del Sprint 5 (push al tècnic).
+- L'event SSE `report.transitioned` arriba als admins (refrescant els altres dashboards oberts).
+- Si aquesta lògica creix en el futur (per exemple, audit log per cada transició), només toca un fitxer.
+
+Reutilitzar el mateix camí d'una transició manual és més robust que duplicar-la.
+
+---
+
+## Frontend en detall
+
+### 1. UX de la multi-selecció
+
+Els checkboxes apareixen a tota la taula però només són clickables per a reports `OPEN`. Reports en estats posteriors (ASSIGNED, IN_PROGRESS, etc.) tenen el checkbox **visible però deshabilitat amb tooltip** explicant per què. Això és més clar que amagar-los: l'admin veu que la columna existeix i que ARA NO PODEN seleccionar-se aquests, sense haver d'endevinar res.
+
+### 2. Sincronització de selecció amb la llista
+
+Cada vegada que la llista es refresca (canvi de filtres, esdeveniment SSE), filtrem les `selectedIds` per quedar-nos només amb els que segueixen visibles i en `OPEN`:
+
+```ts
+useEffect(() => {
+  setSelectedIds(prev => {
+    const next = new Set<string>();
+    const visible = new Set(selectableIds);
+    for (const id of prev) if (visible.has(id)) next.add(id);
+    return next;
+  });
+}, [selectableIds]);
+```
+
+Sense això, l'admin podria seleccionar 5 reports, canviar el filtre a "Tancades", i el botó encara mostraria "(5)" — confús i amb risc d'enviar IDs que ara no s'haurien d'auto-assignar (perquè no estan OPEN).
+
+### 3. El modal de resultats
+
+Després de l'auto-assignació, l'admin no rep "OK" — rep una taula amb dues seccions:
+- **Verd**: reports assignats correctament i el nom del tècnic triat.
+- **Taronja**: reports no assignats amb la raó concreta (no era OPEN, sense categoria, cap tècnic disponible per a aquella categoria, etc.).
+
+Així l'admin pot **decidir què fer amb els no assignats** sense haver de navegar pel sistema. Un "10 assignats correctament" és un missatge útil; un "8 assignats correctament, però aquests 2 cal que els assignis tu manualment perquè no hi ha tècnics de Lighting actius" ja és un missatge **accionable**.
+
+### 4. Refresc en temps real
+
+La pàgina no fa cap recàrrega manual després d'auto-assignar. El backend, al cridar `transitionReport(ASSIGN)` per cada report, ja emet SSE `report.transitioned` — el listener `useLiveEvent` de la pàgina dispara el `refetch` automàticament. Quan el modal de resultats s'obre, la llista de darrere ja s'ha actualitzat (els reports assignats han canviat d'estat).
+
+És un exemple net d'un patró que ja teníem (SSE del Sprint 5) servint a una funcionalitat nova sense cap línia extra.
+
+---
+
+## App mòbil
+
+L'únic canvi al mòbil és afegir els camps `aiSummary` i `aiClassifiedAt` al tipus `Report` perquè quadri amb el backend. No mostrem la informació enlloc del mòbil — l'aplicació mòbil està orientada a usuaris (alumnes/tècnics) que no necessiten saber que l'IA ha classificat el report; per a ells, la categoria i la prioritat són simplement el que apareix.
+
+Si en una iteració futura volguéssim donar feedback (per exemple, un toast "Hem revisat la teva categoria"), aquí tindríem les dades.
+
+---
+
+## Configuració requerida
+
+Per fer servir el sistema, l'usuari del backend ha d'obtenir una API key gratuïta a https://aistudio.google.com/app/apikey i afegir-la al `.env`:
+
+```
+GEMINI_API_KEY=el_codi_aqui
+```
+
+Sense ella, el sistema arrenca igualment, registra un avís per consola i la classificació queda silenciosament desactivada (els reports nous mantenen la categoria triada per l'usuari i `priority=MEDIUM` per defecte). La resta de l'app — auto-assignació inclosa — funciona; simplement no s'aplicarà el revisor IA.
+
+---
+
+## Flux complet, exemple end-to-end
+
+Imaginem una alumna que reporta des del mòbil "Fanal trencat al carrer Major" amb una foto:
+
+1. **Mòbil**: `POST /reports` amb títol, descripció, categoria triada per l'usuari (LIGHTING) i coordenades.
+2. **Backend**: crea el report (categoria=LIGHTING, priority=MEDIUM per defecte). Emet SSE `report.created`. Programa `setTimeout(3000)` per a la classificació.
+3. **Mòbil**: rep el `report_id` i puja la imatge en una segona crida `POST /reports/:id/images`.
+4. **Admin (panell web)**: veu el report aparèixer al dashboard al moment via SSE.
+5. **3s després**: el `setTimeout` dispara `classifyReport`. Llegeix la imatge `INITIAL` recent pujada.
+6. **LangGraph**:
+   - Node 1: Gemini Flash rep text + imatge. Confirma LIGHTING (l'usuari l'havia triat bé), determina priority=HIGH (la foto mostra un cable elèctric exposat). Retorna JSON amb `aiSummary`: "Fanal vandalitzat amb cables exposats al carrer Major".
+   - Node 2: rules valida i retorna l'objecte normalitzat.
+7. **Backend**: `prisma.update` amb `category=LIGHTING, priority=HIGH, aiSummary=..., aiClassifiedAt=now()`. Emet SSE `report.classified`.
+8. **Admin**: el dashboard refresca el report. Ara mostra "HIGH" en lloc de "MEDIUM" i el resum IA sota el títol.
+9. **Admin (5 minuts després)**: selecciona aquest report + 4 més de la mateixa zona, prem "Auto-assignar".
+10. **Backend**: filtra tècnics amb `workCategory=LIGHTING`. Triba a "Joan Pérez" (1 incidència activa, fa 3 hores que no rep res). Crida `transitionReport(ASSIGN)`. Emet SSE `report.transitioned` i push notification.
+11. **Tècnic**: rep al mòbil "Nova tasca assignada — T'han assignat: Fanal trencat al carrer Major".
+12. **Alumna**: rep al mòbil "S'ha assignat la teva incidència — Un tècnic s'encarregarà de: Fanal trencat al carrer Major".
+
+Tot el flux dura uns segons d'IA i un click d'admin. Cap intervenció manual per a categoritzar o prioritzar; cap conversa per decidir qui s'ho mira.
+
+---
+
+## Decisions i compromisos
+
+- **Una sola crida LLM en lloc de múltiples agents**: vam descartar el patró multi-agent (text agent + vision agent + arbitrator). Per al cas concret de classificació amb visió, una sola crida multimodal és més precisa (cross-attention entre imatge i text), més ràpida i més barata. La defensa enginyera és més forta dient "vaig avaluar les dues arquitectures i vaig triar la més eficient" que dient "vaig fer multi-agent perquè queda bé".
+- **LangGraph per a 2 nodes**: sobre-enginyeria petita però amb justificació (extensibilitat futura, observabilitat).
+- **Auto-aplicar sempre, sense llindar de confiança**: simplificació conscient. El default `MEDIUM`/categoria de l'usuari ja era pitjor que la classificació de l'IA en mitjana, així que aplicar sempre és una millora neta. Si en el futur calgués revisió humana per a casos dubtosos, afegir un camp `confidence` i un panell de revisió és afegir, no refactoritzar.
+- **`setTimeout(3000)` abans de classificar**: hack pragmàtic per esperar la imatge. Documentat com a deute tècnic.
+- **Tècnics sense `workCategory` queden fora del pool d'auto-assignació**: decisió explícita. Per als reports que no troben candidats, l'admin haurà d'assignar manualment. Així mantenim la qualitat: només auto-assignem a tècnics amb expertesa declarada.
+- **Càrrega = `ASSIGNED + IN_PROGRESS` sense ponderar per prioritat**: simple, suficient. Si en el futur els CRITICAL volgués comptar com a 3, només cal canviar la query.
+- **Reuse de `transitionReport` a l'auto-assignació**: en lloc de fer `UPDATE` directe, passem per la màquina d'estats. Així reutilitzem totes les notificacions, SSE, validacions i auditoria que ja teníem del Sprint 2 i 5. **És el millor exemple de tot el TFG de "build it once, reuse it everywhere"**.
+- **Sense cau de classificacions**: si el mateix report es re-classifiqués (no passa avui, però podria), tornaríem a cridar Gemini. Per al volum del TFG i 1500 RPD gratuïts, no és problema.
+
+---
+
+## Lliçons apreses
+
+- **El multi-agent està de moda però sovint és sobre-enginyeria**. La discussió "1 crida vs 3 agents" va ser la decisió més important del sprint. La intuïció diu "més agents = més modular = millor"; la realitat és que perds el senyal multimodal i guanyes complexitat. Defensar la versió simple amb arguments tècnics és més valuós que defensar l'elaborada perquè queda impressionant.
+- **El JWT no és l'única decisió de seguretat amb conseqüències**. Aquí Gemini retorna text lliure que escrius a la BD. La capa de regles deterministes (parser + whitelist de valors) és tan important com qualsevol middleware d'auth. Sense ella, una al·lucinació del model et podria escriure `priority="OMG"` a Postgres.
+- **Auto-classificar ASSÍNCRONAMENT és el detall que canvia la UX**. Si féssim la crida LLM al `POST /reports` i esperéssim, l'usuari veuria 3-5s d'spinner. Fent-ho post-create, l'usuari obté resposta instantània i l'admin veu la classificació arribar uns segons després via SSE — millor experiència per a tots.
+- **La integració entre sprints és el que dóna valor de veritat**. Aquest sprint usa l'XState del Sprint 2, l'API REST del Sprint 3, els tipus del frontend del Sprint 3, l'app del Sprint 4 i les SSE+push del Sprint 5. Cada un per separat era una funcionalitat; tots junts, és un producte. El Sprint 6 hauria sigut **impossible de defensar** sense els anteriors.
+- **Els hacks pragmàtics han d'estar documentats**. El `setTimeout(3000)` és lleig, però millor que esperar 5 sprints per fer una cua de tasques "professional". Documentar-ho a la memòria amb les alternatives i el motiu de la decisió és més honest que amagar-ho.
+

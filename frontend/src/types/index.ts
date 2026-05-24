@@ -60,6 +60,9 @@ export interface Report {
   comments: Comment[];
   createdAt: string;
   lastModified: string;
+  // Camps escrits per l'auto-classificació IA (Sprint 6).
+  aiSummary?: string | null;
+  aiClassifiedAt?: string | null;
 }
 
 export interface Image {

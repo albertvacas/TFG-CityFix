@@ -11,6 +11,7 @@ import { getGeoJson, getHeatmapData } from '../api/geo';
 import type { GeoJsonFeature, HeatmapPoint } from '../api/geo';
 import type { State, Category } from '../types';
 import { CATEGORY_LABELS } from '../types';
+import { useLiveEvent } from '../hooks/liveEvents';
 
 type ViewMode = 'markers' | 'heatmap';
 type WeightBy = 'priority' | 'density' | 'age';
@@ -69,20 +70,29 @@ export default function MapPage() {
     days: daysFilter || undefined,
   };
 
-  useEffect(() => {
-    setLoading(true);
+  const refetch = useCallback(() => {
     if (viewMode === 'markers') {
       getGeoJson(filters)
         .then((data) => setFeatures(data.features))
-        .catch(() => {})
-        .finally(() => setLoading(false));
+        .catch(() => {});
     } else {
       getHeatmapData(weightBy, filters)
         .then(setHeatPoints)
-        .catch(() => {})
-        .finally(() => setLoading(false));
+        .catch(() => {});
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, weightBy, stateFilter, categoryFilter, daysFilter]);
+
+  useEffect(() => {
+    setLoading(true);
+    refetch();
+    setLoading(false);
+  }, [refetch]);
+
+  // Refresc en temps real del mapa quan apareixen noves incidències o
+  // canvien d'estat (afecta visibilitat segons filtre).
+  useLiveEvent('report.created', refetch);
+  useLiveEvent('report.transitioned', refetch);
 
   const handleFeatureClick = useCallback(
     (id: string) => navigate(`/reports/${id}`),

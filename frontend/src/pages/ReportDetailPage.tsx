@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getReportById, transitionReport, updateReportPriority } from '../api/reports';
 import { getTechnicians } from '../api/users';
@@ -6,6 +6,7 @@ import ReportStatusBadge from '../components/ReportStatusBadge';
 import PriorityBadge from '../components/PriorityBadge';
 import ImageLightbox from '../components/ImageLightbox';
 import TechnicianAssignmentList from '../components/TechnicianAssignmentList';
+import { useLiveEvent } from '../hooks/liveEvents';
 import type { Report, Technician, IncidentEvent, Priority } from '../types';
 import { STATE_TRANSITIONS, CATEGORY_LABELS } from '../types';
 
@@ -44,6 +45,16 @@ export default function ReportDetailPage() {
   const [modalTechId, setModalTechId] = useState<string>('');
   const [priorityLoading, setPriorityLoading] = useState(false);
 
+  // Recàrrega només del report (sense tornar a fer servir endpoints
+  // pesants). Útil per refrescar quan arriba un esdeveniment SSE referit
+  // a aquesta mateixa incidència.
+  const refetchReport = useCallback(() => {
+    if (!id) return;
+    getReportById(id)
+      .then(setReport)
+      .catch(() => {});
+  }, [id]);
+
   useEffect(() => {
     if (!id) return;
     Promise.all([getReportById(id), getTechnicians()])
@@ -54,6 +65,23 @@ export default function ReportDetailPage() {
       .catch(() => navigate('/reports'))
       .finally(() => setLoading(false));
   }, [id, navigate]);
+
+  // Si arriba un esdeveniment del MATEIX report (un altre admin l'ha tocat,
+  // un tècnic ha resolt, etc.), refresquem la vista perquè no es desincronitzi.
+  // Filtrem per reportId per no fer crides innecessàries quan l'esdeveniment
+  // és d'una incidència diferent.
+  useLiveEvent('report.transitioned', (e) => {
+    if (e.reportId === id) refetchReport();
+  });
+  useLiveEvent('report.priority_changed', (e) => {
+    if (e.reportId === id) refetchReport();
+  });
+  useLiveEvent('report.comment_added', (e) => {
+    if (e.reportId === id) refetchReport();
+  });
+  useLiveEvent('report.classified', (e) => {
+    if (e.reportId === id) refetchReport();
+  });
 
   const handleTransition = async (event: IncidentEvent) => {
     if (!report) return;
@@ -180,6 +208,14 @@ export default function ReportDetailPage() {
                 {CATEGORY_LABELS[report.category]}
               </span>
             )}
+            {report.aiClassifiedAt && (
+              <span
+                className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-200"
+                title={`Classificat per IA el ${new Date(report.aiClassifiedAt).toLocaleString()}`}
+              >
+                ✨ Classificat per IA
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -189,6 +225,14 @@ export default function ReportDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Description */}
           <div className="rounded-xl bg-white p-6 ring-1 ring-gray-200">
+            {report.aiSummary && (
+              <div className="mb-4 rounded-lg bg-indigo-50 px-4 py-3 ring-1 ring-indigo-100">
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                  Resum IA
+                </p>
+                <p className="mt-1 text-sm text-indigo-900">{report.aiSummary}</p>
+              </div>
+            )}
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Descripció</h2>
             <p className="text-gray-800 whitespace-pre-wrap">{report.description}</p>
           </div>

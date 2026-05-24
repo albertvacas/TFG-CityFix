@@ -4,6 +4,8 @@ import { incidentMachine } from '../machines/stateMachine';
 import { CreateReportDTO, IncidentEvent } from '../types';
 import { Priority, Role, State, TypeImage } from '../../generated/prisma';
 import { uploadReportImage } from './storage';
+import * as notificationService from './notification';
+import { classifyReport } from './classification';
 
 // Include compartit perquè totes les respostes de Report tinguin la mateixa forma
 // (createdBy / assignedTo amb dades públiques + email per facilitar el contacte
@@ -27,7 +29,7 @@ const REPORT_LIST_INCLUDE = {
 } as const;
 
 export const createReport = async (data: CreateReportDTO, userId: string) => {
-  return prisma.report.create({
+  const report = await prisma.report.create({
     data: {
       title: data.title,
       description: data.description,
@@ -38,6 +40,22 @@ export const createReport = async (data: CreateReportDTO, userId: string) => {
     },
     include: REPORT_INCLUDE,
   });
+
+  // SSE per al dashboard admin (no hi ha push: el creador és l'autor i no es
+  // notifica a si mateix; els tècnics s'assabentaran al rebre l'ASSIGN).
+  notificationService.onReportCreated(report.report_id);
+
+  // Auto-classificació via Gemini. La disparem amb un petit delay perquè el
+  // mòbil sol pujar la imatge inicial just després de crear el report (dues
+  // crides HTTP separades). Si esperem 3s, normalment la imatge ja està a
+  // BD i l'IA pot classificar amb text + imatge alhora. Si l'usuari no ha
+  // pujat imatge, classificarà només amb text — fallback acceptable.
+  // Fire-and-forget: cap error d'aquí trenca la creació del report.
+  setTimeout(() => {
+    void classifyReport(report.report_id);
+  }, 3000).unref();
+
+  return report;
 };
 
 export const getReportById = async (id: string) => {
@@ -109,11 +127,15 @@ export const updateReportPriority = async (reportId: string, priority: Priority)
   });
   if (!exists) throw new Error('Incidencia no encontrada');
 
-  return prisma.report.update({
+  const report = await prisma.report.update({
     where: { report_id: reportId },
     data: { priority },
     include: REPORT_INCLUDE,
   });
+
+  notificationService.onReportPriorityChanged(reportId, priority);
+
+  return report;
 };
 
 /**
@@ -130,6 +152,12 @@ export const transitionReport = async (
 ) => {
   const report = await prisma.report.findUnique({ where: { report_id: reportId } });
   if (!report) throw new Error('Incidencia no encontrada');
+
+  // Recordem l'estat i l'assignat anteriors abans d'actualitzar — els
+  // necessitarem per emetre la notificació amb dades correctes (per exemple,
+  // saber a qui se li ha "retirat" la tasca en una REASSIGN).
+  const previousState = report.state;
+  const previousAssigneeId = report.assignedToId;
 
   // Crear actor XState con el estado actual del report
   const actor = createActor(incidentMachine, {
@@ -169,8 +197,9 @@ export const transitionReport = async (
 
   // Si hi ha comentari, crear-lo lligat a aquesta transició dins la mateixa transacció
   const trimmedComment = options?.comment?.trim();
+  let updated;
   if (trimmedComment) {
-    const [, , updated] = await prisma.$transaction([
+    const [, , result] = await prisma.$transaction([
       prisma.comment.create({
         data: {
           content: trimmedComment,
@@ -183,10 +212,26 @@ export const transitionReport = async (
       prisma.report.update({ where: { report_id: reportId }, data: {} }),
       updateReport,
     ]);
-    return updated;
+    updated = result;
+  } else {
+    updated = await updateReport;
   }
 
-  return updateReport;
+  // Notificacions: dispatchades fora del camí crític (no s'espera).
+  // Errors d'Expo o SSE no han de fer fallar la transició.
+  void notificationService.onReportTransitioned({
+    reportId,
+    reportTitle: updated.title,
+    fromState: previousState,
+    toState: newState,
+    event,
+    actorId: userId,
+    reportCreatorId: updated.createdById,
+    newAssigneeId: updated.assignedToId,
+    previousAssigneeId,
+  });
+
+  return updated;
 };
 
 /**
@@ -260,7 +305,7 @@ export const addComment = async (params: {
     throw new Error('Només l\'autor, el tècnic assignat o un administrador poden comentar');
   }
 
-  return prisma.comment.create({
+  const comment = await prisma.comment.create({
     data: {
       content: trimmed,
       reportId,
@@ -269,4 +314,23 @@ export const addComment = async (params: {
     },
     include: { author: { select: { user_id: true, name: true, nickname: true } } },
   });
+
+  // Necessitem el títol del report per al text del push. La fila que hem
+  // llegit més amunt només tenia els camps mínims, així que demanem el títol
+  // aquí (cost menyspreable, ja és a la cache de Postgres).
+  const reportRow = await prisma.report.findUnique({
+    where: { report_id: reportId },
+    select: { title: true },
+  });
+
+  void notificationService.onCommentAdded({
+    reportId,
+    commentId: comment.id,
+    authorId: userId,
+    reportCreatorId: report.createdById,
+    reportAssigneeId: report.assignedToId,
+    reportTitle: reportRow?.title ?? '',
+  });
+
+  return comment;
 };

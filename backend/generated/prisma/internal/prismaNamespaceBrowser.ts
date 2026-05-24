@@ -55,6 +55,8 @@ export const ModelName = {
   Report: 'Report',
   Comment: 'Comment',
   Image: 'Image',
+  PushToken: 'PushToken',
+  Notification: 'Notification',
   Invite: 'Invite'
 } as const
 
@@ -108,7 +110,9 @@ export const ReportScalarFieldEnum = {
   assignedToId: 'assignedToId',
   createdAt: 'createdAt',
   lastModified: 'lastModified',
-  resolvedAt: 'resolvedAt'
+  resolvedAt: 'resolvedAt',
+  aiSummary: 'aiSummary',
+  aiClassifiedAt: 'aiClassifiedAt'
 } as const
 
 export type ReportScalarFieldEnum = (typeof ReportScalarFieldEnum)[keyof typeof ReportScalarFieldEnum]
@@ -138,6 +142,33 @@ export const ImageScalarFieldEnum = {
 } as const
 
 export type ImageScalarFieldEnum = (typeof ImageScalarFieldEnum)[keyof typeof ImageScalarFieldEnum]
+
+
+export const PushTokenScalarFieldEnum = {
+  id: 'id',
+  token: 'token',
+  platform: 'platform',
+  active: 'active',
+  userId: 'userId',
+  createdAt: 'createdAt',
+  lastSeenAt: 'lastSeenAt'
+} as const
+
+export type PushTokenScalarFieldEnum = (typeof PushTokenScalarFieldEnum)[keyof typeof PushTokenScalarFieldEnum]
+
+
+export const NotificationScalarFieldEnum = {
+  id: 'id',
+  type: 'type',
+  title: 'title',
+  body: 'body',
+  read: 'read',
+  userId: 'userId',
+  reportId: 'reportId',
+  createdAt: 'createdAt'
+} as const
+
+export type NotificationScalarFieldEnum = (typeof NotificationScalarFieldEnum)[keyof typeof NotificationScalarFieldEnum]
 
 
 export const InviteScalarFieldEnum = {

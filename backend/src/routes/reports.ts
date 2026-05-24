@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { authenticate, authorize } from '../middlewares/auth';
 import { create, getById, getAll, transition, updatePriority, uploadImage, addComment } from '../controllers/report';
+import { autoAssign } from '../controllers/autoAssign';
 
 export const reportRouter = Router();
 
@@ -19,6 +20,10 @@ reportRouter.post('/', create);
 
 // GET /api/reports - Listar incidencias (cualquier usuario autenticado)
 reportRouter.get('/', getAll);
+
+// POST /api/reports/auto-assign - Auto-assignació en lot (només ADMIN)
+// IMPORTANT: ha d'anar abans de /:id perquè Express no l'interpreti com a id.
+reportRouter.post('/auto-assign', authorize('ADMIN'), autoAssign);
 
 // GET /api/reports/:id - Detalle de incidencia
 reportRouter.get('/:id', getById);

@@ -8,6 +8,8 @@ import { userRouter } from './routes/users';
 import { inviteRouter } from './routes/invites';
 import { geoRouter } from './routes/geo';
 import { analyticsRouter } from './routes/analytics';
+import { notificationsRouter } from './routes/notifications';
+import { eventsRouter } from './routes/events';
 
 const app = express();
 
@@ -22,6 +24,8 @@ app.use('/api/users', userRouter);
 app.use('/api/invites', inviteRouter);
 app.use('/api/geo', geoRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/events', eventsRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {

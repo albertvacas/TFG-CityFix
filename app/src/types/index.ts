@@ -99,4 +99,23 @@ export interface Report {
   createdAt: string;
   resolvedAt?: string;
   lastModified?: string;
+  // Camps escrits per l'auto-classificació IA (Sprint 6).
+  aiSummary?: string | null;
+  aiClassifiedAt?: string | null;
+}
+
+export type NotificationType =
+  | 'REPORT_ASSIGNED'
+  | 'REPORT_REASSIGNED'
+  | 'REPORT_UNASSIGNED'
+  | 'REPORT_STATE_CHANGED';
+
+export interface NotificationItem {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  read: boolean;
+  reportId: string | null;
+  createdAt: string;
 }

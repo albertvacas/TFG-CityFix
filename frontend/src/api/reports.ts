@@ -44,3 +44,20 @@ export const updateReportPriority = async (id: string, priority: Priority): Prom
   const { data } = await client.patch<{ report: Report }>(`/reports/${id}/priority`, { priority });
   return data.report;
 };
+
+export interface AutoAssignResult {
+  assigned: Array<{
+    reportId: string;
+    technicianId: string;
+    technicianName: string;
+  }>;
+  skipped: Array<{
+    reportId: string;
+    reason: string;
+  }>;
+}
+
+export const autoAssignReports = async (reportIds: string[]): Promise<AutoAssignResult> => {
+  const { data } = await client.post<AutoAssignResult>('/reports/auto-assign', { reportIds });
+  return data;
+};

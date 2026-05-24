@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 import * as authApi from '../api/auth';
 import { TOKEN_KEY } from '../api/client';
+import { detachPushToken } from '../hooks/usePushNotifications';
 import type { User, RegisterPayload } from '../types';
 
 interface AuthContextValue {
@@ -51,6 +52,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    // Desactiva el push token d'aquest dispositiu ABANS d'esborrar el JWT —
+    // si no, l'API de notificacions retornaria 401. Si falla (no hi ha
+    // xarxa, etc.) no aturem el logout.
+    await detachPushToken().catch(() => {});
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     setUser(null);
     router.replace('/(auth)/login');

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -10,6 +10,7 @@ import { getDashboardData } from '../api/analytics';
 import type { DashboardData } from '../api/analytics';
 import type { State, Category } from '../types';
 import { CATEGORY_LABELS } from '../types';
+import { useLiveEvent } from '../hooks/liveEvents';
 
 /* ── Color maps ── */
 
@@ -77,13 +78,23 @@ export default function DashboardPage() {
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('week');
   const [days, setDays] = useState(90);
 
-  useEffect(() => {
-    setLoading(true);
+  const refetch = useCallback(() => {
     getDashboardData(granularity, days)
       .then(setData)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, [granularity, days]);
+
+  useEffect(() => {
+    setLoading(true);
+    refetch();
+    setLoading(false);
+  }, [refetch]);
+
+  // Refresc en temps real: les agregacions canvien quan es crea o
+  // transiciona una incidència. Les altres mètriques (prioritat, comentaris)
+  // no afecten el dashboard, així que no recarreguem en aquests casos.
+  useLiveEvent('report.created', refetch);
+  useLiveEvent('report.transitioned', refetch);
 
   if (loading || !data) {
     return (
