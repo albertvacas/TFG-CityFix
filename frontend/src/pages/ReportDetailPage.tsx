@@ -213,7 +213,7 @@ export default function ReportDetailPage() {
                 className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-200"
                 title={`Classificat per IA el ${new Date(report.aiClassifiedAt).toLocaleString()}`}
               >
-                ✨ Classificat per IA
+                Classificat per IA
               </span>
             )}
           </div>

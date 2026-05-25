@@ -32,9 +32,9 @@ Per situar el projecte en el panorama tecnològic actual, s’ha realitzat un an
 A diferència de les solucions estàndard de mercat, aquest projecte es posiciona com una plataforma activa i intel·ligent, reforçant en tres aspectes que resolen les mancances de les aplicacions de gestió actuals:
 
 \begin{itemize}
-	\item \textbf{Gestió d'incidencies amb agents i IA}: Mitjançant la integració de models de llenguatge (LLMs) via LangChain i OpenAI, el sistema no és un simple gestor de base de dades. Els agents d'IA analitzen el llenguatge natural de l'usuari, n'avaluen la criticitat, filtren duplicats mitjançant anàlisi de similitud i generen notificacions automatitzades. Això descarrega el personal administratiu de tasques repetitives. Aquest aspecte té molt de potencial ja que amb l'implementació de agents es pot escalar l'aplicació automatitzant la majoria de funcionalitats. Fins arribar al punt de crear una plataforma d'incidencies completament automatica que actui sota la revisió i control humà.   
+	\item \textbf{Gestió d'incidencies amb agents i IA}: Mitjançant la integració de models de llenguatge (LLMs) via LangChain/LangGraph i Google Gemini, el sistema no és un simple gestor de base de dades. Els agents d'IA analitzen el llenguatge natural i les imatges aportades per l'usuari, classifiquen automàticament la categoria de la incidència, en determinen la prioritat segons criteris de seguretat i generen un resum sintètic per facilitar el triatge administratiu. Això descarrega el personal administratiu de tasques repetitives. Aquest aspecte té molt de potencial ja que amb l'implementació de agents es pot escalar l'aplicació automatitzant la majoria de funcionalitats. Fins arribar al punt de crear una plataforma d'incidencies completament automatica que actui sota la revisió i control humà.
 	
-	\item \textbf{Interficie web d'administració}: Aquest projecte implementa una plataforma tant movil com d'escitori, permetent als usuaris administradors la visualització de dades i grafics en una interficie comoda d'escritori. Gràcies a l'ús de WebSockets, les mètriques dels garfics i mapes s'actualitzen instantàniament, permetent una coordinació d'emergències altament eficient.
+	\item \textbf{Interficie web d'administració}: Aquest projecte implementa una plataforma tant movil com d'escitori, permetent als usuaris administradors la visualització de dades i grafics en una interficie comoda d'escritori. Gràcies a l'ús de Server-Sent Events (SSE), les mètriques dels gràfics i mapes s'actualitzen instantàniament, permetent una coordinació d'emergències altament eficient.
 	
 	\item \textbf{Sistema de recompenses (Gamificació)}: Per combatre el report deficient o malintencionat, s'implementa un mecanisme de puntuació on les bones pràctiques es premien (fomentant l'esperit de pertinença i cura del campus), mentre que el mal ús deliberat està vinculat a sancions acadèmiques, garantint així l'alta fiabilitat de les dades d'entrada.
 	
@@ -100,14 +100,14 @@ Es construeix el dashboard d'administració amb React, integrant les APIs de car
 Inici del desenvolupament amb React Native i Expo\cite{3}. Es crea el formulari de report d'incidències, integrant l'accés natiu a la càmera i la captura de coordenades GPS.
 
 \begin{flushleft}
-	\textbf{Sprint 5: Mòdul Tècnic i Comunicació en Temps Real. } \\
+	\textbf{Sprint 5: Sistema de Notificacions i Comunicació en Temps Real. } \\
 \end{flushleft}
-Es desenvolupa la interfície específica per a operaris amb llistats per proximitat. S'implementen les notificacions push i la connexió bidireccional amb Socket.io per a l'actualització instantània del sistema.
+Es desenvolupa el sistema de notificacions del producte: push notifications al mòbil mitjançant Expo Push Service per a estudiants i tècnics, i actualització en temps real del panell admin via Server-Sent Events (SSE). Tot orquestrat des d'un \texttt{NotificationService} centralitzat al backend que decideix qui ha de rebre cada esdeveniment de domini.
 
 \begin{flushleft}
-	\textbf{Sprint 6: Integració d'Intel·ligència Artificial.} \\
+	\textbf{Sprint 6: Integració d'Intel·ligència Artificial i Auto-assignació.} \\
 \end{flushleft}
-En aquesta etapa s'integren OpenAI i LangChain al backend per permetre la classificació automàtica d'incidències mitjançant imatges i la generació intel·ligent d'avisos crítics.
+En aquesta etapa s'integren Google Gemini i LangGraph al backend per permetre la classificació automàtica d'incidències a partir del text i la imatge. S'implementa també l'auto-assignació en lot al panell admin, basada en la categoria d'expertesa del tècnic i el balanceig de càrrega.
 
 \begin{flushleft}
 	\textbf{Sprint 7: Gamificació i Control de Qualitat (QA).} \\
@@ -148,8 +148,8 @@ Aquests requisits defineixen les capacitats d'interacció i el comportament del 
 	\item \textbf{RF-07: Panell de control d'administració.} 
 	Els administradors han de poder visualitzar llistats, filtrar incidències i assignar-les a tècnics recomanats.
 	
-	\item \textbf{RF-08: Gestió operativa per a tècnics.} 
-	Els tècnics han de poder autoassignar-se tasques mitjançant un llistat filtrat per proximitat geogràfica. 
+	\item \textbf{RF-08: Gestió operativa per a tècnics i auto-assignació.}
+	Els tècnics han de poder consultar i gestionar les tasques que tenen assignades. Els administradors han de disposar d'una eina d'auto-assignació en lot que reparteixi automàticament les incidències entre els tècnics segons la seva categoria d'expertesa (\texttt{workCategory}) i la càrrega de feina actual.
 	
 	\item \textbf{RF-09: Verificació fotogràfica de resolució.} 
 	Els tècnics han de reportar la solució adjuntant fotos de l'abans i el després per canviar l'estat a "Validada”. 
@@ -169,8 +169,8 @@ Aquests requisits defineixen les capacitats d'interacció i el comportament del 
 	\item \textbf{RF-14: Classificació automàtica per IA. }
 	Ús d'agents de IA per analitzar imatges, classificar el tipus d'incidència i determinar la prioritat. 
 	
-	\item \textbf{RF-15: Redacció d'avisos per IA. }
-	Agent especialitzat per redactar notificacions personalitzades i alertes en cas d'incidències crítiques. 
+	\item \textbf{RF-15: Generació de resums automàtics per IA.}
+	L'agent d'IA genera un resum d'una línia (\textit{aiSummary}) per a cada incidència classificada, facilitant la lectura ràpida del panell d'administració.
 	
 	\item \textbf{RF-16: Sistema de Recompenses i Sancions. }
 	Implementació d'un rànquing de punts per a usuaris col·laboradors i aplicació de sancions acadèmiques per mal ús.
@@ -193,7 +193,7 @@ Aquests requisits defineixen les capacitats d'interacció i el comportament del 
 	
 	\item \textbf{RNF-06: Seguretat, Privacitat i Compliment (RGPD).} El sistema ha de complir el Reglament General de Protecció de Dades, incloent l'encriptació de dades sensibles en repòs i el trànsit de dades mitjançant protocols segurs (HTTPS/WSS).
 	
-	\item \textbf{RNF-07: Baixa Latència i Temps Real.} Les actualitzacions del panell d'administració s'han de reflectir mitjançant \textit{Socket.io} amb una latència gairebé instantània (idealment < 200ms) per garantir la coordinació operativa dels tècnics.
+	\item \textbf{RNF-07: Baixa Latència i Temps Real.} Les actualitzacions del panell d'administració s'han de reflectir mitjançant \textit{Server-Sent Events (SSE)} amb una latència gairebé instantània (idealment < 200ms) per garantir la coordinació operativa dels tècnics.
 	
 	\item \textbf{RNF-08: Mantenibilitat i Qualitat del Codi.} El sistema s'ha de desenvolupar seguint patrons de disseny modulars i utilitzant un ORM (Prisma) que faciliti la traçabilitat de les migracions i la validació de tipus (TypeScript), assegurant que el programari sigui fàcil d'ampliar en el futur.
 	
@@ -230,7 +230,11 @@ En aquesta secció es presenten les principals eines i tecnologies emprades dura
 	\item \textbf{dotenv}: Mòdul que carrega variables d'entorn des d'un fitxer \texttt{.env} al procés de Node.js. 
 	
 	\item \textbf{cors}: Middleware per a Express que configura les capçaleres Cross-Origin Resource Sharing, permetent que el frontend accedeixi al backend des d'un origen diferent en producció.
-	
+
+	\item \textbf{LangChain / LangGraph}: Llibreria d'orquestració d'agents d'IA. LangGraph permet modelar el flux de classificació com un graf d'estats amb nodes (passos) i arestes (transicions), facilitant l'observabilitat i l'extensibilitat futura amb nodes addicionals.\cite{15}
+
+	\item \textbf{Google Gemini (\texttt{@langchain/google-genai})}: SDK per accedir al model multimodal Gemini 2.0 Flash via l'API gratuïta de Google AI Studio. Permet enviar text i imatge en una mateixa crida i rebre una resposta estructurada.\cite{16}
+
 \end{itemize}
 
 \subsection{Frontend web}
@@ -249,7 +253,26 @@ En aquesta secció es presenten les principals eines i tecnologies emprades dura
 	\item \textbf{Recharts}: Llibreria de visualització de dades construïda sobre components React i D3.js. Proporciona gràfics declaratius (donut, àrees apilades, barres, dispersió) amb responsivitat integrada.
 	
 	\item \textbf{Leaflet + react-leaflet}: Motor de mapes interactius de codi obert amb un pes de ~42 KB. S'han integrat els plugins \texttt{leaflet.markercluster} (agrupació visual) i \texttt{leaflet.heat} (mapes de calor).
-	
+
+\end{itemize}
+
+\subsection{Aplicació mòbil}
+
+\begin{itemize}
+	\item \textbf{React Native + Expo SDK 54}: Framework per al desenvolupament d'aplicacions natives multiplataforma (iOS i Android) amb una sola base de codi en TypeScript. Expo simplifica el cicle de build amb \textit{Expo Go} per a desenvolupament i builds natius gestionats per a producció.
+
+	\item \textbf{Expo Router}: Sistema de navegació basat en l'estructura de carpetes (\textit{file-based routing}), similar al model de Next.js. Permet definir grups de rutes protegides (\texttt{(auth)} i \texttt{(app)}) que es resolen segons l'estat de sessió de l'usuari.
+
+	\item \textbf{NativeWind}: Adaptació de Tailwind CSS per a React Native que permet reaprofitar el mateix vocabulari de classes utilitàries que el frontend web, mantenint una identitat visual coherent entre les dues plataformes.
+
+	\item \textbf{expo-secure-store}: Emmagatzematge segur del JWT al Keychain (iOS) i Keystore (Android). A diferència de \texttt{localStorage} al web, només la pròpia aplicació pot accedir-hi.
+
+	\item \textbf{expo-notifications}: SDK per a la gestió de push notifications. Encapsula la sol·licitud de permisos, l'obtenció de l'\textit{Expo Push Token} i els listeners d'arribada i interacció amb les notificacions.\cite{13}
+
+	\item \textbf{expo-location} i \textbf{expo-image-picker}: SDKs per a l'accés natiu a la geolocalització GPS i a la càmera/galeria del dispositiu (RNF-04).
+
+	\item \textbf{Axios}: Client HTTP compartit amb el frontend web, configurat amb interceptors que injecten el JWT recuperat de \texttt{SecureStore} a cada petició.
+
 \end{itemize}
 
 \subsection{Base de dades i infraestructura}
@@ -299,8 +322,13 @@ S'ha definit un esquema robust amb les seguents taules principals:
 	la invitació que va originar l'accés per als rols privilegiats.
 	\item \textbf{reports}: Les incidències reportades, amb estat governat per la màquina
 	XState, prioritat, categoria tipificada, coordenades GPS, vincles amb
-	el creador i el tècnic assignat, i marca temporal de resolució.
+	el creador i el tècnic assignat, marca temporal de resolució i els camps
+	d'auditoria de la classificació IA (\texttt{aiSummary}, \texttt{aiClassifiedAt}).
 	\item \textbf{invites}: Les invitacions per a registre privilegiat, amb token criptogràfic, estat (Pendent/Utilitzada/Revocada) i relació amb l'usuari creat.
+	\item \textbf{images}: Les imatges associades a un report, tipificades pel moment del cicle de vida (\texttt{INITIAL}, \texttt{PROGRESS}, \texttt{RESOLUTION}) i emmagatzemades a Supabase Storage; només la URL es persisteix a la base de dades.
+	\item \textbf{comments}: Fil de discussió per cada incidència, amb un camp opcional \texttt{transitionEvent} que lliga un comentari a una transició d'estat concreta (per exemple, el motiu obligatori d'un rebuig).
+	\item \textbf{push\_tokens}: Tokens \textit{ExponentPushToken} dels dispositius mòbils, lligats a l'usuari amb un camp \texttt{active} per al \textit{soft-delete} quan Expo informa que un dispositiu està desregistrat.
+	\item \textbf{notifications}: Historial persistent de notificacions enviades, amb tipus, títol, cos i flag de llegida. Actua com a font de veritat per al \textit{badge} de la campana al mòbil, independentment de si la push s'ha entregat o no.
 \end{itemize}
 
 
@@ -426,5 +454,141 @@ D'altra banda també s'ha implementat un mapa de calor. Es pot seleccionar el cr
 
 \subsection{Frontend app}
 
+L'aplicació mòbil està desenvolupada amb React Native i Expo, combinant la potència del compilat natiu amb un cicle de desenvolupament àgil. La navegació es basa en l'estructura de carpetes via Expo Router, que distingeix dos grups de pantalles: les accessibles sense sessió iniciada (login i registre) i les protegides darrere d'autenticació. L'estil visual reutilitza Tailwind CSS via NativeWind, mantenint coherència amb el panell web.
+
 \subsubsection{Inici de sessió i registre}
+
+La gestió de la sessió es centralitza en un context d'autenticació que, en arrencar l'app, restaura automàticament l'usuari si troba un JWT vàlid emmagatzemat. A diferència del navegador (on el token viu a \texttt{localStorage} i és vulnerable a XSS), al mòbil s'utilitza l'emmagatzematge segur del sistema operatiu (Keychain a iOS, Keystore a Android), garantint que només la pròpia aplicació hi pugui accedir (RNF-06).
+
+El registre suporta dos fluxos: obert per a estudiants (on el backend força el rol programàticament, ignorant qualsevol manipulació del client) i amb token d'invitació per als rols privilegiats (ADMIN i TECHNICAL). Aquesta separació evita escalades de privilegis i complementa el RBAC del backend.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\columnwidth]{img/mobile-login}
+	\caption{Pantalles de login i registre de l'aplicació mòbil}
+\end{figure}
+
+\subsubsection{Mòdul d'alumne}
+
+L'alumne disposa d'una navegació per tabs (home, mapa, llista d'incidencies de l'usuari i configuració) i d'un formulari de creació d'incidències (RF-03) que integra tres recursos natius del dispositiu: la càmera i galeria per adjuntar fotografies, el GPS per autocompletar la ubicació amb precisió mínima de 10 metres (RNF-04) i la validació tipificada amb \texttt{react-hook-form} i Zod, que garanteix que els camps obligatoris estiguin presents abans d'enviar.
+
+Un cop creada la incidència, la pantalla de detall reflecteix en temps real els canvis d'estat i els nous comentaris gràcies al sistema de notificacions push (vegeu \ref{sec:push}), evitant que l'alumne hagi de refrescar manualment.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\columnwidth]{img/mobile-create-report}
+	\caption{Formulari de creació d'incidència i pantalla de detall des del rol d'estudiant}
+\end{figure}
+
+\subsection{Mòdul tècnic}
+
+El tècnic comparteix la mateixa aplicació mòbil que l'alumne, però amb permisos i vistes diferents segons el rol determinat pel JWT. El backend filtra automàticament les dades segons aquest rol: un tècnic només veu les incidències que té assignades, mentre que un alumne només veu les que ha creat.
+
+\subsubsection{Comentaris}
+
+Cada incidència disposa d'un fil de comentaris on poden participar tres rols: l'autor del report, el tècnic assignat i qualsevol administrador. La resta d'estudiants no implicats no hi tenen accés, evitant soroll i protegint la privadesa del flux.
+
+El sistema distingeix dos tipus de comentaris: els lliures (discussió) i els lligats a una transició d'estat (per exemple, el motiu obligatori que un administrador ha d'introduir quan rebutja una resolució). Aquesta distinció permet renderitzar un \textit{timeline} enriquit on canvis d'estat i missatges apareixen intercalats en ordre cronològic. Tot nou comentari dispara una notificació push als implicats que no en siguin l'autor, garantint que el fil es comporti com una conversa en temps real.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\columnwidth]{img/mobile-comments}
+	\caption{Fil de comentaris d'una incidència, mostrant la intercalació de comentaris i canvis d'estat}
+\end{figure}
+
+\subsubsection{Report d'incidències}
+
+L'eina principal del tècnic és la gestió de les incidències assignades. Des de la pantalla de detall pot executar les transicions d'estat que la màquina XState li autoritza: iniciar la feina (passa a IN\_PROGRESS) i resoldre-la (passa a VALIDATED, deixant-la pendent de validació per part de l'administrador).
+
+Per garantir la traçabilitat de la resolució (RF-09), el sistema distingeix tres tipus d'imatges per a cada report: la inicial (pujada per l'alumne en crear-la), les de progrés (capturades pel tècnic durant la intervenció) i la de resolució (evidència final de la solució). Cada càrrega valida el rol: només l'autor pot pujar imatges inicials i només el tècnic assignat (o un admin) pot pujar les altres dues.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\columnwidth]{img/mobile-tech-detail}
+	\caption{Vista de detall d'un report des del rol tècnic, mostrant els botons d'acció disponibles}
+\end{figure}
+
+\subsection{Notificacions en temps real}
+
+El sistema cobreix dues necessitats complementàries: notificar usuaris mòbils encara que no tinguin l'app oberta, i mantenir el panell web admin actualitzat sense recàrregues manuals. Tots dos canals comparteixen un únic punt d'orquestració al backend, el \texttt{NotificationService}, que decideix qui ha de saber què a partir d'esdeveniments de domini (transicions, comentaris, classificacions). Aquesta centralització evita duplicar lògica i facilita afegir nous canals al futur sense modificar la resta del codi.
+
+\subsubsection{Push notifications (Expo)}
+\label{sec:push}
+
+Les notificacions natives requereixen integrar dos serveis propietaris (APNs per a iOS i FCM per a Android), cadascun amb credencials i fluxos específics. Per evitar aquesta complexitat s'ha optat per \textbf{Expo Push Service}\cite{13}, un proxy gratuït que unifica tots dos serveis darrere d'una sola crida HTTP i un únic tipus d'identificador (l'\textit{ExponentPushToken}).
+
+L'app demana permís a l'usuari en el primer login i envia el token resultant al backend, que l'associa a l'usuari i es guarda en la base de dades. Aixi quan es vol enviar una notificació a un dispositiu, el sistema ja te el token i el tipus de dispositiu. Quan Expo informa que un dispositiu està desregistrat (per exemple, perquè l'app s'ha desinstal·lat), el token es desactiva en lloc d'esborrar-se, conservant així la traça històrica.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\columnwidth]{img/push-flow}
+	\caption{Flux de registre d'un push token, des del mòbil fins al backend}
+\end{figure}
+
+El \texttt{NotificationService} aplica regles de \textit{routing} específiques per cada tipus d'esdeveniment. En una transició d'estat, l'autor del report rep sempre una notificació; en una assignació, el tècnic destinatari rep "Nova tasca assignada"; en una reassignació, el tècnic anterior rep "Tasca retirada" i el nou "Tasca reassignada a tu". La regla universal és que \textbf{l'actor que provoca l'esdeveniment mai s'auto-notifica}, evitant soroll innecessari.
+
+Per donar resistència davant errors externs, totes les crides a Expo es despatxen fora del camí crític de la petició HTTP: si Expo cau o tarda, la transició d'estat ja ha retornat a l'usuari i no es bloqueja. Paral·lelament, cada notificació es persisteix a la base de dades com a historial in-app, independent del fet que la push efímera s'hagi entregat o no (cosa que pot fallar si el dispositiu està apagat o sense xarxa).
+
+\subsubsection{SSE Web notifications}
+
+Per a l'actualització en temps real del panell d'administració (RF-13) s'ha optat per \textbf{Server-Sent Events (SSE)}\cite{14} en lloc de WebSockets o Socket.io. La raó és que el dashboard només \textit{rep} esdeveniments del servidor (mai n'envia), i SSE és un estàndard W3C basat en HTTP que cobreix exactament aquest cas amb reconnexió automàtica nativa i una API client (\texttt{EventSource}) ja inclosa al navegador, sense necessitat de dependències externes.
+
+L'única limitació de \texttt{EventSource} és que no permet enviar capçaleres HTTP personalitzades, fet que impedeix passar el JWT al header \texttt{Authorization} habitual. Posar el JWT al \textit{query string} seria un risc de seguretat, perquè els \textit{query params} apareixen als logs del servidor, a la capçalera \texttt{Referer} i a l'historial del navegador. Per resoldre-ho, s'ha implementat un patró de \textbf{tickets efímers d'un sol ús}: el client autenticat fa una petició POST per obtenir un token aleatori vàlid 60 segons, que envia per la URL. El backend l'esborra immediatament en obrir la connexió SSE. Si el ticket es filtra als logs, és inservible al cap d'un minut o un sol intent, i el JWT mai apareix a la URL.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\columnwidth]{img/sse-ticket-flow}
+	\caption{Diagrama de seqüència del bescanvi de ticket i obertura del stream SSE}
+\end{figure}
+
+Al frontend web, una sola connexió SSE es manté oberta des del layout principal i redistribueix els esdeveniments rebuts entre les diferents pàgines (dashboard, llista, mapa, detall) mitjançant un bus intern, evitant haver d'obrir múltiples connexions i minimitzant re-renderitzats innecessaris.
+
+\subsection{Integració d'agents d'IA}
+
+La integració d'IA cobreix la classificació automàtica d'incidències (RF-14) i, combinada amb un algoritme de balanceig de càrrega, l'auto-assignació intel·ligent de tasques. Tots dos sistemes s'orquestren amb \textbf{LangGraph}\cite{15}, una llibreria de l'ecosistema LangChain que modela els fluxos com a grafs d'estats amb nodes condicionals.
+
+Com a model de llenguatge s'ha triat \textbf{Google Gemini 2.0 Flash}\cite{16}, accessible mitjançant l'API gratuïta de Google AI Studio (1.500 peticions diàries sense necessitat de targeta de crèdit). La seva capacitat de processar text i imatge simultàniament permet aprofitar les dues modalitats sense fragmentar el problema en múltiples agents.
+
+\subsubsection{Classificació automàtica d'incidències}
+
+Quan un alumne crea una incidència, el backend dispara un procés asíncron que analitza el text i la imatge i decideix tres camps: la categoria correcta (revisant la triada per l'usuari), la prioritat real i un resum sintètic per al panell d'administració. El resultat s'aplica directament al report, activant per primera vegada el camp de prioritat que sense IA quedava sempre al valor per defecte \textit{MEDIUM}.
+
+El graf té dos nodes encadenats: el primer crida Gemini Flash amb un prompt que enumera les categories i prioritats vàlides i instrueix el model perquè pugui corregir la categoria de l'usuari si la imatge la contradiu; el segon és una capa determinista que valida la sortida, normalitza els valors als enums vàlids i aplica defaults segurs si el model retorna alguna cosa inesperada. Aquesta capa de regles és la garantia que cap al·lucinació del LLM acabi corrompent dades a la base de dades.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\columnwidth]{img/langgraph-classification}
+	\caption{Graf LangGraph amb els dos nodes (LLM i regles deterministes)}
+\end{figure}
+
+La decisió de fer \textbf{una sola crida multimodal} en lloc d'una arquitectura amb agents separats per a text i imatge respon a un compromís raonat: la \textit{cross-attention} multimodal del model aporta més precisió que la fragmentació, redueix la latència i abarateix el consum. LangGraph s'utilitza igualment per a l'orquestració per dos motius: extensibilitat futura (afegir nodes de \textit{routing}, validació o \textit{fallback} no requereix reescriure) i observabilitat (cada pas queda anomenat i traçable).
+
+Per no degradar la latència percebuda en crear un report, la classificació es dispara amb un petit retard després del \textit{commit}, fet que permet que el mòbil acabi de pujar la imatge inicial abans que el classificador llegeixi les dades. Un cop completada, el resultat es persisteix i el backend emet un esdeveniment SSE que actualitza el panell admin en temps real.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\columnwidth]{img/ai-classified-badge}
+	\caption{Panell admin mostrant el badge "Classificat per IA" i el resum generat automàticament}
+\end{figure}
+
+\subsubsection{Autoassignació intel·ligent de tasques}
+
+L'auto-assignació viu dins la pàgina d'\textbf{Assignacions} del panell web, que ja agrupava les incidències pendents d'assignar. L'administrador pot seleccionar múltiples incidències amb checkboxes i prémer un sol botó perquè el sistema les reparteixi entre els tècnics combinant dos criteris: la \textbf{coincidència de categoria} entre la incidència i la categoria d'expertesa del tècnic, i la \textbf{càrrega de feina actual} (nombre de reports actius assignats).
+
+Per a cada report del lot, el sistema filtra els tècnics elegibles, els ordena per càrrega ascendent (amb desempat per "fa més temps que no rep cap assignació", aplicant un \textit{round-robin} suau) i assigna el primer candidat. Els tècnics sense categoria definida queden exclosos del \textit{pool} per garantir que només s'assignin tasques a personal especialitzat. Si cap tècnic té la categoria del report, aquest es marca com a no assignable amb una raó concreta que es retorna al frontend.
+
+Un detall clau de l'algoritme és que la càrrega s'actualitza \textbf{en memòria} després de cada assignació del lot, abans d'iterar al següent report. Sense aquesta actualització incremental, en seleccionar diversos reports de la mateixa categoria tots anirien al tècnic amb menys càrrega inicial, frustrant l'objectiu de balanceig.
+
+El resultat es presenta a l'administrador en un \textit{modal} amb dues seccions: els reports assignats amb el nom del tècnic triat i els no assignats amb la raó concreta. Així l'administrador pot actuar de manera informada sobre els casos que requereixen intervenció manual.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\columnwidth]{img/auto-assign-modal}
+	\caption{Modal de resultats de l'auto-assignació, mostrant assignacions exitoses i descartades}
+\end{figure}
+
+Cal destacar que l'auto-assignació \textbf{reutilitza el flux ja existent de transició d'estat} (l'event \texttt{ASSIGN} de la màquina XState) en lloc de fer un \textit{update} directe a la base de dades. Així es garanteix que totes les validacions, notificacions push i esdeveniments SSE definits en sprints anteriors s'apliquin de manera consistent també a les assignacions automatitzades.
+
+\subsection{Gamificació i sistema de recompenses}
+
 
