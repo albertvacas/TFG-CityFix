@@ -1,4 +1,5 @@
 /.claude
+/files
 
 # Dependencies (ignorades a tot el monorepo)
 node_modules/

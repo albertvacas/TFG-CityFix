@@ -460,7 +460,7 @@
 		
 		\subsubsection{Administració d'usuaris}
 		S'ha implementat una pagina incial d'inici de sessió que permet només als usuaris administradors accedir al panell de control. L'accés es verifica tant al frontend (comporvació rol ADMIN) i al backend mitjançant el middleware (moduls authenticate i authorize).
-
+		
 		La cerca d'usuaris (RF-17) està disponible tant a l'app com al panell web. La cerca es resol al servidor amb paginació, de manera que escala a milers d'usuaris.
 		
 		\subsubsection{Visualització geografica i SIG}
@@ -494,9 +494,9 @@
 		\subsection{Frontend app}
 		
 		L'aplicació mòbil està desenvolupada amb React Native i Expo, amb navegació basada en l'estructura de carpetes (Expo Router) que distingeix les pantalles públiques (login i registre) de les protegides per autenticació. L'estil reutilitza Tailwind via NativeWind, mantenint coherència amb el panell web.
-
-		Tant el panell web com l'app mòbil són multiidioma (català, castellà i anglès) mitjançant i18next (RNF-09). Els textos d'interfície i les etiquetes de domini (categories, estats i prioritats) es resolen per claus de traducció; la preferència de l'usuari es desa localment i el canvi d'idioma s'aplica en calent, sense recarregar.
-
+		
+		Tant el panell web com l'app mòbil són multiidioma (català, castellà i anglès) mitjançant i18next (RNF-09). Els textos d'interfície i les etiquetes de domini (categories, estats i prioritats) es resolen per claus de traducció.
+		
 		\subsubsection{Inici de sessió i registre}
 		
 		La sessió es centralitza en un context d'autenticació que restaura l'usuari en arrencar l'app si troba un JWT vàlid. A diferència del navegador (on el token és vulnerable a XSS), al mòbil s'utilitza l'emmagatzematge segur del sistema operatiu (Keychain a iOS, Keystore a Android), de manera que només la pròpia aplicació hi pot accedir (RNF-06). El registre suporta dos fluxos: obert per a estudiants —on el backend força el rol, ignorant qualsevol manipulació del client— i amb token d'invitació per als rols privilegiats, evitant escalades de privilegis.
@@ -538,12 +538,6 @@
 		
 		Per al mòbil s'ha optat per \textbf{Expo Push Service}\cite{13}, un proxy gratuït que unifica els serveis propietaris d'iOS (APNs) i Android (FCM) darrere d'una sola crida HTTP i un únic identificador. L'app demana permís en el primer login i envia el token al backend, que l'associa a l'usuari; quan Expo informa que un dispositiu s'ha desregistrat, el token es desactiva en lloc d'esborrar-se, conservant la traça històrica.
 		
-		%\begin{figure}[H]
-		%	\centering
-		%	\includegraphics[width=0.9\columnwidth]{img/push-flow}
-		%	\caption{Flux de registre d'un push token, des del mòbil fins al backend}
-		%\end{figure}
-		
 		El \texttt{NotificationService} aplica regles de \textit{routing} per cada tipus d'esdeveniment (l'autor del report rep les transicions, el tècnic rep les assignacions, etc.). Cada notificació es persisteix també com a historial in-app, independentment que la push efímera s'hagi pogut entregar o no.
 		
 		\subsubsection{SSE Web notifications}
@@ -556,7 +550,7 @@
 		%	\caption{Diagrama de seqüència del bescanvi de ticket i obertura del stream SSE}
 		%\end{figure}
 		
-		Al frontend, una sola connexió SSE oberta des del layout principal redistribueix els esdeveniments entre les pàgines (dashboard, reports, mapa, validacions i gestió d'accessos) mitjançant un bus intern, minimitzant connexions i re-renderitzats. Així, per exemple, a la gestió d'accessos els esdeveniments d'invitació —creació, revocació i, sobretot, el consum del token en registrar-se— refresquen la taula a l'instant, sense \textit{polling}.
+		Al frontend, una sola connexió SSE oberta des del layout principal redistribueix els esdeveniments entre les pàgines (dashboard, reports, mapa, validacions i gestió d'accessos) mitjançant un bus intern, minimitzant connexions i re-renderitzats. 
 		
 		\subsection{Classificació per IA i auto-assignació}
 		
@@ -569,12 +563,6 @@
 		Quan un alumne crea una incidència, el backend dispara un procés asíncron que analitza el text i la imatge i decideix tres camps: la categoria correcta (revisant la triada per l'usuari), la prioritat real i un resum sintètic per al panell d'administració. 
 		
 		El flux és un graf de dos nodes: el primer crida Gemini Flash amb un prompt especific que li permet corregir la categoria de l'usuari si la imatge o el raonament la contradiu; el segon és una capa determinista que valida la sortida, garantint que cap al·lucinació del LLM corrompi la base de dades. S'ha optat per una sola crida multimodal —en lloc d'agents separats— perquè aporta més precisió que la fragmentació i alhora redueix la latència i el cost.
-		
-		%\begin{figure}[H]
-		%	\centering
-		%	\includegraphics[width=0.9\columnwidth]{img/langgraph-classification}
-		%	\caption{Graf LangGraph amb els dos nodes (LLM i regles deterministes)}
-		%\end{figure}
 		
 		Per no degradar la latència en crear un report, la classificació es dispara amb un petit retard després del \textit{commit} (perquè el mòbil acabi de pujar la imatge inicial). Un cop completada, el resultat es persisteix i s'emet un esdeveniment SSE que actualitza el panell admin en temps real amb la informació resultant de la crida al model. 
 		
@@ -608,12 +596,6 @@
 		%	\centering
 		%	\includegraphics[width=0.5\columnwidth]{img/mobile-leaderboard}
 		%	\caption{Pestanya de classificació (\textit{leaderboard}) i secció de punts al perfil de l'estudiant}
-		%\end{figure}
-		
-		%\begin{figure}[H]
-		%	\centering
-		%	\includegraphics[width=\columnwidth]{img/points-page}
-		%	\caption{Pàgina de punts del panell admin: KPIs, escala, podi i historial d'auditoria}
 		%\end{figure}
 		
 		\section{Resultats}
@@ -669,7 +651,27 @@
 			\end{tabular}
 		\end{table}
 		
-		Les discrepàncies de prioritat són sempre d'un sol nivell i sobre fronteres subjectives (on la frontera HIGH/CRITICAL és la més difusa). Els resums automàtics (RF-15) van ser sintètics i informatius. L'avaluació s'ha realitzat amb una mostra reduïda i un model no determinista, de manera que els valors són \textbf{indicatius, no concloents}, tot i així aquestes son proves ens indiquen que el model treballa be amb la configuració i entorn actual. 
+		Les discrepàncies de prioritat són sempre d'un sol nivell i sobre fronteres subjectives (on la frontera HIGH/CRITICAL és la més difusa). Els resums automàtics (RF-15) van ser sintètics i informatius. L'avaluació s'ha realitzat amb una mostra reduïda i un model no determinista, de manera que els valors són \textbf{indicatius, no concloents}, tot i així aquestes son proves ens indiquen que el model treballa be amb la configuració i entorn actual.
+
+		A tall d'exemple, un dels casos del conjunt d'avaluació (Fig.~\ref{fig:ai-case}). Per a aquesta entrada el model va respondre prioritat \texttt{HIGH} en lloc de la \texttt{CRITICAL} esperada: l'única mena de discrepància observada, sempre d'un sol nivell i sobre la frontera subjectiva HIGH/CRITICAL.
+
+	\begin{figure}[H]
+		\footnotesize
+\begin{verbatim}
+{
+  "id": "C08",
+  "title": "Branca a punt de caure",
+  "description": "Una branca grossa d'un pi
+    del passeig està mig trencada i penja
+    sobre la zona de pas dels vianants.",
+  "userCategory": "GREEN_AREAS",
+  "expectedCategory": "GREEN_AREAS",
+  "expectedPriority": "CRITICAL"
+}
+\end{verbatim}
+		\caption{Exemple de cas del conjunt d'avaluació de la IA: entrada (títol i descripció), categoria triada per l'usuari i etiquetes humanes esperades.}
+		\label{fig:ai-case}
+	\end{figure}
 		
 		\subsection{Tests}
 		El projecte disposa d'una bateria de \textbf{proves automàtiques}, executables abans de qualsevol desplegament com a porta de qualitat: si fallen, el canvi no es publica.
