@@ -1,0 +1,34 @@
+# Render Blueprint — backend CampusFix (API REST + SSE)
+# Desplega un Web Service de Node a partir de la carpeta backend/.
+# Pots fer servir aquest fitxer amb "New + > Blueprint" a Render, o
+# configurar manualment un Web Service amb els mateixos valors.
+services:
+  - type: web
+    name: cityfix-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Secret JWT generat automàticament per Render (segur i persistent).
+      - key: JWT_SECRET
+        generateValue: true
+      # La resta cal definir-les manualment al dashboard (sync: false fa que
+      # Render no les sobreescrigui i les demani en crear el servei).
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: ROOT_ADMIN_EMAIL
+        sync: false
