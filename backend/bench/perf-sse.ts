@@ -19,7 +19,7 @@
 import express from 'express';
 import http from 'node:http';
 import { addClient, broadcastToRole } from '../src/services/sse';
-import { Role } from '../generated/prisma';
+import { Role } from '../generated/prisma/client';
 import { summarize, printStatsTable } from './stats';
 
 const ITER = Number(process.env.ITER ?? 300);

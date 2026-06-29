@@ -19,7 +19,7 @@
  */
 
 import { prisma } from '../src/config/db';
-import { Category, Priority, State, Role } from '../generated/prisma';
+import { Category, Priority, State, Role } from '../generated/prisma/client';
 
 export const SEED_DOMAIN = 'seed.cityfix.local';
 export const SEED_TITLE_PREFIX = '[SEED]';

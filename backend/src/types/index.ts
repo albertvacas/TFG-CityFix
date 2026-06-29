@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import { Role, Category, IncidentEvent as PrismaIncidentEvent, TypeImage } from '../../generated/prisma';
+import { Role, Category, IncidentEvent as PrismaIncidentEvent, TypeImage } from '../../generated/prisma/client';
 
 export type { Category };
 

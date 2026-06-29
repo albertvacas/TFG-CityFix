@@ -13,7 +13,7 @@
  * forma qualitativa, ja que requeriria allotjar imatges accessibles per URL.
  */
 
-import type { Category, Priority } from '../generated/prisma';
+import type { Category, Priority } from '../generated/prisma/client';
 
 export interface EvalCase {
   id: string;

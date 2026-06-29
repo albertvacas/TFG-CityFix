@@ -1,5 +1,5 @@
 import { prisma } from '../config/db';
-import { Role, State, Category } from '../../generated/prisma';
+import { Role, State, Category } from '../../generated/prisma/client';
 import { transitionReport } from './report';
 import { getNearestActiveDistances } from './geo';
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createActor } from 'xstate';
 import { incidentMachine, type IncidentInput } from '../../src/machines/stateMachine';
-import type { Role } from '../../generated/prisma';
+import type { Role } from '../../generated/prisma/client';
 
 /**
  * Tests de la màquina d'estats de les incidències (RF-04).

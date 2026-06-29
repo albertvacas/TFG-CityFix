@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { Role } from '../../generated/prisma';
+import { Role } from '../../generated/prisma/client';
 
 /**
  * Tickets efímers per autoritzar la connexió SSE.

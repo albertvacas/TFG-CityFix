@@ -1,5 +1,5 @@
 import { prisma } from '../config/db';
-import { NotificationType, Role } from '../../generated/prisma';
+import { NotificationType, Role } from '../../generated/prisma/client';
 import { sendPushBatch, isValidExpoPushToken, type ExpoPushMessage } from './expoPush';
 import { broadcastToRole, type SseEvent } from './sse';
 

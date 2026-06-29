@@ -1,7 +1,7 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { envs } from '../../config/env';
-import type { Category, Priority } from '../../../generated/prisma';
+import type { Category, Priority } from '../../../generated/prisma/client';
 
 /**
  * Sortida estructurada que esperem del model. Si Gemini retorna camps fora

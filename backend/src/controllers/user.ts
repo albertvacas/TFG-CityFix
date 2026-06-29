@@ -10,7 +10,7 @@ import {
   deleteUser,
   updateAvatar,
 } from '../services/user';
-import { Category } from '../../generated/prisma';
+import { Category } from '../../generated/prisma/client';
 import { parsePagination } from '../utils/pagination';
 
 const ACCEPTED_AVATAR_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];

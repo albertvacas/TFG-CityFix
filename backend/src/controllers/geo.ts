@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../types';
 import { getReportsGeoJson, getHeatmapData } from '../services/geo';
-import { State, Category } from '../../generated/prisma';
+import { State, Category } from '../../generated/prisma/client';
 
 /**
  * GET /api/geo/geojson — Retorna incidències en format GeoJSON FeatureCollection.

@@ -1,5 +1,5 @@
 import { setup } from 'xstate';
-import { Role } from '../../generated/prisma';
+import { Role } from '../../generated/prisma/client';
 
 // Contexto de la máquina: datos que acompañan cada ejecución
 interface IncidentContext {

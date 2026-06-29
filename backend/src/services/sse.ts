@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import { Role } from '../../generated/prisma';
+import { Role } from '../../generated/prisma/client';
 
 /**
  * Hub de connexions Server-Sent Events.

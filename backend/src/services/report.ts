@@ -2,7 +2,7 @@ import { createActor } from 'xstate';
 import { prisma } from '../config/db';
 import { incidentMachine } from '../machines/stateMachine';
 import { CreateReportDTO, IncidentEvent } from '../types';
-import { Priority, Role, State, TypeImage } from '../../generated/prisma';
+import { Priority, Role, State, TypeImage } from '../../generated/prisma/client';
 import { uploadReportImage } from './storage';
 import * as notificationService from './notification';
 import { classifyReport } from './classification';

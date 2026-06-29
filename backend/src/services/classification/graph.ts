@@ -1,5 +1,5 @@
 import { StateGraph, END, START, Annotation } from '@langchain/langgraph';
-import { Category } from '../../../generated/prisma';
+import { Category } from '../../../generated/prisma/client';
 import { classifyWithGemini, type ClassificationOutput } from './llm';
 import { parseAndValidate } from './rules';
 

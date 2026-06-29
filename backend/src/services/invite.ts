@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import { prisma } from '../config/db';
-import { Role } from '../../generated/prisma';
+import { Role } from '../../generated/prisma/client';
 
 const INVITE_TTL_DAYS = 7;
 

@@ -2,7 +2,7 @@ import { prisma } from '../../config/db';
 import { envs } from '../../config/env';
 import { runClassificationGraph } from './graph';
 import { broadcastToRole } from '../sse';
-import { Role } from '../../../generated/prisma';
+import { Role } from '../../../generated/prisma/client';
 
 /**
  * Punt d'entrada únic del sistema d'auto-classificació.

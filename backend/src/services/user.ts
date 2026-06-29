@@ -4,7 +4,7 @@ import { prisma } from '../config/db';
 import { envs } from '../config/env';
 import { UpdateProfileDTO } from '../types';
 import { uploadAvatarImage } from './storage';
-import { Role, State } from '../../generated/prisma';
+import { Role, State } from '../../generated/prisma/client';
 
 // Camps públics d'un usuari que es poden retornar al client (sense password ni inviteId).
 const PUBLIC_USER_SELECT = {

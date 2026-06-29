@@ -1,5 +1,5 @@
 import { prisma } from '../config/db';
-import { State, Category } from '../../generated/prisma';
+import { State, Category } from '../../generated/prisma/client';
 
 interface GeoFilters {
   state?: State;

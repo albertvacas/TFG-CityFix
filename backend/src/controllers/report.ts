@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest, IncidentEvent } from '../types';
 import * as reportService from '../services/report';
-import { Priority, State, TypeImage } from '../../generated/prisma';
+import { Priority, State, TypeImage } from '../../generated/prisma/client';
 import { parsePagination, hasPagination } from '../utils/pagination';
 
 const VALID_PRIORITIES: Priority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];

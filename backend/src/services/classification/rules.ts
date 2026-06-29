@@ -1,4 +1,4 @@
-import { Category, Priority } from '../../../generated/prisma';
+import { Category, Priority } from '../../../generated/prisma/client';
 import type { ClassificationOutput } from './llm';
 
 /**

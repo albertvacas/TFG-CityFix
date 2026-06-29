@@ -1,5 +1,5 @@
 import { prisma } from '../config/db';
-import { State, Priority, Category } from '../../generated/prisma';
+import { State, Priority, Category } from '../../generated/prisma/client';
 
 /** Bloc 1: Comptatge per estat */
 export const getStateCounts = async () => {

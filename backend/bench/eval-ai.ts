@@ -18,7 +18,7 @@
  */
 
 import { runClassificationGraph } from '../src/services/classification/graph';
-import { Priority } from '../generated/prisma';
+import { Priority } from '../generated/prisma/client';
 import { EVAL_CASES, type EvalCase } from './ai-dataset';
 import { envs } from '../src/config/env';
 

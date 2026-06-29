@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { envs } from '../config/env';
 import { prisma } from '../config/db';
 import { AuthRequest, JwtPayload } from '../types';
-import { Role } from '../../generated/prisma';
+import { Role } from '../../generated/prisma/client';
 
 /**
  * Middleware de autenticación: verifica el JWT del header Authorization.

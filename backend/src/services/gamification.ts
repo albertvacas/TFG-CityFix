@@ -1,5 +1,5 @@
 import { prisma } from '../config/db';
-import { Priority } from '../../generated/prisma';
+import { Priority } from '../../generated/prisma/client';
 
 /**
  * Servei de gamificació: premia l'autor d'una incidència quan es tanca
