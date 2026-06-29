@@ -96,10 +96,6 @@ cd frontend && npm test    # proves de renderitzat (Vitest + Testing Library)
 cd app      && npm test    # fluxos per rol (jest-expo + Testing Library)
 ```
 
-## 📚 Documentació
-
-La documentació completa del projecte (informes, diagrames i resum web interactiu) es troba a [`files/`](files/). Pots obrir [`files/index/index.html`](files/index/index.html) per consultar el resum visual amb els lliuraments, els recursos i l'historial de canvis.
-
 ---
 
 <sub>Projecte acadèmic desenvolupat com a Treball de Final de Grau a la UAB (2025/26).</sub>
