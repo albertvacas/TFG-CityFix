@@ -1,7 +1,14 @@
 import axios from 'axios';
 
+/**
+ * Base de l'API. Si `VITE_API_URL` està definida (web i backend en dominis
+ * diferents, p. ex. Vercel + Render), s'hi apunta directament; si no, s'usa
+ * `/api` relatiu (proxy de Vite en dev / mateix domini en prod).
+ */
+export const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
 const client = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE,
 });
 
 client.interceptors.request.use((config) => {

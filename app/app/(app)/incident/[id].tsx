@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
+  FlatList,
+  useWindowDimensions,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../../src/context/AuthContext';
 import { useReport } from '../../../src/hooks/useReports';
@@ -23,11 +28,8 @@ import { addComment, transitionReport, uploadReportImage } from '../../../src/ap
 import { IncidentMiniMap } from '../../../src/components/IncidentMiniMap';
 import {
   CATEGORY_IONICONS,
-  CATEGORY_LABELS,
   PRIORITY_COLORS,
-  PRIORITY_LABELS,
   STATE_COLORS,
-  STATE_LABELS,
   formatRelativeTime,
 } from '../../../src/mocks/reports';
 import type { IncidentEvent, ReportComment } from '../../../src/types';
@@ -39,15 +41,15 @@ const TRANSITION_META: Record<IncidentEvent, { label: string; icon: IoniconName;
   START: { label: 'Iniciada', icon: 'play-outline', color: '#3b82f6' },
   REASSIGN: { label: 'Reassignada', icon: 'swap-horizontal-outline', color: '#a855f7' },
   RESOLVE: { label: 'Resolta', icon: 'checkmark-done-outline', color: '#059669' },
-  CLOSE: { label: 'Tancada', icon: 'lock-closed-outline', color: '#374151' },
+  CLOSE: { label: 'Tancada', icon: 'lock-closed-outline', color: '#6b7280' },
   REJECT: { label: 'Rebutjada', icon: 'close-circle-outline', color: '#dc2626' },
 };
 
 export default function IncidentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const { report, loading, error, refresh, setReport } = useReport(id);
-  const [imageIdx, setImageIdx] = useState(0);
   const [acting, setActing] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolveComment, setResolveComment] = useState('');
@@ -71,7 +73,7 @@ export default function IncidentDetailScreen() {
   if (loading && !report) {
     return (
       <SafeAreaView style={{ flex: 1 }} className="bg-gray-50 items-center justify-center">
-        <ActivityIndicator color="#1d4ed8" />
+        <ActivityIndicator color="#15803d" />
       </SafeAreaView>
     );
   }
@@ -80,10 +82,10 @@ export default function IncidentDetailScreen() {
     return (
       <SafeAreaView style={{ flex: 1 }} className="bg-gray-50 items-center justify-center">
         <Ionicons name="alert-circle-outline" size={32} color="#9ca3af" />
-        <Text className="text-gray-500 mt-2">{error ?? 'Incidència no trobada'}</Text>
+        <Text className="text-gray-500 mt-2">{error ?? t('incident.notFound')}</Text>
         <Pressable onPress={() => router.back()} className="mt-4 flex-row items-center">
-          <Ionicons name="arrow-back" size={16} color="#1d4ed8" />
-          <Text className="text-brand-600 font-semibold ml-1">Tornar</Text>
+          <Ionicons name="arrow-back" size={16} color="#15803d" />
+          <Text className="text-brand-600 font-semibold ml-1">{t('incident.back')}</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -105,7 +107,7 @@ export default function IncidentDetailScreen() {
       setReport(updated);
       await refresh();
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.error ?? e?.message ?? 'No s\'ha pogut actualitzar');
+      Alert.alert(t('incident.errorTitle'), e?.response?.data?.error ?? e?.message ?? t('incident.updateError'));
     } finally {
       setActing(false);
     }
@@ -120,7 +122,7 @@ export default function IncidentDetailScreen() {
       setCommentDraft('');
       await refresh();
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.error ?? e?.message ?? 'No s\'ha pogut enviar el comentari');
+      Alert.alert(t('incident.errorTitle'), e?.response?.data?.error ?? e?.message ?? t('incident.commentError'));
     } finally {
       setSendingComment(false);
     }
@@ -133,7 +135,7 @@ export default function IncidentDetailScreen() {
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (perm.status !== 'granted') {
-      Alert.alert('Permís denegat', 'Cal donar permís per continuar.');
+      Alert.alert(t('incident.permissionDeniedTitle'), t('incident.permissionDeniedBody'));
       return;
     }
     const result =
@@ -147,7 +149,7 @@ export default function IncidentDetailScreen() {
       await uploadReportImage(report.report_id, result.assets[0].uri, 'PROGRESS');
       await refresh();
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.error ?? e?.message ?? 'No s\'ha pogut pujar la foto');
+      Alert.alert(t('incident.errorTitle'), e?.response?.data?.error ?? e?.message ?? t('incident.uploadError'));
     } finally {
       setUploadingProgress(false);
     }
@@ -155,12 +157,12 @@ export default function IncidentDetailScreen() {
 
   const offerProgressPhoto = () => {
     Alert.alert(
-      'Afegir foto de progrés',
-      'Documenta l\'estat actual de la incidència',
+      t('incident.addProgressTitle'),
+      t('incident.addProgressBody'),
       [
-        { text: 'Càmera', onPress: () => uploadProgressPhoto('camera') },
-        { text: 'Galeria', onPress: () => uploadProgressPhoto('library') },
-        { text: 'Cancel·lar', style: 'cancel' },
+        { text: t('create.camera'), onPress: () => uploadProgressPhoto('camera') },
+        { text: t('create.gallery'), onPress: () => uploadProgressPhoto('library') },
+        { text: t('incident.cancel'), style: 'cancel' },
       ],
     );
   };
@@ -171,7 +173,7 @@ export default function IncidentDetailScreen() {
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (perm.status !== 'granted') {
-      Alert.alert('Permís denegat', 'Cal donar permís per continuar.');
+      Alert.alert(t('incident.permissionDeniedTitle'), t('incident.permissionDeniedBody'));
       return;
     }
     const result =
@@ -183,7 +185,7 @@ export default function IncidentDetailScreen() {
 
   const submitResolve = async () => {
     if (!resolvePhotoUri) {
-      Alert.alert('Foto requerida', 'Per marcar com a resolta cal adjuntar una foto del resultat.');
+      Alert.alert(t('incident.photoRequiredTitle'), t('incident.photoRequiredBody'));
       return;
     }
     setActing(true);
@@ -201,7 +203,7 @@ export default function IncidentDetailScreen() {
       setResolveComment('');
       setResolvePhotoUri(null);
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.error ?? e?.message ?? 'No s\'ha pogut resoldre');
+      Alert.alert(t('incident.errorTitle'), e?.response?.data?.error ?? e?.message ?? t('incident.resolveError'));
     } finally {
       setActing(false);
     }
@@ -210,65 +212,21 @@ export default function IncidentDetailScreen() {
   return (
     <SafeAreaView style={{ flex: 1 }} className="bg-gray-50">
       {/* Topbar */}
-      <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
+      <View className="flex-row items-center px-4 py-3 bg-surface border-b border-gray-100">
         <Pressable onPress={() => router.back()} hitSlop={10} className="p-2 mr-2">
-          <Ionicons name="arrow-back" size={22} color="#1f2937" />
+          <Ionicons name="arrow-back" size={22} color="#9ca3af" />
         </Pressable>
         <Text className="text-lg font-bold text-gray-900 flex-1" numberOfLines={1}>
-          Detall
+          {t('incident.detail')}
         </Text>
         <Pressable onPress={refresh} hitSlop={10} className="p-2">
-          <Ionicons name="refresh-outline" size={20} color="#1f2937" />
+          <Ionicons name="refresh-outline" size={20} color="#9ca3af" />
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Imatges */}
-        {images.length > 0 && (
-          <View>
-            <Image
-              source={{ uri: images[imageIdx].url }}
-              style={{ width: '100%', height: 240, backgroundColor: '#e5e7eb' }}
-              resizeMode="cover"
-            />
-            {images.length > 1 && (
-              <View className="flex-row items-center justify-center py-2 bg-white">
-                {images.map((_, i) => (
-                  <Pressable key={i} onPress={() => setImageIdx(i)} className="mx-1">
-                    <View
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: 4,
-                        backgroundColor: i === imageIdx ? '#1d4ed8' : '#d1d5db',
-                      }}
-                    />
-                  </Pressable>
-                ))}
-              </View>
-            )}
-            {/* Etiqueta de tipus de la imatge actual */}
-            <View
-              style={{
-                position: 'absolute',
-                top: 12,
-                right: 12,
-                backgroundColor: 'rgba(0,0,0,0.6)',
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 10,
-              }}
-            >
-              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>
-                {images[imageIdx].type === 'INITIAL'
-                  ? 'INICIAL'
-                  : images[imageIdx].type === 'RESOLUTION'
-                  ? 'RESOLUCIÓ'
-                  : 'PROGRÉS'}
-              </Text>
-            </View>
-          </View>
-        )}
+        {/* Imatges: carrusel lliscant amb fletxes laterals i comptador */}
+        {images.length > 0 && <ImageCarousel images={images} />}
 
         <View className="px-5 pt-4">
           {/* Títol i badges */}
@@ -279,11 +237,11 @@ export default function IncidentDetailScreen() {
                 <Ionicons
                   name={CATEGORY_IONICONS[report.category]}
                   size={12}
-                  color="#374151"
+                  color="#6b7280"
                   style={{ marginRight: 4 }}
                 />
                 <Text className="text-xs font-medium text-gray-700">
-                  {CATEGORY_LABELS[report.category]}
+                  {t(`categories.${report.category}`)}
                 </Text>
               </View>
             )}
@@ -301,22 +259,22 @@ export default function IncidentDetailScreen() {
                 }}
               />
               <Text className="text-xs font-semibold" style={{ color: PRIORITY_COLORS[report.priority] }}>
-                {PRIORITY_LABELS[report.priority]}
+                {t(`priorities.${report.priority}`)}
               </Text>
             </View>
             <View className="rounded-full px-3 py-1" style={{ backgroundColor: stateColor.bg }}>
               <Text className="text-xs font-bold" style={{ color: stateColor.text }}>
-                {STATE_LABELS[report.state].toUpperCase()}
+                {t(`states.${report.state}`).toUpperCase()}
               </Text>
             </View>
           </View>
 
           {/* Descripció */}
-          <Text className="text-sm font-semibold text-gray-700 mt-2 mb-1">Descripció</Text>
+          <Text className="text-sm font-semibold text-gray-700 mt-2 mb-1">{t('incident.description')}</Text>
           <Text className="text-sm text-gray-700 leading-5 mb-4">{report.description}</Text>
 
           {/* Ubicació */}
-          <Text className="text-sm font-semibold text-gray-700 mt-2 mb-2">Ubicació</Text>
+          <Text className="text-sm font-semibold text-gray-700 mt-2 mb-2">{t('incident.location')}</Text>
           <IncidentMiniMap
             latitude={report.latitude}
             longitude={report.longitude}
@@ -330,34 +288,34 @@ export default function IncidentDetailScreen() {
           </View>
 
           {/* Meta */}
-          <View className="rounded-2xl bg-white border border-gray-100 p-4 mb-4 mt-3">
-            <MetaRow label="Reportat per" value={`@${report.createdBy.nickname}`} />
+          <View className="rounded-2xl bg-surface border border-gray-100 p-4 mb-4 mt-3">
+            <MetaRow label={t('incident.reportedBy')} value={`@${report.createdBy.nickname}`} />
             {/* Email visible només a admin o al tècnic assignat — útil per a aclariments */}
             {report.createdBy.email && (user?.role === 'ADMIN' || isAssignedToMe) && (
               <Pressable onPress={() => Linking.openURL(`mailto:${report.createdBy.email}`)}>
                 <View className="flex-row justify-between py-1.5 items-center">
-                  <Text className="text-sm text-gray-500">Contacte</Text>
+                  <Text className="text-sm text-gray-500">{t('incident.contact')}</Text>
                   <View className="flex-row items-center">
-                    <Ionicons name="mail-outline" size={14} color="#1d4ed8" style={{ marginRight: 4 }} />
+                    <Ionicons name="mail-outline" size={14} color="#15803d" style={{ marginRight: 4 }} />
                     <Text className="text-sm text-brand-600 font-medium">{report.createdBy.email}</Text>
                   </View>
                 </View>
               </Pressable>
             )}
-            <MetaRow label="Data" value={formatRelativeTime(report.createdAt)} />
+            <MetaRow label={t('incident.date')} value={formatRelativeTime(report.createdAt)} />
             <MetaRow
-              label="Assignat a"
-              value={report.assignedTo ? `@${report.assignedTo.nickname}` : 'Sense assignar'}
+              label={t('incident.assignedTo')}
+              value={report.assignedTo ? `@${report.assignedTo.nickname}` : t('incident.unassigned')}
             />
             {report.resolvedAt && (
-              <MetaRow label="Resolta" value={formatRelativeTime(report.resolvedAt)} />
+              <MetaRow label={t('incident.resolved')} value={formatRelativeTime(report.resolvedAt)} />
             )}
           </View>
 
           {/* Activitat (timeline de transicions amb comentari) */}
           {activityComments.length > 0 && (
             <>
-              <Text className="text-sm font-semibold text-gray-700 mb-2 mt-2">Activitat</Text>
+              <Text className="text-sm font-semibold text-gray-700 mb-2 mt-2">{t('incident.activity')}</Text>
               {activityComments.map((c) => (
                 <ActivityEntry key={c.id} comment={c} />
               ))}
@@ -366,13 +324,13 @@ export default function IncidentDetailScreen() {
 
           {/* Comentaris de discussió */}
           <Text className="text-sm font-semibold text-gray-700 mb-2 mt-2">
-            Comentaris ({discussionComments.length})
+            {t('incident.comments', { count: discussionComments.length })}
           </Text>
           {discussionComments.length === 0 ? (
-            <Text className="text-xs text-gray-400 mb-3">Encara no hi ha comentaris</Text>
+            <Text className="text-xs text-gray-400 mb-3">{t('incident.noComments')}</Text>
           ) : (
             discussionComments.map((c) => (
-              <View key={c.id} className="rounded-2xl bg-white border border-gray-100 p-3 mb-2">
+              <View key={c.id} className="rounded-2xl bg-surface border border-gray-100 p-3 mb-2">
                 <View className="flex-row items-center mb-1">
                   <Text className="text-sm font-semibold text-gray-800">
                     @{c.author?.nickname ?? 'anonim'}
@@ -386,11 +344,11 @@ export default function IncidentDetailScreen() {
 
           {/* Input de comentari (només autor del report, tècnic assignat o admin) */}
           {canComment && (
-            <View className="rounded-2xl bg-white border border-gray-100 p-3 mb-3 mt-1">
+            <View className="rounded-2xl bg-surface border border-gray-100 p-3 mb-3 mt-1">
               <TextInput
                 value={commentDraft}
                 onChangeText={setCommentDraft}
-                placeholder="Escriu un comentari…"
+                placeholder={t('incident.commentPlaceholder')}
                 placeholderTextColor="#9ca3af"
                 multiline
                 numberOfLines={3}
@@ -406,7 +364,7 @@ export default function IncidentDetailScreen() {
                   className="rounded-full px-4 py-2 flex-row items-center"
                   style={{
                     backgroundColor:
-                      sendingComment || commentDraft.trim().length === 0 ? '#9ca3af' : '#1d4ed8',
+                      sendingComment || commentDraft.trim().length === 0 ? '#9ca3af' : '#15803d',
                   }}
                 >
                   {sendingComment ? (
@@ -414,7 +372,7 @@ export default function IncidentDetailScreen() {
                   ) : (
                     <>
                       <Ionicons name="send-outline" size={14} color="#ffffff" />
-                      <Text className="text-white text-xs font-semibold ml-1.5">Enviar</Text>
+                      <Text className="text-white text-xs font-semibold ml-1.5">{t('incident.send')}</Text>
                     </>
                   )}
                 </Pressable>
@@ -433,11 +391,10 @@ export default function IncidentDetailScreen() {
               />
               <View className="flex-1">
                 <Text className="text-sm font-semibold text-emerald-800 mb-1">
-                  El tècnic ha marcat la incidència com a resolta
+                  {t('incident.validatedBannerTitle')}
                 </Text>
                 <Text className="text-xs text-emerald-700 leading-4">
-                  L'administrador la tancarà aviat. Si veus que el problema no està resolt o
-                  vols afegir informació, deixa un comentari aquí sota.
+                  {t('incident.validatedBannerBody')}
                 </Text>
               </View>
             </View>
@@ -445,12 +402,12 @@ export default function IncidentDetailScreen() {
 
           {/* Accions TECHNICAL */}
           {isTechnical && isAssignedToMe && report.state !== 'CLOSED' && (
-            <View className="rounded-2xl bg-white border border-brand-200 p-4 mb-4 mt-3">
-              <Text className="text-sm font-semibold text-gray-800 mb-3">Actualitzar estat</Text>
+            <View className="rounded-2xl bg-surface border border-brand-200 p-4 mb-4 mt-3">
+              <Text className="text-sm font-semibold text-gray-800 mb-3">{t('incident.updateState')}</Text>
               <View className="flex-row flex-wrap gap-2">
                 {report.state === 'ASSIGNED' && (
                   <ActionButton
-                    label="Començar"
+                    label={t('incident.start')}
                     icon="play-outline"
                     onPress={() => dispatchEvent('START')}
                     color="#3b82f6"
@@ -460,14 +417,14 @@ export default function IncidentDetailScreen() {
                 {report.state === 'IN_PROGRESS' && (
                   <>
                     <ActionButton
-                      label={uploadingProgress ? 'Pujant…' : 'Foto de progrés'}
+                      label={uploadingProgress ? t('incident.uploading') : t('incident.progressPhoto')}
                       icon="camera-outline"
                       onPress={offerProgressPhoto}
-                      color="#6366f1"
+                      color="#15803d"
                       disabled={acting || uploadingProgress}
                     />
                     <ActionButton
-                      label="Marcar resolta"
+                      label={t('incident.markResolved')}
                       icon="checkmark-done-outline"
                       onPress={() => setResolveOpen(true)}
                       color="#059669"
@@ -479,7 +436,7 @@ export default function IncidentDetailScreen() {
                   <View className="flex-row items-center bg-gray-50 px-3 py-2 rounded-lg">
                     <Ionicons name="time-outline" size={16} color="#6b7280" />
                     <Text className="text-xs text-gray-600 ml-2">
-                      Pendent de tancament per part de l'administrador
+                      {t('incident.pendingClose')}
                     </Text>
                   </View>
                 )}
@@ -495,22 +452,41 @@ export default function IncidentDetailScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}
         >
-          <View className="bg-white rounded-t-3xl p-5" style={{ paddingBottom: Platform.OS === 'ios' ? 36 : 24 }}>
+          <View className="bg-surface rounded-t-3xl p-5" style={{ paddingBottom: Platform.OS === 'ios' ? 36 : 24 }}>
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-bold text-gray-900">Marcar com a resolta</Text>
+              <Text className="text-lg font-bold text-gray-900">{t('incident.resolveModalTitle')}</Text>
               <Pressable onPress={() => setResolveOpen(false)} hitSlop={10}>
                 <Ionicons name="close" size={22} color="#6b7280" />
               </Pressable>
             </View>
             <Text className="text-sm text-gray-500 mb-4">
-              Adjunta una foto del resultat i, opcionalment, descriu com s'ha resolt.
+              {t('incident.resolveModalSubtitle')}
             </Text>
 
             {/* Foto */}
-            <Text className="text-xs font-semibold text-gray-700 mb-2">Foto de resolució *</Text>
+            <Text className="text-xs font-semibold text-gray-700 mb-2">{t('incident.resolutionPhoto')}</Text>
             {resolvePhotoUri ? (
-              <View className="rounded-2xl overflow-hidden mb-4 bg-gray-200">
+              <View className="mb-4">
+              <View className="rounded-2xl overflow-hidden bg-gray-200">
                 <Image source={{ uri: resolvePhotoUri }} style={{ width: '100%', height: 160 }} resizeMode="cover" />
+                <View
+                  style={{
+                    position: 'absolute',
+                    bottom: 8,
+                    left: 8,
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 10,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Ionicons name="checkmark-circle" size={13} color="#34d399" />
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600', marginLeft: 4 }}>
+                    {t('incident.photoAttached')}
+                  </Text>
+                </View>
                 <Pressable
                   onPress={() => setResolvePhotoUri(null)}
                   style={{
@@ -528,36 +504,37 @@ export default function IncidentDetailScreen() {
                   <Ionicons name="close" size={16} color="#ffffff" />
                 </Pressable>
               </View>
+              </View>
             ) : (
               <View className="flex-row gap-3 mb-4">
                 <Pressable
                   onPress={() => pickResolvePhoto('camera')}
-                  className="flex-1 rounded-2xl bg-white border border-gray-200 py-5 items-center"
+                  className="flex-1 rounded-2xl bg-surface border border-gray-200 py-5 items-center"
                 >
-                  <Ionicons name="camera-outline" size={24} color="#1d4ed8" />
-                  <Text className="text-xs text-gray-700 mt-1">Càmera</Text>
+                  <Ionicons name="camera-outline" size={24} color="#15803d" />
+                  <Text className="text-xs text-gray-700 mt-1">{t('create.camera')}</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => pickResolvePhoto('library')}
-                  className="flex-1 rounded-2xl bg-white border border-gray-200 py-5 items-center"
+                  className="flex-1 rounded-2xl bg-surface border border-gray-200 py-5 items-center"
                 >
-                  <Ionicons name="image-outline" size={24} color="#1d4ed8" />
-                  <Text className="text-xs text-gray-700 mt-1">Galeria</Text>
+                  <Ionicons name="image-outline" size={24} color="#15803d" />
+                  <Text className="text-xs text-gray-700 mt-1">{t('create.gallery')}</Text>
                 </Pressable>
               </View>
             )}
 
             {/* Comentari */}
-            <Text className="text-xs font-semibold text-gray-700 mb-2">Comentari (opcional)</Text>
+            <Text className="text-xs font-semibold text-gray-700 mb-2">{t('incident.commentOptional')}</Text>
             <TextInput
               value={resolveComment}
               onChangeText={setResolveComment}
-              placeholder="Ex: Bombeta substituïda i provada"
+              placeholder={t('incident.commentResolvePlaceholder')}
               placeholderTextColor="#9ca3af"
               multiline
               numberOfLines={3}
               textAlignVertical="top"
-              className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 mb-5"
+              className="rounded-xl border border-gray-300 bg-surface px-4 py-3 text-sm text-gray-900 mb-5"
               style={{ minHeight: 80 }}
             />
 
@@ -572,7 +549,7 @@ export default function IncidentDetailScreen() {
               ) : (
                 <>
                   <Ionicons name="checkmark-done-outline" size={18} color="#ffffff" />
-                  <Text className="text-white font-semibold ml-2">Confirmar resolució</Text>
+                  <Text className="text-white font-semibold ml-2">{t('incident.confirmResolution')}</Text>
                 </>
               )}
             </Pressable>
@@ -602,7 +579,7 @@ function ActivityEntry({ comment }: { comment: ReportComment }) {
       >
         <Ionicons name={meta.icon} size={14} color={meta.color} />
       </View>
-      <View className="flex-1 rounded-2xl bg-white border border-gray-100 p-3">
+      <View className="flex-1 rounded-2xl bg-surface border border-gray-100 p-3">
         <View className="flex-row items-center mb-1 flex-wrap">
           <Text className="text-xs font-semibold" style={{ color: meta.color }}>
             {meta.label.toUpperCase()}
@@ -611,6 +588,168 @@ function ActivityEntry({ comment }: { comment: ReportComment }) {
           <Text className="text-xs text-gray-400 ml-2">· {formatRelativeTime(comment.createdAt)}</Text>
         </View>
         <Text className="text-sm text-gray-700">{comment.content}</Text>
+      </View>
+    </View>
+  );
+}
+
+const IMAGE_TYPE_LABEL: Record<string, string> = {
+  INITIAL: 'INICIAL',
+  RESOLUTION: 'RESOLUCIÓ',
+  PROGRESS: 'PROGRÉS',
+};
+
+/**
+ * Carrusel d'imatges de la incidència. Es pot navegar:
+ *  - lliscant el dit cap als costats (FlatList horitzontal amb paging)
+ *  - amb les fletxes laterals (◀ ▶) que apareixen segons la posició
+ *  - tocant els punts inferiors
+ * Mostra un comptador "actual / total" i, a sota, quantes fotos hi ha adjuntes.
+ */
+function ImageCarousel({ images }: { images: { url: string; type: string }[] }) {
+  const { width } = useWindowDimensions();
+  const { t } = useTranslation();
+  const [idx, setIdx] = useState(0);
+  const listRef = useRef<FlatList>(null);
+
+  const goTo = (i: number) => {
+    const clamped = Math.max(0, Math.min(images.length - 1, i));
+    listRef.current?.scrollToOffset({ offset: clamped * width, animated: true });
+    setIdx(clamped);
+  };
+
+  const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const next = Math.round(e.nativeEvent.contentOffset.x / width);
+    if (next !== idx) setIdx(next);
+  };
+
+  const hasMany = images.length > 1;
+
+  return (
+    <View className="bg-surface">
+      <View>
+        <FlatList
+          ref={listRef}
+          data={images}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(_, i) => String(i)}
+          onMomentumScrollEnd={onScrollEnd}
+          renderItem={({ item }) => (
+            <Image
+              source={{ uri: item.url }}
+              style={{ width, height: 240, backgroundColor: '#e5e7eb' }}
+              resizeMode="cover"
+            />
+          )}
+        />
+
+        {/* Comptador actual / total (a dalt a l'esquerra) */}
+        {hasMany && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 12,
+              left: 12,
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 10,
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>
+              {idx + 1} / {images.length}
+            </Text>
+          </View>
+        )}
+
+        {/* Etiqueta de tipus de la imatge actual (a dalt a la dreta) */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 10,
+          }}
+        >
+          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>
+            {IMAGE_TYPE_LABEL[images[idx]?.type] ?? 'PROGRÉS'}
+          </Text>
+        </View>
+
+        {/* Fletxa esquerra */}
+        {hasMany && idx > 0 && (
+          <Pressable
+            onPress={() => goTo(idx - 1)}
+            hitSlop={8}
+            style={{
+              position: 'absolute',
+              left: 8,
+              top: 240 / 2 - 18,
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: 'rgba(0,0,0,0.45)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="chevron-back" size={22} color="#fff" />
+          </Pressable>
+        )}
+
+        {/* Fletxa dreta */}
+        {hasMany && idx < images.length - 1 && (
+          <Pressable
+            onPress={() => goTo(idx + 1)}
+            hitSlop={8}
+            style={{
+              position: 'absolute',
+              right: 8,
+              top: 240 / 2 - 18,
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: 'rgba(0,0,0,0.45)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="chevron-forward" size={22} color="#fff" />
+          </Pressable>
+        )}
+      </View>
+
+      {/* Punts indicadors */}
+      {hasMany && (
+        <View className="flex-row items-center justify-center py-2">
+          {images.map((_, i) => (
+            <Pressable key={i} onPress={() => goTo(i)} className="mx-1" hitSlop={6}>
+              <View
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: i === idx ? '#15803d' : '#d1d5db',
+                }}
+              />
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      {/* Recompte de fotos adjuntes */}
+      <View className="flex-row items-center justify-center pb-2">
+        <Ionicons name="images-outline" size={13} color="#6b7280" />
+        <Text className="text-xs text-gray-500 ml-1">
+          {images.length === 1
+            ? t('incident.photosAttachedOne', { count: images.length })
+            : t('incident.photosAttachedMany', { count: images.length })}
+        </Text>
       </View>
     </View>
   );

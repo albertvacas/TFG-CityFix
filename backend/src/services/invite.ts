@@ -49,17 +49,26 @@ export const revokeInvite = async (id: string) => {
 /**
  * Retorna totes les invitacions, ordenades per data de creació descendent.
  */
-export const getAllInvites = async () => {
-  return prisma.invite.findMany({
-    select: {
-      id: true,
-      email: true,
-      role: true,
-      token: true,
-      status: true,
-      expiresAt: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+export const getAllInvites = async (opts: { page?: number; pageSize?: number } = {}) => {
+  const { page = 1, pageSize = 20 } = opts;
+
+  const [invites, total] = await Promise.all([
+    prisma.invite.findMany({
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        token: true,
+        status: true,
+        expiresAt: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.invite.count(),
+  ]);
+
+  return { invites, total };
 };

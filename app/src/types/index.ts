@@ -9,11 +9,30 @@ export interface User {
   role: Role;
   active: boolean;
   points: number;
+  avatarUrl?: string | null;
   // Camps específics per a tècnics (null per a STUDENT/ADMIN)
   position?: string | null;
   workCategory?: ReportCategory | null;
   company?: string | null;
   createdAt: string;
+}
+
+// Resultat de la cerca d'usuaris (GET /users/search). Inclou la informació
+// bàsica + `solvedCount` (reports resolts: propis per a estudiant, assignats
+// per a tècnic).
+export interface UserSearchResult {
+  user_id: string;
+  email: string;
+  name: string;
+  surname: string;
+  nickname: string;
+  role: Role;
+  points: number;
+  avatarUrl?: string | null;
+  position?: string | null;
+  workCategory?: ReportCategory | null;
+  company?: string | null;
+  solvedCount: number;
 }
 
 export interface LoginResponse {
@@ -108,7 +127,8 @@ export type NotificationType =
   | 'REPORT_ASSIGNED'
   | 'REPORT_REASSIGNED'
   | 'REPORT_UNASSIGNED'
-  | 'REPORT_STATE_CHANGED';
+  | 'REPORT_STATE_CHANGED'
+  | 'POINTS_EARNED';
 
 export interface NotificationItem {
   id: string;
@@ -119,3 +139,44 @@ export interface NotificationItem {
   reportId: string | null;
   createdAt: string;
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Gamificació
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface LeaderboardEntry {
+  user_id: string;
+  name: string;
+  surname: string;
+  nickname: string;
+  points: number;
+  avatarUrl?: string | null;
+}
+
+export interface PointsTransactionItem {
+  id: string;
+  amount: number;
+  priority: ReportPriority;
+  createdAt: string;
+  report: {
+    report_id: string;
+    title: string;
+    priority: ReportPriority;
+    category: ReportCategory | null;
+  };
+}
+
+export interface UserRank {
+  rank: number;
+  total: number;
+  points: number;
+}
+
+// Mirall de POINTS_BY_PRIORITY del backend per renderitzar previsualitzacions
+// al mòbil (per exemple, "guanyaràs +X punts quan es tanqui").
+export const POINTS_BY_PRIORITY: Record<ReportPriority, number> = {
+  LOW: 5,
+  MEDIUM: 10,
+  HIGH: 20,
+  CRITICAL: 40,
+};

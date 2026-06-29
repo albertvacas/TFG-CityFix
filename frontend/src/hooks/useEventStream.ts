@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { requestStreamTicket } from '../api/events';
+import { API_BASE } from '../api/client';
 
 /**
  * Tipus dels esdeveniments que el backend pot enviar pel canal SSE.
@@ -21,7 +22,11 @@ export type DashboardEvent =
       reportId: string;
       category: string;
       priority: string;
-    };
+    }
+  | { type: 'points.awarded'; userId: string; reportId: string; amount: number }
+  | { type: 'invite.created'; inviteId: string }
+  | { type: 'invite.used'; inviteId: string }
+  | { type: 'invite.revoked'; inviteId: string };
 
 type Handler = (event: DashboardEvent) => void;
 
@@ -65,9 +70,11 @@ export const useEventStream = (
         const ticket = await requestStreamTicket();
         if (cancelled) return;
 
-        // El proxy de Vite redirigeix /api → backend, així que la URL relativa
-        // funciona en dev i en prod (servida darrere del mateix domini).
-        source = new EventSource(`/api/events/stream?ticket=${encodeURIComponent(ticket)}`);
+        // En dev, API_BASE és `/api` i el proxy de Vite redirigeix al backend.
+        // En prod amb dominis separats (Vercel + Render), API_BASE és la URL
+        // absoluta del backend, de manera que el SSE connecta directament i no
+        // passa per cap proxy que el pugui bufferitzar.
+        source = new EventSource(`${API_BASE}/events/stream?ticket=${encodeURIComponent(ticket)}`);
 
         const dispatch = (raw: MessageEvent) => {
           try {
@@ -86,6 +93,10 @@ export const useEventStream = (
         source.addEventListener('report.priority_changed', dispatch);
         source.addEventListener('report.comment_added', dispatch);
         source.addEventListener('report.classified', dispatch);
+        source.addEventListener('points.awarded', dispatch);
+        source.addEventListener('invite.created', dispatch);
+        source.addEventListener('invite.used', dispatch);
+        source.addEventListener('invite.revoked', dispatch);
 
         source.onerror = () => {
           // Si la connexió mor, EventSource intentarà reconnectar amb el mateix

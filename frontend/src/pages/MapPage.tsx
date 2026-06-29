@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
@@ -16,34 +17,42 @@ import { useLiveEvent } from '../hooks/liveEvents';
 type ViewMode = 'markers' | 'heatmap';
 type WeightBy = 'priority' | 'density' | 'age';
 
-const stateOptions: { value: '' | State; label: string }[] = [
-  { value: '', label: 'Tots els estats' },
-  { value: 'OPEN', label: 'Obertes' },
-  { value: 'ASSIGNED', label: 'Assignades' },
-  { value: 'IN_PROGRESS', label: 'En procés' },
-  { value: 'VALIDATED', label: 'Validades' },
-  { value: 'CLOSED', label: 'Tancades' },
+const stateOptions: { value: '' | State; labelKey: string }[] = [
+  { value: '', labelKey: 'reports.allStates' },
+  { value: 'OPEN', labelKey: 'states.OPEN' },
+  { value: 'ASSIGNED', labelKey: 'states.ASSIGNED' },
+  { value: 'IN_PROGRESS', labelKey: 'states.IN_PROGRESS' },
+  { value: 'VALIDATED', labelKey: 'states.VALIDATED' },
+  { value: 'CLOSED', labelKey: 'states.CLOSED' },
 ];
 
-const categoryOptions: { value: '' | Category; label: string }[] = [
-  { value: '', label: 'Totes les categories' },
-  ...Object.entries(CATEGORY_LABELS).map(([value, label]) => ({
-    value: value as Category,
-    label,
+const categoryOptions: { value: '' | Category; labelKey: string }[] = [
+  { value: '', labelKey: 'mapPage.allCategories' },
+  ...(Object.keys(CATEGORY_LABELS) as Category[]).map((value) => ({
+    value,
+    labelKey: `categories.${value}`,
   })),
 ];
 
 const daysOptions = [
-  { value: 0, label: 'Qualsevol data' },
-  { value: 7, label: 'Últims 7 dies' },
-  { value: 30, label: 'Últims 30 dies' },
-  { value: 90, label: 'Últims 90 dies' },
+  { value: 0, labelKey: 'mapPage.anyDate' },
+  { value: 7, labelKey: 'mapPage.last7' },
+  { value: 30, labelKey: 'mapPage.last30' },
+  { value: 90, labelKey: 'mapPage.last90' },
 ];
 
-const weightOptions: { value: WeightBy; label: string }[] = [
-  { value: 'priority', label: 'Per prioritat' },
-  { value: 'density', label: 'Per densitat' },
-  { value: 'age', label: 'Per antiguitat' },
+const weightOptions: { value: WeightBy; labelKey: string }[] = [
+  { value: 'priority', labelKey: 'mapPage.byPriority' },
+  { value: 'density', labelKey: 'mapPage.byDensity' },
+  { value: 'age', labelKey: 'mapPage.byAge' },
+];
+
+const legendItems: { color: string; key: State }[] = [
+  { color: '#3b82f6', key: 'OPEN' },
+  { color: '#eab308', key: 'ASSIGNED' },
+  { color: '#f97316', key: 'IN_PROGRESS' },
+  { color: '#22c55e', key: 'VALIDATED' },
+  { color: '#6b7280', key: 'CLOSED' },
 ];
 
 // Centre UAB campus
@@ -51,6 +60,7 @@ const UAB_CENTER: [number, number] = [41.5025, 2.1060];
 
 export default function MapPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [viewMode, setViewMode] = useState<ViewMode>('markers');
   const [weightBy, setWeightBy] = useState<WeightBy>('priority');
 
@@ -102,9 +112,11 @@ export default function MapPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Mapa d'Incidències</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('mapPage.title')}</h1>
         <span className="text-sm text-gray-500">
-          {loading ? 'Carregant...' : `${viewMode === 'markers' ? features.length : heatPoints.length} punts`}
+          {loading
+            ? t('common.loading')
+            : t('mapPage.points', { count: viewMode === 'markers' ? features.length : heatPoints.length })}
         </span>
       </div>
 
@@ -120,7 +132,7 @@ export default function MapPage() {
                 : 'bg-white text-gray-700 hover:bg-gray-50'
             }`}
           >
-            Markers
+            {t('mapPage.markers')}
           </button>
           <button
             onClick={() => setViewMode('heatmap')}
@@ -130,7 +142,7 @@ export default function MapPage() {
                 : 'bg-white text-gray-700 hover:bg-gray-50'
             }`}
           >
-            Mapa de calor
+            {t('mapPage.heatmap')}
           </button>
         </div>
 
@@ -142,7 +154,7 @@ export default function MapPage() {
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           >
             {weightOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
             ))}
           </select>
         )}
@@ -154,7 +166,7 @@ export default function MapPage() {
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         >
           {stateOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
           ))}
         </select>
 
@@ -165,7 +177,7 @@ export default function MapPage() {
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         >
           {categoryOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
           ))}
         </select>
 
@@ -176,7 +188,7 @@ export default function MapPage() {
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         >
           {daysOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
           ))}
         </select>
       </div>
@@ -207,19 +219,13 @@ export default function MapPage() {
       {/* Legend */}
       {viewMode === 'markers' && (
         <div className="mt-4 flex flex-wrap gap-4 text-sm">
-          {[
-            { color: '#3b82f6', label: 'Oberta' },
-            { color: '#eab308', label: 'Assignada' },
-            { color: '#f97316', label: 'En procés' },
-            { color: '#22c55e', label: 'Validada' },
-            { color: '#6b7280', label: 'Tancada' },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center gap-1.5">
+          {legendItems.map((item) => (
+            <div key={item.key} className="flex items-center gap-1.5">
               <span
                 className="inline-block h-3 w-3 rounded-full"
                 style={{ backgroundColor: item.color }}
               />
-              <span className="text-gray-600">{item.label}</span>
+              <span className="text-gray-600">{t(`stateBadge.${item.key}`)}</span>
             </div>
           ))}
         </div>
@@ -227,9 +233,9 @@ export default function MapPage() {
 
       {viewMode === 'heatmap' && (
         <div className="mt-4 text-sm text-gray-500">
-          {weightBy === 'priority' && 'Intensitat basada en la prioritat de cada incidència (Crítica = màxim pes).'}
-          {weightBy === 'density' && 'Intensitat basada en la concentració de incidències (totes pesen igual).'}
-          {weightBy === 'age' && 'Intensitat basada en l\'antiguitat (incidències cròniques = més pes).'}
+          {weightBy === 'priority' && t('mapPage.heatPriority')}
+          {weightBy === 'density' && t('mapPage.heatDensity')}
+          {weightBy === 'age' && t('mapPage.heatAge')}
         </div>
       )}
     </div>

@@ -39,6 +39,16 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       res.status(403).json({ error: error.message });
       return;
     }
+    // Errors de validació de negoci (domini no institucional, invitació
+    // caducada, token d'invitació requerit) → 400, no és un error del servidor.
+    if (
+      error.message?.includes('UAB') ||
+      error.message?.includes('caducat') ||
+      error.message?.includes('token d\'invitació')
+    ) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     res.status(500).json({ error: error.message });
   }
 };

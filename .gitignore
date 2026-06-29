@@ -1,4 +1,14 @@
 /.claude
+
+# Dependencies (ignorades a tot el monorepo)
+node_modules/
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Variables d'entorn
 .env
 .env.*
 !.env.example

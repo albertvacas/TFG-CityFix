@@ -27,7 +27,7 @@ const buildHtml = (initial: Coords) => `
     #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #e5e7eb; }
     .picker-pin {
       width: 26px; height: 26px; border-radius: 13px;
-      background: #1d4ed8;
+      background: #15803d;
       border: 3px solid #ffffff;
       box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     }

@@ -174,10 +174,33 @@ export const getCategoryDistribution = async () => {
     .sort((a, b) => b.count - a.count);
 };
 
-/** Bloc 4: Top reporters (usuaris amb més incidències creades) */
+/** Recompte d'incidències per categoria dins d'un rang de dates [from, to]
+ *  (tots dos inclosos). Permet el filtre manual per calendari del dashboard. */
+export const getCategoryCountsInRange = async (from: Date, to: Date) => {
+  const groups = await prisma.report.groupBy({
+    by: ['category'],
+    where: {
+      category: { not: null },
+      createdAt: { gte: from, lte: to },
+    },
+    _count: { report_id: true },
+  });
+
+  return groups
+    .map((g) => ({
+      category: g.category!,
+      count: g._count.report_id,
+    }))
+    .sort((a, b) => b.count - a.count);
+};
+
+/** Bloc 4: Top reporters (estudiants amb més incidències creades).
+ *  Filtrem per role=STUDENT perquè admins i tècnics poden crear reports de
+ *  prova/manuals però no formen part del rànquing de gamificació. */
 export const getTopReporters = async (limit = 10) => {
   const groups = await prisma.report.groupBy({
     by: ['createdById'],
+    where: { createdBy: { role: 'STUDENT' } },
     _count: { report_id: true },
     orderBy: { _count: { report_id: 'desc' } },
     take: limit,

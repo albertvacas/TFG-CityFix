@@ -1,39 +1,42 @@
 {
   "expo": {
-    "name": "CityFix",
+    "name": "CampusFix",
     "slug": "cityfix-mobile",
     "scheme": "cityfix",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#15233b"
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.cityfix.campus",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "CityFix necessita la teva ubicació per registrar on es produeix una incidència al campus.",
-        "NSCameraUsageDescription": "CityFix necessita la càmera per fer fotos de les incidències que reportis o resolguis.",
-        "NSPhotoLibraryUsageDescription": "CityFix necessita accés a la galeria per adjuntar fotos a les teves incidències."
+        "NSLocationWhenInUseUsageDescription": "CampusFix necessita la teva ubicació per registrar on es produeix una incidència al campus.",
+        "NSCameraUsageDescription": "CampusFix necessita la càmera per fer fotos de les incidències que reportis o resolguis.",
+        "NSPhotoLibraryUsageDescription": "CampusFix necessita accés a la galeria per adjuntar fotos a les teves incidències."
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#15233b"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA",
-        "READ_MEDIA_IMAGES"
-      ]
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.cityfix.campus"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -44,23 +47,31 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "CityFix necessita la teva ubicació per registrar on es produeix una incidència al campus."
+          "locationAlwaysAndWhenInUsePermission": "CampusFix necessita la teva ubicació per registrar on es produeix una incidència al campus."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "CityFix necessita accés a la galeria per adjuntar fotos a les teves incidències.",
-          "cameraPermission": "CityFix necessita la càmera per fer fotos de les incidències que reportis o resolguis."
+          "photosPermission": "CampusFix necessita accés a la galeria per adjuntar fotos a les teves incidències.",
+          "cameraPermission": "CampusFix necessita la càmera per fer fotos de les incidències que reportis o resolguis."
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#4f46e5"
+          "color": "#15803d"
         }
-      ]
-    ]
+      ],
+      "expo-localization"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "30e678cf-7f84-485a-baf6-2cffcfc16272"
+      }
+    },
+    "owner": "albertvacas"
   }
 }

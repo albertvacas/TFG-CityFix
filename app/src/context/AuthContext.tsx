@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 import * as authApi from '../api/auth';
-import { TOKEN_KEY } from '../api/client';
+import { TOKEN_KEY, setUnauthorizedHandler } from '../api/client';
 import { detachPushToken } from '../hooks/usePushNotifications';
 import type { User, RegisterPayload } from '../types';
 
@@ -20,6 +20,14 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Auto-logout: quan una petició retorna 401 (compte bloquejat/eliminat o
+  // token caducat), el client ja ha esborrat el token; aquí resetegem l'estat
+  // perquè el guard de navegació porti l'usuari a login.
+  useEffect(() => {
+    setUnauthorizedHandler(() => setUser(null));
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   // Auto-login en arrencar l'app
   useEffect(() => {

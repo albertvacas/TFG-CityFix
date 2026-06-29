@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../types';
 import { createInvite, getAllInvites, revokeInvite } from '../services/invite';
+import { onInviteCreated, onInviteRevoked } from '../services/notification';
+import { parsePagination } from '../utils/pagination';
 
 /**
  * POST /api/invites — Crea una invitació per a un rol privilegiat.
@@ -21,6 +23,7 @@ export const create = async (req: AuthRequest, res: Response): Promise<void> => 
     }
 
     const invite = await createInvite(email, role);
+    onInviteCreated(invite.id);
     res.status(201).json({ invite });
   } catch (error: any) {
     if (error.code === 'P2002') {
@@ -35,10 +38,11 @@ export const create = async (req: AuthRequest, res: Response): Promise<void> => 
  * GET /api/invites — Llista totes les invitacions.
  * Només accessible per ADMIN.
  */
-export const getAll = async (_req: AuthRequest, res: Response): Promise<void> => {
+export const getAll = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const invites = await getAllInvites();
-    res.json({ invites });
+    const { page, pageSize } = parsePagination(req.query);
+    const { invites, total } = await getAllInvites({ page, pageSize });
+    res.json({ invites, total, page, pageSize });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -51,6 +55,7 @@ export const getAll = async (_req: AuthRequest, res: Response): Promise<void> =>
 export const revoke = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const invite = await revokeInvite(req.params.id as string);
+    onInviteRevoked(invite.id);
     res.json({ invite });
   } catch (error: any) {
     if (error.message?.includes('no trobada')) {

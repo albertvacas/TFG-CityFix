@@ -69,6 +69,7 @@ model User {
   role            Role
   active          Boolean   @default(true)
   points          Int       @default(0)
+  avatarUrl       String?   // URL pública de la foto de perfil (Supabase Storage)
 
   // Camps específics per a tècnics (null per a STUDENT i ADMIN).
   // workCategory és el que utilitza l'algoritme de recomanació al panel d'admin.
@@ -85,6 +86,7 @@ model User {
   imagesUploaded  Image[]   @relation("UploadedImages")
   pushTokens      PushToken[]
   notifications   Notification[]
+  pointsTransactions PointsTransaction[]
 
   createdAt       DateTime  @default(now())
   lastModified    DateTime  @updatedAt
@@ -108,6 +110,7 @@ model Report{
   images          Image[]
   comments        Comment[]
   notifications   Notification[]
+  pointsTransaction PointsTransaction?
 
   createdById     String
   createdBy       User     @relation("CreatedReports", fields: [createdById], references: [user_id])
@@ -175,6 +178,7 @@ enum NotificationType {
   REPORT_REASSIGNED
   REPORT_UNASSIGNED
   REPORT_STATE_CHANGED
+  POINTS_EARNED
 }
 
 // Token de push d'un dispositiu concret. Un usuari pot tenir-ne diversos
@@ -230,5 +234,28 @@ model Invite {
   user            User?
 
   @@map("invites")
+}
+
+// Historial atòmic de cada premi de punts (Sprint Gamificació).
+// Cada fila representa una concessió única vinculada a un report. La unicitat
+// per reportId garanteix que mai es premiï dos cops el mateix report, encara
+// que la transició CLOSE es disparés repetidament per un bug futur.
+// El camp `priority` és un snapshot del moment de l'award, perquè si l'admin
+// canvia la prioritat després el premi reflecteix el valor real aplicat.
+model PointsTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+
+  reportId    String   @unique
+  report      Report   @relation(fields: [reportId], references: [report_id], onDelete: Cascade)
+
+  amount      Int
+  priority    Priority
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("points_transactions")
 }
 

@@ -11,3 +11,11 @@ analyticsRouter.get(
   authorize('ADMIN'),
   analyticsController.getDashboardData,
 );
+
+// GET /api/analytics/category-counts?from=YYYY-MM-DD&to=YYYY-MM-DD
+analyticsRouter.get(
+  '/category-counts',
+  authenticate,
+  authorize('ADMIN'),
+  analyticsController.getCategoryCounts,
+);

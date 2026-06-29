@@ -53,3 +53,21 @@ export const getDashboardData = async (
   });
   return data;
 };
+
+export interface CategoryCount {
+  category: Category;
+  count: number;
+}
+
+// Recompte d'incidències per categoria en un rang de dates [from, to] (inclosos),
+// en format 'YYYY-MM-DD'. Per a un sol dia, passa from === to.
+export const getCategoryCounts = async (
+  from: string,
+  to: string,
+): Promise<CategoryCount[]> => {
+  const { data } = await client.get<{ categoryCounts: CategoryCount[] }>(
+    '/analytics/category-counts',
+    { params: { from, to } },
+  );
+  return data.categoryCounts;
+};

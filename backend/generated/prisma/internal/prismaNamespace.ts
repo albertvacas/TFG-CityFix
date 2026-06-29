@@ -390,7 +390,8 @@ export const ModelName = {
   Image: 'Image',
   PushToken: 'PushToken',
   Notification: 'Notification',
-  Invite: 'Invite'
+  Invite: 'Invite',
+  PointsTransaction: 'PointsTransaction'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -406,7 +407,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "report" | "comment" | "image" | "pushToken" | "notification" | "invite"
+    modelProps: "user" | "report" | "comment" | "image" | "pushToken" | "notification" | "invite" | "pointsTransaction"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -928,6 +929,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    PointsTransaction: {
+      payload: Prisma.$PointsTransactionPayload<ExtArgs>
+      fields: Prisma.PointsTransactionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PointsTransactionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PointsTransactionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PointsTransactionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PointsTransactionPayload>
+        }
+        findFirst: {
+          args: Prisma.PointsTransactionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PointsTransactionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PointsTransactionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PointsTransactionPayload>
+        }
+        findMany: {
+          args: Prisma.PointsTransactionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PointsTransactionPayload>[]
+        }
+        create: {
+          args: Prisma.PointsTransactionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PointsTransactionPayload>
+        }
+        createMany: {
+          args: Prisma.PointsTransactionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PointsTransactionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PointsTransactionPayload>[]
+        }
+        delete: {
+          args: Prisma.PointsTransactionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PointsTransactionPayload>
+        }
+        update: {
+          args: Prisma.PointsTransactionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PointsTransactionPayload>
+        }
+        deleteMany: {
+          args: Prisma.PointsTransactionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PointsTransactionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PointsTransactionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PointsTransactionPayload>[]
+        }
+        upsert: {
+          args: Prisma.PointsTransactionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PointsTransactionPayload>
+        }
+        aggregate: {
+          args: Prisma.PointsTransactionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePointsTransaction>
+        }
+        groupBy: {
+          args: Prisma.PointsTransactionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PointsTransactionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PointsTransactionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PointsTransactionCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -977,6 +1052,7 @@ export const UserScalarFieldEnum = {
   role: 'role',
   active: 'active',
   points: 'points',
+  avatarUrl: 'avatarUrl',
   position: 'position',
   workCategory: 'workCategory',
   company: 'company',
@@ -1073,6 +1149,18 @@ export const InviteScalarFieldEnum = {
 } as const
 
 export type InviteScalarFieldEnum = (typeof InviteScalarFieldEnum)[keyof typeof InviteScalarFieldEnum]
+
+
+export const PointsTransactionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  reportId: 'reportId',
+  amount: 'amount',
+  priority: 'priority',
+  createdAt: 'createdAt'
+} as const
+
+export type PointsTransactionScalarFieldEnum = (typeof PointsTransactionScalarFieldEnum)[keyof typeof PointsTransactionScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1381,6 +1469,7 @@ export type GlobalOmitConfig = {
   pushToken?: Prisma.PushTokenOmit
   notification?: Prisma.NotificationOmit
   invite?: Prisma.InviteOmit
+  pointsTransaction?: Prisma.PointsTransactionOmit
 }
 
 /* Types for Logging */

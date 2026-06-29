@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../src/context/AuthContext';
 import type { ReportCategory } from '../../src/types';
 
@@ -70,6 +71,7 @@ type FormData = {
 
 export default function RegisterScreen() {
   const { register } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const [mode, setMode] = useState<RegisterMode>('student');
   const [submitting, setSubmitting] = useState(false);
@@ -146,14 +148,14 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-white"
+      className="flex-1 bg-surface"
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View className="flex-1 px-6 py-10">
           {/* Header */}
           <View className="mb-6">
-            <Text className="text-3xl font-bold text-gray-900">Crear compte</Text>
-            <Text className="mt-1 text-sm text-gray-500">Uneix-te a CityFix</Text>
+            <Text className="text-3xl font-bold text-gray-900">{t('auth.createAccount')}</Text>
+            <Text className="mt-1 text-sm text-gray-500">{t('auth.joinUs')}</Text>
           </View>
 
           {/* Mode selector (tabs) */}
@@ -163,7 +165,7 @@ export default function RegisterScreen() {
               className="flex-1 rounded-lg py-2.5"
               style={{ backgroundColor: mode === 'student' ? '#ffffff' : 'transparent' }}
             >
-              <Text className="text-center text-sm font-medium" style={{ color: mode === 'student' ? '#1d4ed8' : '#6b7280' }}>
+              <Text className="text-center text-sm font-medium" style={{ color: mode === 'student' ? '#15803d' : '#6b7280' }}>
                 Estudiant UAB
               </Text>
             </Pressable>
@@ -172,7 +174,7 @@ export default function RegisterScreen() {
               className="flex-1 rounded-lg py-2.5"
               style={{ backgroundColor: mode === 'invited' ? '#ffffff' : 'transparent' }}
             >
-              <Text className="text-center text-sm font-medium" style={{ color: mode === 'invited' ? '#1d4ed8' : '#6b7280' }}>
+              <Text className="text-center text-sm font-medium" style={{ color: mode === 'invited' ? '#15803d' : '#6b7280' }}>
                 Amb codi d'invitació
               </Text>
             </Pressable>
@@ -380,12 +382,12 @@ export default function RegisterScreen() {
                         }
                         className="rounded-full px-3 py-1.5"
                         style={{
-                          backgroundColor: selected ? '#1d4ed8' : '#f3f4f6',
+                          backgroundColor: selected ? '#15803d' : '#f3f4f6',
                         }}
                       >
                         <Text
                           className="text-xs font-medium"
-                          style={{ color: selected ? '#ffffff' : '#374151' }}
+                          style={{ color: selected ? '#ffffff' : '#6b7280' }}
                         >
                           {opt.label}
                         </Text>

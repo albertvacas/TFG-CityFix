@@ -10,11 +10,21 @@ import { geoRouter } from './routes/geo';
 import { analyticsRouter } from './routes/analytics';
 import { notificationsRouter } from './routes/notifications';
 import { eventsRouter } from './routes/events';
+import { gamificationRouter } from './routes/gamification';
 
 const app = express();
 
 // Middleware global
-app.use(cors());
+// CORS: si FRONTEND_URL està definida, restringim als orígens permesos
+// (separats per comes); si no, acceptem qualsevol origen (còmode en dev).
+const allowedOrigins = envs.FRONTEND_URL?.split(',').map((o) => o.trim()).filter(Boolean);
+app.use(
+  cors(
+    allowedOrigins && allowedOrigins.length > 0
+      ? { origin: allowedOrigins }
+      : undefined,
+  ),
+);
 app.use(express.json());
 
 // Rutas
@@ -26,6 +36,7 @@ app.use('/api/geo', geoRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/events', eventsRouter);
+app.use('/api/gamification', gamificationRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {

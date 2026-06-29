@@ -1,33 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, SafeAreaView, Pressable } from 'react-native';
+import { useColorScheme } from 'nativewind';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import {
   CATEGORY_IONICONS,
-  CATEGORY_LABELS,
   PRIORITY_WEIGHTS,
   STATE_COLORS,
-  STATE_LABELS,
 } from '../../../src/mocks/reports';
 import { useReports } from '../../../src/hooks/useReports';
 import type { Report, ReportState } from '../../../src/types';
 
 type ViewMode = 'markers' | 'heatmap';
 
-const FILTERS: { key: 'ALL' | ReportState; label: string }[] = [
-  { key: 'ALL', label: 'Totes' },
-  { key: 'OPEN', label: 'Obertes' },
-  { key: 'IN_PROGRESS', label: 'En curs' },
-  { key: 'CLOSED', label: 'Resoltes' },
+const FILTERS: { key: 'ALL' | ReportState; labelKey: string }[] = [
+  { key: 'ALL', labelKey: 'map.filterAll' },
+  { key: 'OPEN', labelKey: 'map.filterOpen' },
+  { key: 'IN_PROGRESS', labelKey: 'map.filterInProgress' },
+  { key: 'CLOSED', labelKey: 'map.filterResolved' },
 ];
 
-const STATE_LEGEND: { state: ReportState; label: string }[] = [
-  { state: 'OPEN', label: 'Oberta' },
-  { state: 'ASSIGNED', label: 'Assignada' },
-  { state: 'IN_PROGRESS', label: 'En procés' },
-  { state: 'VALIDATED', label: 'Validada' },
-  { state: 'CLOSED', label: 'Tancada' },
+const STATE_LEGEND: { state: ReportState; labelKey: string }[] = [
+  { state: 'OPEN', labelKey: 'map.stateOpen' },
+  { state: 'ASSIGNED', labelKey: 'map.stateAssigned' },
+  { state: 'IN_PROGRESS', labelKey: 'map.stateInProgress' },
+  { state: 'VALIDATED', labelKey: 'map.stateValidated' },
+  { state: 'CLOSED', labelKey: 'map.stateClosed' },
 ];
 
 const UAB_CENTER = { latitude: 41.5025, longitude: 2.1060 };
@@ -135,6 +135,11 @@ const LEAFLET_HTML = `
 
 export default function MapScreen() {
   const { reports, loading } = useReports();
+  const { colorScheme } = useColorScheme();
+  const { t } = useTranslation();
+  const isDark = colorScheme === 'dark';
+  const chipBg = (active: boolean) => (active ? '#15803d' : isDark ? '#334155' : '#f3f4f6');
+  const chipText = (active: boolean) => (active ? '#ffffff' : isDark ? '#cbd5e1' : '#6b7280');
   const [filter, setFilter] = useState<'ALL' | ReportState>('ALL');
   const [viewMode, setViewMode] = useState<ViewMode>('markers');
   const [selected, setSelected] = useState<Report | null>(null);
@@ -191,24 +196,28 @@ export default function MapScreen() {
   return (
     <SafeAreaView style={{ flex: 1 }} className="bg-gray-50">
       {/* Header + filtres + toggle */}
-      <View className="px-5 pt-4 pb-3 bg-white border-b border-gray-100">
+      <View className="px-5 pt-4 pb-3 border-b border-gray-100">
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-2xl font-bold text-gray-900">Mapa del campus</Text>
+          <Text className="text-2xl font-bold text-gray-900">{t('map.title')}</Text>
           <Text className="text-xs text-gray-500">
-            {loading ? 'Carregant…' : `${visibleReports.length} ${visibleReports.length === 1 ? 'punt' : 'punts'}`}
+            {loading
+              ? t('map.loading')
+              : visibleReports.length === 1
+              ? t('map.pointOne', { count: visibleReports.length })
+              : t('map.pointMany', { count: visibleReports.length })}
           </Text>
         </View>
 
         {/* View mode toggle */}
         <View className="flex-row mb-3 self-start rounded-lg overflow-hidden border border-gray-200">
           <ToggleButton
-            label="Markers"
+            label={t('map.markers')}
             icon="location-outline"
             active={viewMode === 'markers'}
             onPress={() => setViewMode('markers')}
           />
           <ToggleButton
-            label="Mapa de calor"
+            label={t('map.heatmap')}
             icon="flame-outline"
             active={viewMode === 'heatmap'}
             onPress={() => setViewMode('heatmap')}
@@ -222,10 +231,10 @@ export default function MapScreen() {
                 key={f.key}
                 onPress={() => setFilter(f.key)}
                 className="rounded-full px-4 py-2"
-                style={{ backgroundColor: filter === f.key ? '#1d4ed8' : '#f3f4f6' }}
+                style={{ backgroundColor: chipBg(filter === f.key) }}
               >
-                <Text className="text-sm font-semibold" style={{ color: filter === f.key ? '#ffffff' : '#374151' }}>
-                  {f.label}
+                <Text className="text-sm font-semibold" style={{ color: chipText(filter === f.key) }}>
+                  {t(f.labelKey)}
                 </Text>
               </Pressable>
             ))}
@@ -256,7 +265,7 @@ export default function MapScreen() {
         {/* Llegenda d'estats (només en mode markers) */}
         {viewMode === 'markers' && (
           <View
-            className="absolute top-3 left-4 right-4 rounded-2xl bg-white/95 p-3"
+            className="absolute top-3 left-4 right-4 rounded-2xl bg-surface/95 p-3"
             style={{
               shadowColor: '#000',
               shadowOpacity: 0.1,
@@ -265,9 +274,9 @@ export default function MapScreen() {
               elevation: 3,
             }}
           >
-            <Text className="text-xs font-semibold text-gray-700 mb-2">Estat</Text>
+            <Text className="text-xs font-semibold text-gray-700 mb-2">{t('map.legendTitle')}</Text>
             <View className="flex-row flex-wrap gap-3">
-              {STATE_LEGEND.map(({ state, label }) => (
+              {STATE_LEGEND.map(({ state, labelKey }) => (
                 <View key={state} className="flex-row items-center">
                   <View
                     style={{
@@ -278,7 +287,7 @@ export default function MapScreen() {
                       marginRight: 6,
                     }}
                   />
-                  <Text className="text-xs text-gray-600">{label}</Text>
+                  <Text className="text-xs text-gray-600">{t(labelKey)}</Text>
                 </View>
               ))}
             </View>
@@ -288,7 +297,7 @@ export default function MapScreen() {
         {/* Botó "centrar" */}
         <Pressable
           onPress={recenter}
-          className="absolute right-4 rounded-full bg-white w-12 h-12 items-center justify-center"
+          className="absolute right-4 rounded-full bg-surface w-12 h-12 items-center justify-center"
           style={{
             bottom: 220,
             shadowColor: '#000',
@@ -298,7 +307,7 @@ export default function MapScreen() {
             elevation: 4,
           }}
         >
-          <Ionicons name="locate-outline" size={22} color="#1d4ed8" />
+          <Ionicons name="locate-outline" size={22} color="#15803d" />
         </Pressable>
       </View>
 
@@ -306,7 +315,7 @@ export default function MapScreen() {
       {selected && (
         <Pressable
           onPress={() => router.push(`/incident/${selected.report_id}`)}
-          className="absolute left-4 right-4 rounded-2xl bg-white p-4 border border-gray-200"
+          className="absolute left-4 right-4 rounded-2xl bg-surface p-4 border border-gray-200"
           style={{
             bottom: 130,
             shadowColor: '#000',
@@ -334,7 +343,7 @@ export default function MapScreen() {
                 marginRight: 6,
               }}
             />
-            <Text className="text-xs text-gray-500">{STATE_LABELS[selected.state]}</Text>
+            <Text className="text-xs text-gray-500">{t(`states.${selected.state}`)}</Text>
             {selected.category && (
               <>
                 <Text className="text-xs text-gray-400 mx-2">·</Text>
@@ -344,11 +353,11 @@ export default function MapScreen() {
                   color="#6b7280"
                   style={{ marginRight: 4 }}
                 />
-                <Text className="text-xs text-gray-500">{CATEGORY_LABELS[selected.category]}</Text>
+                <Text className="text-xs text-gray-500">{t(`categories.${selected.category}`)}</Text>
               </>
             )}
           </View>
-          <Text className="text-sm text-brand-600 font-semibold">Veure detall →</Text>
+          <Text className="text-sm text-brand-600 font-semibold">{t('map.seeDetail')}</Text>
         </Pressable>
       )}
     </SafeAreaView>
@@ -366,19 +375,23 @@ function ToggleButton({
   active: boolean;
   onPress: () => void;
 }) {
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const inactiveBg = isDark ? '#1e293b' : '#ffffff';
+  const inactiveText = isDark ? '#cbd5e1' : '#6b7280';
   return (
     <Pressable
       onPress={onPress}
       style={{
-        backgroundColor: active ? '#1d4ed8' : '#ffffff',
+        backgroundColor: active ? '#15803d' : inactiveBg,
         paddingHorizontal: 12,
         paddingVertical: 8,
         flexDirection: 'row',
         alignItems: 'center',
       }}
     >
-      <Ionicons name={icon} size={14} color={active ? '#ffffff' : '#6b7280'} />
-      <Text style={{ color: active ? '#ffffff' : '#374151', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
+      <Ionicons name={icon} size={14} color={active ? '#ffffff' : inactiveText} />
+      <Text style={{ color: active ? '#ffffff' : inactiveText, fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
         {label}
       </Text>
     </Pressable>

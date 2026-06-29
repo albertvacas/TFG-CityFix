@@ -1,21 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getReportById, transitionReport, updateReportPriority } from '../api/reports';
-import { getTechnicians } from '../api/users';
+import { getTechnicians, getTechnicianDetails } from '../api/users';
 import ReportStatusBadge from '../components/ReportStatusBadge';
 import PriorityBadge from '../components/PriorityBadge';
 import ImageLightbox from '../components/ImageLightbox';
 import TechnicianAssignmentList from '../components/TechnicianAssignmentList';
 import { useLiveEvent } from '../hooks/liveEvents';
-import type { Report, Technician, IncidentEvent, Priority } from '../types';
-import { STATE_TRANSITIONS, CATEGORY_LABELS } from '../types';
+import type { Report, Technician, TechnicianDetails, IncidentEvent, Priority } from '../types';
+import { STATE_TRANSITIONS } from '../types';
 
-const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
-  { value: 'LOW', label: 'Baixa' },
-  { value: 'MEDIUM', label: 'Mitjana' },
-  { value: 'HIGH', label: 'Alta' },
-  { value: 'CRITICAL', label: 'Crítica' },
-];
+const PRIORITY_OPTIONS: Priority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
 const eventLabels: Record<IncidentEvent, { label: string; className: string }> = {
   ASSIGN: { label: 'Assignar', className: 'bg-yellow-600 hover:bg-yellow-700' },
@@ -29,6 +25,7 @@ const eventLabels: Record<IncidentEvent, { label: string; className: string }> =
 export default function ReportDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [report, setReport] = useState<Report | null>(null);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +41,12 @@ export default function ReportDetailPage() {
   const [modalComment, setModalComment] = useState('');
   const [modalTechId, setModalTechId] = useState<string>('');
   const [priorityLoading, setPriorityLoading] = useState(false);
+  // Accordió "Assignat a": carrega lazy el detall del tècnic la primera vegada
+  // que s'obre i el cachegem aquí per no fer crides repetides.
+  const [techDetailsOpen, setTechDetailsOpen] = useState(false);
+  const [techDetails, setTechDetails] = useState<TechnicianDetails | null>(null);
+  const [techDetailsLoading, setTechDetailsLoading] = useState(false);
+  const [techDetailsError, setTechDetailsError] = useState('');
 
   // Recàrrega només del report (sense tornar a fer servir endpoints
   // pesants). Útil per refrescar quan arriba un esdeveniment SSE referit
@@ -121,6 +124,32 @@ export default function ReportDetailPage() {
       else setError('Error assignant la incidència.');
     } finally {
       setAssigningTechId(null);
+    }
+  };
+
+  // Si canvia el tècnic assignat (per ASSIGN, REASSIGN o pèrdua d'assignació),
+  // invalidem el detall cachegat per no mostrar dades del tècnic anterior.
+  useEffect(() => {
+    setTechDetails(null);
+    setTechDetailsOpen(false);
+    setTechDetailsError('');
+  }, [report?.assignedTo?.user_id]);
+
+  const toggleTechDetails = async () => {
+    if (!report?.assignedTo) return;
+    const nextOpen = !techDetailsOpen;
+    setTechDetailsOpen(nextOpen);
+    if (nextOpen && !techDetails && !techDetailsLoading) {
+      setTechDetailsLoading(true);
+      setTechDetailsError('');
+      try {
+        const d = await getTechnicianDetails(report.assignedTo.user_id);
+        setTechDetails(d);
+      } catch (err: unknown) {
+        setTechDetailsError(err instanceof Error ? err.message : 'Error carregant el tècnic.');
+      } finally {
+        setTechDetailsLoading(false);
+      }
     }
   };
 
@@ -205,7 +234,7 @@ export default function ReportDetailPage() {
             <PriorityBadge priority={report.priority} />
             {report.category && (
               <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
-                {CATEGORY_LABELS[report.category]}
+                {t(`categories.${report.category}`)}
               </span>
             )}
             {report.aiClassifiedAt && (
@@ -310,9 +339,9 @@ export default function ReportDetailPage() {
                 disabled={priorityLoading}
                 className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
               >
-                {PRIORITY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                {PRIORITY_OPTIONS.map((p) => (
+                  <option key={p} value={p}>
+                    {t(`priorities.${p}`)}
                   </option>
                 ))}
               </select>
@@ -333,7 +362,104 @@ export default function ReportDetailPage() {
               <div>
                 <dt className="text-gray-500">Assignat a</dt>
                 <dd className="font-medium text-gray-900">
-                  {report.assignedTo ? `${report.assignedTo.name} (@${report.assignedTo.nickname})` : '—'}
+                  {report.assignedTo ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={toggleTechDetails}
+                        className="flex w-full items-center justify-between gap-2 rounded-md text-left hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        aria-expanded={techDetailsOpen}
+                      >
+                        <span>{report.assignedTo.name} (@{report.assignedTo.nickname})</span>
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`transition-transform ${techDetailsOpen ? 'rotate-180' : ''}`}
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </button>
+                      {techDetailsOpen && (
+                        <div className="mt-3 rounded-lg bg-gray-50 p-3 ring-1 ring-gray-200">
+                          {techDetailsLoading && (
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <span className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                              Carregant detalls…
+                            </div>
+                          )}
+                          {techDetailsError && !techDetailsLoading && (
+                            <p className="text-xs text-red-600">{techDetailsError}</p>
+                          )}
+                          {techDetails && !techDetailsLoading && (
+                            <dl className="space-y-2 text-xs">
+                              <div>
+                                <dt className="text-gray-500">Empresa</dt>
+                                <dd className="font-medium text-gray-900">{techDetails.company ?? '—'}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-gray-500">Lloc de treball</dt>
+                                <dd className="font-medium text-gray-900">{techDetails.position ?? '—'}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-gray-500">Categoria</dt>
+                                <dd>
+                                  {techDetails.workCategory ? (
+                                    <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700">
+                                      {t(`categories.${techDetails.workCategory}`)}
+                                    </span>
+                                  ) : (
+                                    <span className="font-medium text-gray-900">—</span>
+                                  )}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="text-gray-500">Email</dt>
+                                <dd className="font-medium text-gray-900 break-all">
+                                  <a href={`mailto:${techDetails.email}`} className="hover:text-indigo-700">
+                                    {techDetails.email}
+                                  </a>
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="text-gray-500">Alta al sistema</dt>
+                                <dd className="font-medium text-gray-900">
+                                  {new Date(techDetails.createdAt).toLocaleDateString('ca-ES')}
+                                </dd>
+                              </div>
+                              <div className="pt-2 mt-2 border-t border-gray-200">
+                                <dt className="mb-1.5 text-gray-500">Incidències</dt>
+                                <dd className="grid grid-cols-2 gap-1.5 text-[11px]">
+                                  <span className="rounded bg-yellow-50 px-2 py-1 text-yellow-800 ring-1 ring-yellow-200">
+                                    Assignades: <span className="font-bold">{techDetails.stats.assigned}</span>
+                                  </span>
+                                  <span className="rounded bg-orange-50 px-2 py-1 text-orange-800 ring-1 ring-orange-200">
+                                    En procés: <span className="font-bold">{techDetails.stats.inProgress}</span>
+                                  </span>
+                                  <span className="rounded bg-green-50 px-2 py-1 text-green-800 ring-1 ring-green-200">
+                                    Validades: <span className="font-bold">{techDetails.stats.validated}</span>
+                                  </span>
+                                  <span className="rounded bg-gray-100 px-2 py-1 text-gray-700 ring-1 ring-gray-200">
+                                    Tancades: <span className="font-bold">{techDetails.stats.closed}</span>
+                                  </span>
+                                  <span className="col-span-2 rounded bg-indigo-50 px-2 py-1 text-indigo-800 ring-1 ring-indigo-200 text-center">
+                                    Total: <span className="font-bold">{techDetails.stats.total}</span>
+                                  </span>
+                                </dd>
+                              </div>
+                            </dl>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    '—'
+                  )}
                 </dd>
               </div>
               <div>

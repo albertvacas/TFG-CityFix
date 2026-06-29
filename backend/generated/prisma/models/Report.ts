@@ -303,6 +303,7 @@ export type ReportWhereInput = {
   images?: Prisma.ImageListRelationFilter
   comments?: Prisma.CommentListRelationFilter
   notifications?: Prisma.NotificationListRelationFilter
+  pointsTransaction?: Prisma.XOR<Prisma.PointsTransactionNullableScalarRelationFilter, Prisma.PointsTransactionWhereInput> | null
   createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   assignedTo?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
 }
@@ -326,6 +327,7 @@ export type ReportOrderByWithRelationInput = {
   images?: Prisma.ImageOrderByRelationAggregateInput
   comments?: Prisma.CommentOrderByRelationAggregateInput
   notifications?: Prisma.NotificationOrderByRelationAggregateInput
+  pointsTransaction?: Prisma.PointsTransactionOrderByWithRelationInput
   createdBy?: Prisma.UserOrderByWithRelationInput
   assignedTo?: Prisma.UserOrderByWithRelationInput
 }
@@ -352,6 +354,7 @@ export type ReportWhereUniqueInput = Prisma.AtLeast<{
   images?: Prisma.ImageListRelationFilter
   comments?: Prisma.CommentListRelationFilter
   notifications?: Prisma.NotificationListRelationFilter
+  pointsTransaction?: Prisma.XOR<Prisma.PointsTransactionNullableScalarRelationFilter, Prisma.PointsTransactionWhereInput> | null
   createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   assignedTo?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
 }, "report_id">
@@ -417,6 +420,7 @@ export type ReportCreateInput = {
   images?: Prisma.ImageCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentCreateNestedManyWithoutReportInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutReportInput
+  pointsTransaction?: Prisma.PointsTransactionCreateNestedOneWithoutReportInput
   createdBy: Prisma.UserCreateNestedOneWithoutReportsCreatedInput
   assignedTo?: Prisma.UserCreateNestedOneWithoutReportsAssignedInput
 }
@@ -440,6 +444,7 @@ export type ReportUncheckedCreateInput = {
   images?: Prisma.ImageUncheckedCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutReportInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutReportInput
+  pointsTransaction?: Prisma.PointsTransactionUncheckedCreateNestedOneWithoutReportInput
 }
 
 export type ReportUpdateInput = {
@@ -459,6 +464,7 @@ export type ReportUpdateInput = {
   images?: Prisma.ImageUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUpdateManyWithoutReportNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutReportNestedInput
+  pointsTransaction?: Prisma.PointsTransactionUpdateOneWithoutReportNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutReportsCreatedNestedInput
   assignedTo?: Prisma.UserUpdateOneWithoutReportsAssignedNestedInput
 }
@@ -482,6 +488,7 @@ export type ReportUncheckedUpdateInput = {
   images?: Prisma.ImageUncheckedUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutReportNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutReportNestedInput
+  pointsTransaction?: Prisma.PointsTransactionUncheckedUpdateOneWithoutReportNestedInput
 }
 
 export type ReportCreateManyInput = {
@@ -768,6 +775,20 @@ export type ReportUpdateOneWithoutNotificationsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ReportUpdateToOneWithWhereWithoutNotificationsInput, Prisma.ReportUpdateWithoutNotificationsInput>, Prisma.ReportUncheckedUpdateWithoutNotificationsInput>
 }
 
+export type ReportCreateNestedOneWithoutPointsTransactionInput = {
+  create?: Prisma.XOR<Prisma.ReportCreateWithoutPointsTransactionInput, Prisma.ReportUncheckedCreateWithoutPointsTransactionInput>
+  connectOrCreate?: Prisma.ReportCreateOrConnectWithoutPointsTransactionInput
+  connect?: Prisma.ReportWhereUniqueInput
+}
+
+export type ReportUpdateOneRequiredWithoutPointsTransactionNestedInput = {
+  create?: Prisma.XOR<Prisma.ReportCreateWithoutPointsTransactionInput, Prisma.ReportUncheckedCreateWithoutPointsTransactionInput>
+  connectOrCreate?: Prisma.ReportCreateOrConnectWithoutPointsTransactionInput
+  upsert?: Prisma.ReportUpsertWithoutPointsTransactionInput
+  connect?: Prisma.ReportWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ReportUpdateToOneWithWhereWithoutPointsTransactionInput, Prisma.ReportUpdateWithoutPointsTransactionInput>, Prisma.ReportUncheckedUpdateWithoutPointsTransactionInput>
+}
+
 export type ReportCreateWithoutAssignedToInput = {
   report_id?: string
   title: string
@@ -785,6 +806,7 @@ export type ReportCreateWithoutAssignedToInput = {
   images?: Prisma.ImageCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentCreateNestedManyWithoutReportInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutReportInput
+  pointsTransaction?: Prisma.PointsTransactionCreateNestedOneWithoutReportInput
   createdBy: Prisma.UserCreateNestedOneWithoutReportsCreatedInput
 }
 
@@ -806,6 +828,7 @@ export type ReportUncheckedCreateWithoutAssignedToInput = {
   images?: Prisma.ImageUncheckedCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutReportInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutReportInput
+  pointsTransaction?: Prisma.PointsTransactionUncheckedCreateNestedOneWithoutReportInput
 }
 
 export type ReportCreateOrConnectWithoutAssignedToInput = {
@@ -835,6 +858,7 @@ export type ReportCreateWithoutCreatedByInput = {
   images?: Prisma.ImageCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentCreateNestedManyWithoutReportInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutReportInput
+  pointsTransaction?: Prisma.PointsTransactionCreateNestedOneWithoutReportInput
   assignedTo?: Prisma.UserCreateNestedOneWithoutReportsAssignedInput
 }
 
@@ -856,6 +880,7 @@ export type ReportUncheckedCreateWithoutCreatedByInput = {
   images?: Prisma.ImageUncheckedCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutReportInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutReportInput
+  pointsTransaction?: Prisma.PointsTransactionUncheckedCreateNestedOneWithoutReportInput
 }
 
 export type ReportCreateOrConnectWithoutCreatedByInput = {
@@ -937,6 +962,7 @@ export type ReportCreateWithoutCommentsInput = {
   aiClassifiedAt?: Date | string | null
   images?: Prisma.ImageCreateNestedManyWithoutReportInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutReportInput
+  pointsTransaction?: Prisma.PointsTransactionCreateNestedOneWithoutReportInput
   createdBy: Prisma.UserCreateNestedOneWithoutReportsCreatedInput
   assignedTo?: Prisma.UserCreateNestedOneWithoutReportsAssignedInput
 }
@@ -959,6 +985,7 @@ export type ReportUncheckedCreateWithoutCommentsInput = {
   aiClassifiedAt?: Date | string | null
   images?: Prisma.ImageUncheckedCreateNestedManyWithoutReportInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutReportInput
+  pointsTransaction?: Prisma.PointsTransactionUncheckedCreateNestedOneWithoutReportInput
 }
 
 export type ReportCreateOrConnectWithoutCommentsInput = {
@@ -993,6 +1020,7 @@ export type ReportUpdateWithoutCommentsInput = {
   aiClassifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   images?: Prisma.ImageUpdateManyWithoutReportNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutReportNestedInput
+  pointsTransaction?: Prisma.PointsTransactionUpdateOneWithoutReportNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutReportsCreatedNestedInput
   assignedTo?: Prisma.UserUpdateOneWithoutReportsAssignedNestedInput
 }
@@ -1015,6 +1043,7 @@ export type ReportUncheckedUpdateWithoutCommentsInput = {
   aiClassifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   images?: Prisma.ImageUncheckedUpdateManyWithoutReportNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutReportNestedInput
+  pointsTransaction?: Prisma.PointsTransactionUncheckedUpdateOneWithoutReportNestedInput
 }
 
 export type ReportCreateWithoutImagesInput = {
@@ -1033,6 +1062,7 @@ export type ReportCreateWithoutImagesInput = {
   aiClassifiedAt?: Date | string | null
   comments?: Prisma.CommentCreateNestedManyWithoutReportInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutReportInput
+  pointsTransaction?: Prisma.PointsTransactionCreateNestedOneWithoutReportInput
   createdBy: Prisma.UserCreateNestedOneWithoutReportsCreatedInput
   assignedTo?: Prisma.UserCreateNestedOneWithoutReportsAssignedInput
 }
@@ -1055,6 +1085,7 @@ export type ReportUncheckedCreateWithoutImagesInput = {
   aiClassifiedAt?: Date | string | null
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutReportInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutReportInput
+  pointsTransaction?: Prisma.PointsTransactionUncheckedCreateNestedOneWithoutReportInput
 }
 
 export type ReportCreateOrConnectWithoutImagesInput = {
@@ -1089,6 +1120,7 @@ export type ReportUpdateWithoutImagesInput = {
   aiClassifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   comments?: Prisma.CommentUpdateManyWithoutReportNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutReportNestedInput
+  pointsTransaction?: Prisma.PointsTransactionUpdateOneWithoutReportNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutReportsCreatedNestedInput
   assignedTo?: Prisma.UserUpdateOneWithoutReportsAssignedNestedInput
 }
@@ -1111,6 +1143,7 @@ export type ReportUncheckedUpdateWithoutImagesInput = {
   aiClassifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   comments?: Prisma.CommentUncheckedUpdateManyWithoutReportNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutReportNestedInput
+  pointsTransaction?: Prisma.PointsTransactionUncheckedUpdateOneWithoutReportNestedInput
 }
 
 export type ReportCreateWithoutNotificationsInput = {
@@ -1129,6 +1162,7 @@ export type ReportCreateWithoutNotificationsInput = {
   aiClassifiedAt?: Date | string | null
   images?: Prisma.ImageCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentCreateNestedManyWithoutReportInput
+  pointsTransaction?: Prisma.PointsTransactionCreateNestedOneWithoutReportInput
   createdBy: Prisma.UserCreateNestedOneWithoutReportsCreatedInput
   assignedTo?: Prisma.UserCreateNestedOneWithoutReportsAssignedInput
 }
@@ -1151,6 +1185,7 @@ export type ReportUncheckedCreateWithoutNotificationsInput = {
   aiClassifiedAt?: Date | string | null
   images?: Prisma.ImageUncheckedCreateNestedManyWithoutReportInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutReportInput
+  pointsTransaction?: Prisma.PointsTransactionUncheckedCreateNestedOneWithoutReportInput
 }
 
 export type ReportCreateOrConnectWithoutNotificationsInput = {
@@ -1185,6 +1220,7 @@ export type ReportUpdateWithoutNotificationsInput = {
   aiClassifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   images?: Prisma.ImageUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUpdateManyWithoutReportNestedInput
+  pointsTransaction?: Prisma.PointsTransactionUpdateOneWithoutReportNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutReportsCreatedNestedInput
   assignedTo?: Prisma.UserUpdateOneWithoutReportsAssignedNestedInput
 }
@@ -1207,6 +1243,107 @@ export type ReportUncheckedUpdateWithoutNotificationsInput = {
   aiClassifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   images?: Prisma.ImageUncheckedUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutReportNestedInput
+  pointsTransaction?: Prisma.PointsTransactionUncheckedUpdateOneWithoutReportNestedInput
+}
+
+export type ReportCreateWithoutPointsTransactionInput = {
+  report_id?: string
+  title: string
+  description: string
+  state?: $Enums.State
+  priority?: $Enums.Priority
+  category?: $Enums.Category | null
+  latitude: number
+  longitude: number
+  createdAt?: Date | string
+  lastModified?: Date | string
+  resolvedAt?: Date | string | null
+  aiSummary?: string | null
+  aiClassifiedAt?: Date | string | null
+  images?: Prisma.ImageCreateNestedManyWithoutReportInput
+  comments?: Prisma.CommentCreateNestedManyWithoutReportInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutReportInput
+  createdBy: Prisma.UserCreateNestedOneWithoutReportsCreatedInput
+  assignedTo?: Prisma.UserCreateNestedOneWithoutReportsAssignedInput
+}
+
+export type ReportUncheckedCreateWithoutPointsTransactionInput = {
+  report_id?: string
+  title: string
+  description: string
+  state?: $Enums.State
+  priority?: $Enums.Priority
+  category?: $Enums.Category | null
+  latitude: number
+  longitude: number
+  createdById: string
+  assignedToId?: string | null
+  createdAt?: Date | string
+  lastModified?: Date | string
+  resolvedAt?: Date | string | null
+  aiSummary?: string | null
+  aiClassifiedAt?: Date | string | null
+  images?: Prisma.ImageUncheckedCreateNestedManyWithoutReportInput
+  comments?: Prisma.CommentUncheckedCreateNestedManyWithoutReportInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutReportInput
+}
+
+export type ReportCreateOrConnectWithoutPointsTransactionInput = {
+  where: Prisma.ReportWhereUniqueInput
+  create: Prisma.XOR<Prisma.ReportCreateWithoutPointsTransactionInput, Prisma.ReportUncheckedCreateWithoutPointsTransactionInput>
+}
+
+export type ReportUpsertWithoutPointsTransactionInput = {
+  update: Prisma.XOR<Prisma.ReportUpdateWithoutPointsTransactionInput, Prisma.ReportUncheckedUpdateWithoutPointsTransactionInput>
+  create: Prisma.XOR<Prisma.ReportCreateWithoutPointsTransactionInput, Prisma.ReportUncheckedCreateWithoutPointsTransactionInput>
+  where?: Prisma.ReportWhereInput
+}
+
+export type ReportUpdateToOneWithWhereWithoutPointsTransactionInput = {
+  where?: Prisma.ReportWhereInput
+  data: Prisma.XOR<Prisma.ReportUpdateWithoutPointsTransactionInput, Prisma.ReportUncheckedUpdateWithoutPointsTransactionInput>
+}
+
+export type ReportUpdateWithoutPointsTransactionInput = {
+  report_id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
+  priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
+  latitude?: Prisma.FloatFieldUpdateOperationsInput | number
+  longitude?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiClassifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  images?: Prisma.ImageUpdateManyWithoutReportNestedInput
+  comments?: Prisma.CommentUpdateManyWithoutReportNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutReportNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutReportsCreatedNestedInput
+  assignedTo?: Prisma.UserUpdateOneWithoutReportsAssignedNestedInput
+}
+
+export type ReportUncheckedUpdateWithoutPointsTransactionInput = {
+  report_id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  state?: Prisma.EnumStateFieldUpdateOperationsInput | $Enums.State
+  priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
+  category?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
+  latitude?: Prisma.FloatFieldUpdateOperationsInput | number
+  longitude?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
+  assignedToId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  resolvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  aiSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  aiClassifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  images?: Prisma.ImageUncheckedUpdateManyWithoutReportNestedInput
+  comments?: Prisma.CommentUncheckedUpdateManyWithoutReportNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutReportNestedInput
 }
 
 export type ReportCreateManyAssignedToInput = {
@@ -1260,6 +1397,7 @@ export type ReportUpdateWithoutAssignedToInput = {
   images?: Prisma.ImageUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUpdateManyWithoutReportNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutReportNestedInput
+  pointsTransaction?: Prisma.PointsTransactionUpdateOneWithoutReportNestedInput
   createdBy?: Prisma.UserUpdateOneRequiredWithoutReportsCreatedNestedInput
 }
 
@@ -1281,6 +1419,7 @@ export type ReportUncheckedUpdateWithoutAssignedToInput = {
   images?: Prisma.ImageUncheckedUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutReportNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutReportNestedInput
+  pointsTransaction?: Prisma.PointsTransactionUncheckedUpdateOneWithoutReportNestedInput
 }
 
 export type ReportUncheckedUpdateManyWithoutAssignedToInput = {
@@ -1317,6 +1456,7 @@ export type ReportUpdateWithoutCreatedByInput = {
   images?: Prisma.ImageUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUpdateManyWithoutReportNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutReportNestedInput
+  pointsTransaction?: Prisma.PointsTransactionUpdateOneWithoutReportNestedInput
   assignedTo?: Prisma.UserUpdateOneWithoutReportsAssignedNestedInput
 }
 
@@ -1338,6 +1478,7 @@ export type ReportUncheckedUpdateWithoutCreatedByInput = {
   images?: Prisma.ImageUncheckedUpdateManyWithoutReportNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutReportNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutReportNestedInput
+  pointsTransaction?: Prisma.PointsTransactionUncheckedUpdateOneWithoutReportNestedInput
 }
 
 export type ReportUncheckedUpdateManyWithoutCreatedByInput = {
@@ -1425,6 +1566,7 @@ export type ReportSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   images?: boolean | Prisma.Report$imagesArgs<ExtArgs>
   comments?: boolean | Prisma.Report$commentsArgs<ExtArgs>
   notifications?: boolean | Prisma.Report$notificationsArgs<ExtArgs>
+  pointsTransaction?: boolean | Prisma.Report$pointsTransactionArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   assignedTo?: boolean | Prisma.Report$assignedToArgs<ExtArgs>
   _count?: boolean | Prisma.ReportCountOutputTypeDefaultArgs<ExtArgs>
@@ -1493,6 +1635,7 @@ export type ReportInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   images?: boolean | Prisma.Report$imagesArgs<ExtArgs>
   comments?: boolean | Prisma.Report$commentsArgs<ExtArgs>
   notifications?: boolean | Prisma.Report$notificationsArgs<ExtArgs>
+  pointsTransaction?: boolean | Prisma.Report$pointsTransactionArgs<ExtArgs>
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   assignedTo?: boolean | Prisma.Report$assignedToArgs<ExtArgs>
   _count?: boolean | Prisma.ReportCountOutputTypeDefaultArgs<ExtArgs>
@@ -1512,6 +1655,7 @@ export type $ReportPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     images: Prisma.$ImagePayload<ExtArgs>[]
     comments: Prisma.$CommentPayload<ExtArgs>[]
     notifications: Prisma.$NotificationPayload<ExtArgs>[]
+    pointsTransaction: Prisma.$PointsTransactionPayload<ExtArgs> | null
     createdBy: Prisma.$UserPayload<ExtArgs>
     assignedTo: Prisma.$UserPayload<ExtArgs> | null
   }
@@ -1928,6 +2072,7 @@ export interface Prisma__ReportClient<T, Null = never, ExtArgs extends runtime.T
   images<T extends Prisma.Report$imagesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Report$imagesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ImagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   comments<T extends Prisma.Report$commentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Report$commentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CommentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   notifications<T extends Prisma.Report$notificationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Report$notificationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  pointsTransaction<T extends Prisma.Report$pointsTransactionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Report$pointsTransactionArgs<ExtArgs>>): Prisma.Prisma__PointsTransactionClient<runtime.Types.Result.GetResult<Prisma.$PointsTransactionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   createdBy<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   assignedTo<T extends Prisma.Report$assignedToArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Report$assignedToArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
@@ -2444,6 +2589,25 @@ export type Report$notificationsArgs<ExtArgs extends runtime.Types.Extensions.In
   take?: number
   skip?: number
   distinct?: Prisma.NotificationScalarFieldEnum | Prisma.NotificationScalarFieldEnum[]
+}
+
+/**
+ * Report.pointsTransaction
+ */
+export type Report$pointsTransactionArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PointsTransaction
+   */
+  select?: Prisma.PointsTransactionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PointsTransaction
+   */
+  omit?: Prisma.PointsTransactionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PointsTransactionInclude<ExtArgs> | null
+  where?: Prisma.PointsTransactionWhereInput
 }
 
 /**

@@ -1,25 +1,32 @@
 import { useMemo, useState } from 'react';
 import { View, Text, ScrollView, SafeAreaView, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
+import { useColorScheme } from 'nativewind';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../src/context/AuthContext';
-import { getReportsByRole, STATE_LABELS } from '../../../src/mocks/reports';
+import { getReportsByRole } from '../../../src/mocks/reports';
 import { useReports } from '../../../src/hooks/useReports';
 import { ReportCard } from '../../../src/components/ReportCard';
 import type { ReportState } from '../../../src/types';
 
-const STATE_FILTERS: { key: 'ALL' | ReportState; label: string }[] = [
-  { key: 'ALL', label: 'Totes' },
-  { key: 'OPEN', label: STATE_LABELS.OPEN },
-  { key: 'ASSIGNED', label: STATE_LABELS.ASSIGNED },
-  { key: 'IN_PROGRESS', label: STATE_LABELS.IN_PROGRESS },
-  { key: 'VALIDATED', label: STATE_LABELS.VALIDATED },
-  { key: 'CLOSED', label: STATE_LABELS.CLOSED },
+const STATE_FILTERS: { key: 'ALL' | ReportState; labelKey: string }[] = [
+  { key: 'ALL', labelKey: 'reportsList.filterAll' },
+  { key: 'OPEN', labelKey: 'states.OPEN' },
+  { key: 'ASSIGNED', labelKey: 'states.ASSIGNED' },
+  { key: 'IN_PROGRESS', labelKey: 'states.IN_PROGRESS' },
+  { key: 'VALIDATED', labelKey: 'states.VALIDATED' },
+  { key: 'CLOSED', labelKey: 'states.CLOSED' },
 ];
 
 export default function ReportsScreen() {
   const { user } = useAuth();
   const { reports, loading, error, refresh } = useReports();
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<'ALL' | ReportState>('ALL');
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const chipBg = (active: boolean) => (active ? '#15803d' : isDark ? '#334155' : '#f3f4f6');
+  const chipText = (active: boolean) => (active ? '#ffffff' : isDark ? '#cbd5e1' : '#6b7280');
 
   const baseReports = useMemo(() => {
     if (!user) return [];
@@ -35,14 +42,14 @@ export default function ReportsScreen() {
 
   const title =
     user.role === 'STUDENT'
-      ? 'Les meves incidències'
+      ? t('reportsList.titleMine')
       : user.role === 'TECHNICAL'
-      ? 'Incidències assignades'
-      : 'Totes les incidències';
+      ? t('reportsList.titleAssigned')
+      : t('reportsList.titleAll');
 
   return (
     <SafeAreaView style={{ flex: 1 }} className="bg-gray-50">
-      <View className="px-5 pt-4 pb-3 bg-white border-b border-gray-100">
+      <View className="px-5 pt-4 pb-3 border-b border-gray-100">
         <Text className="text-2xl font-bold text-gray-900 mb-3">{title}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View className="flex-row gap-2">
@@ -51,10 +58,10 @@ export default function ReportsScreen() {
                 key={f.key}
                 onPress={() => setFilter(f.key)}
                 className="rounded-full px-4 py-2"
-                style={{ backgroundColor: filter === f.key ? '#1d4ed8' : '#f3f4f6' }}
+                style={{ backgroundColor: chipBg(filter === f.key) }}
               >
-                <Text className="text-sm font-semibold" style={{ color: filter === f.key ? '#ffffff' : '#374151' }}>
-                  {f.label}
+                <Text className="text-sm font-semibold" style={{ color: chipText(filter === f.key) }}>
+                  {t(f.labelKey)}
                 </Text>
               </Pressable>
             ))}
@@ -73,16 +80,18 @@ export default function ReportsScreen() {
           </View>
         )}
         <Text className="text-xs text-gray-500 mb-3">
-          {filteredReports.length} {filteredReports.length === 1 ? 'incidència' : 'incidències'}
+          {filteredReports.length === 1
+            ? t('reportsList.countOne', { count: filteredReports.length })
+            : t('reportsList.countMany', { count: filteredReports.length })}
         </Text>
         {loading && filteredReports.length === 0 ? (
-          <ActivityIndicator color="#1d4ed8" style={{ marginTop: 24 }} />
+          <ActivityIndicator color="#15803d" style={{ marginTop: 24 }} />
         ) : filteredReports.length === 0 ? (
-          <View className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 items-center mt-4">
+          <View className="rounded-2xl border border-dashed border-gray-300 bg-surface p-8 items-center mt-4">
             <Ionicons name="file-tray-outline" size={32} color="#9ca3af" />
             <Text className="text-sm text-gray-500 text-center mt-2">
-              No hi ha incidències
-              {filter !== 'ALL' ? ` amb l'estat "${STATE_LABELS[filter as ReportState]}"` : ''}.
+              {t('reportsList.empty')}
+              {filter !== 'ALL' ? t('reportsList.emptyWithState', { state: t(`states.${filter}`) }) : ''}.
             </Text>
           </View>
         ) : (

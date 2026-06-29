@@ -31,10 +31,10 @@ const CATEGORY_HINTS: Record<Category, string> = {
 };
 
 const PRIORITY_HINTS: Record<Priority, string> = {
-  LOW: 'estètic o sense impacte funcional immediat',
-  MEDIUM: "molèstia normal, cal arreglar però no urgent",
-  HIGH: 'afecta seguretat o servei de manera significativa',
-  CRITICAL: 'risc immediat per a persones o servei aturat completament',
+  LOW: 'NOMÉS impacte estètic, sense cap afectació funcional ni de seguretat (grafit, gespa seca, una làmpada que parpelleja en un espai ja il·luminat)',
+  MEDIUM: 'cal reparar-ho però no hi ha risc; molèstia funcional (banc o paperera trencats, contenidor desbordat)',
+  HIGH: 'afecta la seguretat o un servei important, sense perill imminent de lesió greu (enllumenat d\'una via principal apagat de nit, fuita d\'aigua considerable, forat gran a la calçada)',
+  CRITICAL: 'risc imminent de lesió per a persones o servei completament aturat (element a punt de caure sobre una zona de pas, cable elèctric amb corrent a l\'abast, accés/sortida única bloquejat, pas de vianants sense senyalització funcional en via amb trànsit)',
 };
 
 /**
@@ -66,16 +66,42 @@ ${cats}
 Prioritats disponibles:
 ${prios}
 
-INSTRUCCIONS:
-- Si la categoria triada per l'usuari és coherent amb el text/imatge, mantén-la.
-- Si la imatge mostra clarament una cosa diferent, sobreescriu-la.
-- Per a la prioritat, sigues conservador: només marca CRITICAL si hi ha risc clar (cables, perill de caiguda, accés bloquejat). HIGH per a coses que afecten seguretat o el servei. MEDIUM és el default raonable.
+INSTRUCCIONS DE CATEGORIA:
+- Parteix de la categoria triada per l'usuari, però corregeix-la si el text o la imatge indiquen clarament una altra cosa.
+- Desambiguació: LIGHTING és NOMÉS punts de llum (fanals, làmpades, tubs). Qualsevol altre problema elèctric o d'equipament (cables, quadres elèctrics, endolls, sensors, pantalles) va a TECHNOLOGY. Els residus, vidres o brutícia escampats pel terra són CLEANING encara que l'objecte trencat sigui d'una altra mena.
+
+INSTRUCCIONS DE PRIORITAT:
+- Tria el nivell de la rúbrica de dalt que millor encaixi amb l'impacte real; no facis servir MEDIUM com a opció per defecte.
+- Davant el dubte entre dos nivells per un factor de SEGURETAT real (risc per a persones), tria sempre el més alt.
+- En canvi, no inflis la prioritat per problemes purament estètics: han de ser LOW.
+
 - El resum ha de ser concret i en català, no una repetició literal del títol.
 
 Respon NOMÉS amb un objecte JSON vàlid amb aquesta forma exacta:
 {"category": "<UNA_DE_LES_CATEGORIES>", "priority": "<UNA_DE_LES_PRIORITATS>", "summary": "<text breu>"}
 
 Cap text abans ni després del JSON. Cap markdown.`;
+};
+
+/**
+ * El connector `@langchain/google-genai` no accepta URLs HTTP per a imatges
+ * — exigeix data URL base64 inline. Descarreguem la imatge i la convertim;
+ * si falla, retornem null per classificar només amb text (degradació gradual).
+ */
+const fetchImageAsDataUrl = async (url: string): Promise<string | null> => {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn(`[classification] Imatge no accessible (HTTP ${res.status}): ${url}`);
+      return null;
+    }
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const mime = res.headers.get('content-type') ?? 'image/jpeg';
+    return `data:${mime};base64,${buffer.toString('base64')}`;
+  } catch (err) {
+    console.warn(`[classification] Error descarregant imatge ${url}:`, err);
+    return null;
+  }
 };
 
 /**
@@ -93,12 +119,12 @@ export const classifyWithGemini = async (params: {
     throw new Error('GEMINI_API_KEY no configurada');
   }
 
-  // Gemini 2.0 Flash: ràpid, generós al free tier (15 RPM, 1500 RPD), suporta
-  // visió. Temperatura baixa perquè volem classificacions consistents, no
-  // creativitat.
+  // Gemini 2.5 Flash: multimodal, free tier disponible (10 RPM / 250 RPD).
+  // Triat sobre 2.0 Flash (sense free tier al nostre compte) i sobre 1.5 Flash
+  // (deprecat al path v1beta el 2025). Temperatura baixa per consistència.
   const model = new ChatGoogleGenerativeAI({
     apiKey: envs.GEMINI_API_KEY,
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     temperature: 0.1,
     maxRetries: 2,
   });
@@ -114,10 +140,13 @@ export const classifyWithGemini = async (params: {
 
   const humanContent: any[] = [{ type: 'text', text: userText }];
   if (params.imageUrl) {
-    humanContent.push({
-      type: 'image_url',
-      image_url: params.imageUrl,
-    });
+    const dataUrl = await fetchImageAsDataUrl(params.imageUrl);
+    if (dataUrl) {
+      humanContent.push({
+        type: 'image_url',
+        image_url: dataUrl,
+      });
+    }
   }
 
   const messages = [

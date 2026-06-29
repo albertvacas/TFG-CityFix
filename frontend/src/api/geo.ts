@@ -16,8 +16,6 @@ export interface GeoJsonFeature {
     state: string;
     priority: string;
     category: string | null;
-    createdBy: string;
-    assignedTo: string | null;
     createdAt: string;
   };
 }

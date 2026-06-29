@@ -44,6 +44,7 @@ export type UserMinAggregateOutputType = {
   role: $Enums.Role | null
   active: boolean | null
   points: number | null
+  avatarUrl: string | null
   position: string | null
   workCategory: $Enums.Category | null
   company: string | null
@@ -62,6 +63,7 @@ export type UserMaxAggregateOutputType = {
   role: $Enums.Role | null
   active: boolean | null
   points: number | null
+  avatarUrl: string | null
   position: string | null
   workCategory: $Enums.Category | null
   company: string | null
@@ -80,6 +82,7 @@ export type UserCountAggregateOutputType = {
   role: number
   active: number
   points: number
+  avatarUrl: number
   position: number
   workCategory: number
   company: number
@@ -108,6 +111,7 @@ export type UserMinAggregateInputType = {
   role?: true
   active?: true
   points?: true
+  avatarUrl?: true
   position?: true
   workCategory?: true
   company?: true
@@ -126,6 +130,7 @@ export type UserMaxAggregateInputType = {
   role?: true
   active?: true
   points?: true
+  avatarUrl?: true
   position?: true
   workCategory?: true
   company?: true
@@ -144,6 +149,7 @@ export type UserCountAggregateInputType = {
   role?: true
   active?: true
   points?: true
+  avatarUrl?: true
   position?: true
   workCategory?: true
   company?: true
@@ -249,6 +255,7 @@ export type UserGroupByOutputType = {
   role: $Enums.Role
   active: boolean
   points: number
+  avatarUrl: string | null
   position: string | null
   workCategory: $Enums.Category | null
   company: string | null
@@ -290,6 +297,7 @@ export type UserWhereInput = {
   role?: Prisma.EnumRoleFilter<"User"> | $Enums.Role
   active?: Prisma.BoolFilter<"User"> | boolean
   points?: Prisma.IntFilter<"User"> | number
+  avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
   position?: Prisma.StringNullableFilter<"User"> | string | null
   workCategory?: Prisma.EnumCategoryNullableFilter<"User"> | $Enums.Category | null
   company?: Prisma.StringNullableFilter<"User"> | string | null
@@ -303,6 +311,7 @@ export type UserWhereInput = {
   imagesUploaded?: Prisma.ImageListRelationFilter
   pushTokens?: Prisma.PushTokenListRelationFilter
   notifications?: Prisma.NotificationListRelationFilter
+  pointsTransactions?: Prisma.PointsTransactionListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -315,6 +324,7 @@ export type UserOrderByWithRelationInput = {
   role?: Prisma.SortOrder
   active?: Prisma.SortOrder
   points?: Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   position?: Prisma.SortOrderInput | Prisma.SortOrder
   workCategory?: Prisma.SortOrderInput | Prisma.SortOrder
   company?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -328,6 +338,7 @@ export type UserOrderByWithRelationInput = {
   imagesUploaded?: Prisma.ImageOrderByRelationAggregateInput
   pushTokens?: Prisma.PushTokenOrderByRelationAggregateInput
   notifications?: Prisma.NotificationOrderByRelationAggregateInput
+  pointsTransactions?: Prisma.PointsTransactionOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -344,6 +355,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   role?: Prisma.EnumRoleFilter<"User"> | $Enums.Role
   active?: Prisma.BoolFilter<"User"> | boolean
   points?: Prisma.IntFilter<"User"> | number
+  avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
   position?: Prisma.StringNullableFilter<"User"> | string | null
   workCategory?: Prisma.EnumCategoryNullableFilter<"User"> | $Enums.Category | null
   company?: Prisma.StringNullableFilter<"User"> | string | null
@@ -356,6 +368,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   imagesUploaded?: Prisma.ImageListRelationFilter
   pushTokens?: Prisma.PushTokenListRelationFilter
   notifications?: Prisma.NotificationListRelationFilter
+  pointsTransactions?: Prisma.PointsTransactionListRelationFilter
 }, "user_id" | "email" | "nickname" | "inviteId">
 
 export type UserOrderByWithAggregationInput = {
@@ -368,6 +381,7 @@ export type UserOrderByWithAggregationInput = {
   role?: Prisma.SortOrder
   active?: Prisma.SortOrder
   points?: Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   position?: Prisma.SortOrderInput | Prisma.SortOrder
   workCategory?: Prisma.SortOrderInput | Prisma.SortOrder
   company?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -394,6 +408,7 @@ export type UserScalarWhereWithAggregatesInput = {
   role?: Prisma.EnumRoleWithAggregatesFilter<"User"> | $Enums.Role
   active?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
   points?: Prisma.IntWithAggregatesFilter<"User"> | number
+  avatarUrl?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   position?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   workCategory?: Prisma.EnumCategoryNullableWithAggregatesFilter<"User"> | $Enums.Category | null
   company?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
@@ -412,6 +427,7 @@ export type UserCreateInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -424,6 +440,7 @@ export type UserCreateInput = {
   imagesUploaded?: Prisma.ImageCreateNestedManyWithoutUploadedByInput
   pushTokens?: Prisma.PushTokenCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -436,6 +453,7 @@ export type UserUncheckedCreateInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -448,6 +466,7 @@ export type UserUncheckedCreateInput = {
   imagesUploaded?: Prisma.ImageUncheckedCreateNestedManyWithoutUploadedByInput
   pushTokens?: Prisma.PushTokenUncheckedCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -460,6 +479,7 @@ export type UserUpdateInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -472,6 +492,7 @@ export type UserUpdateInput = {
   imagesUploaded?: Prisma.ImageUpdateManyWithoutUploadedByNestedInput
   pushTokens?: Prisma.PushTokenUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -484,6 +505,7 @@ export type UserUncheckedUpdateInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -496,6 +518,7 @@ export type UserUncheckedUpdateInput = {
   imagesUploaded?: Prisma.ImageUncheckedUpdateManyWithoutUploadedByNestedInput
   pushTokens?: Prisma.PushTokenUncheckedUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -508,6 +531,7 @@ export type UserCreateManyInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -526,6 +550,7 @@ export type UserUpdateManyMutationInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -543,6 +568,7 @@ export type UserUncheckedUpdateManyInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -561,6 +587,7 @@ export type UserCountOrderByAggregateInput = {
   role?: Prisma.SortOrder
   active?: Prisma.SortOrder
   points?: Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrder
   position?: Prisma.SortOrder
   workCategory?: Prisma.SortOrder
   company?: Prisma.SortOrder
@@ -583,6 +610,7 @@ export type UserMaxOrderByAggregateInput = {
   role?: Prisma.SortOrder
   active?: Prisma.SortOrder
   points?: Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrder
   position?: Prisma.SortOrder
   workCategory?: Prisma.SortOrder
   company?: Prisma.SortOrder
@@ -601,6 +629,7 @@ export type UserMinOrderByAggregateInput = {
   role?: Prisma.SortOrder
   active?: Prisma.SortOrder
   points?: Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrder
   position?: Prisma.SortOrder
   workCategory?: Prisma.SortOrder
   company?: Prisma.SortOrder
@@ -775,6 +804,20 @@ export type UserUncheckedUpdateOneWithoutInviteNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutInviteInput, Prisma.UserUpdateWithoutInviteInput>, Prisma.UserUncheckedUpdateWithoutInviteInput>
 }
 
+export type UserCreateNestedOneWithoutPointsTransactionsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPointsTransactionsInput, Prisma.UserUncheckedCreateWithoutPointsTransactionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPointsTransactionsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutPointsTransactionsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPointsTransactionsInput, Prisma.UserUncheckedCreateWithoutPointsTransactionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPointsTransactionsInput
+  upsert?: Prisma.UserUpsertWithoutPointsTransactionsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutPointsTransactionsInput, Prisma.UserUpdateWithoutPointsTransactionsInput>, Prisma.UserUncheckedUpdateWithoutPointsTransactionsInput>
+}
+
 export type UserCreateWithoutReportsCreatedInput = {
   user_id?: string
   email: string
@@ -785,6 +828,7 @@ export type UserCreateWithoutReportsCreatedInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -796,6 +840,7 @@ export type UserCreateWithoutReportsCreatedInput = {
   imagesUploaded?: Prisma.ImageCreateNestedManyWithoutUploadedByInput
   pushTokens?: Prisma.PushTokenCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutReportsCreatedInput = {
@@ -808,6 +853,7 @@ export type UserUncheckedCreateWithoutReportsCreatedInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -819,6 +865,7 @@ export type UserUncheckedCreateWithoutReportsCreatedInput = {
   imagesUploaded?: Prisma.ImageUncheckedCreateNestedManyWithoutUploadedByInput
   pushTokens?: Prisma.PushTokenUncheckedCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutReportsCreatedInput = {
@@ -836,6 +883,7 @@ export type UserCreateWithoutReportsAssignedInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -847,6 +895,7 @@ export type UserCreateWithoutReportsAssignedInput = {
   imagesUploaded?: Prisma.ImageCreateNestedManyWithoutUploadedByInput
   pushTokens?: Prisma.PushTokenCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutReportsAssignedInput = {
@@ -859,6 +908,7 @@ export type UserUncheckedCreateWithoutReportsAssignedInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -870,6 +920,7 @@ export type UserUncheckedCreateWithoutReportsAssignedInput = {
   imagesUploaded?: Prisma.ImageUncheckedCreateNestedManyWithoutUploadedByInput
   pushTokens?: Prisma.PushTokenUncheckedCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutReportsAssignedInput = {
@@ -898,6 +949,7 @@ export type UserUpdateWithoutReportsCreatedInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -909,6 +961,7 @@ export type UserUpdateWithoutReportsCreatedInput = {
   imagesUploaded?: Prisma.ImageUpdateManyWithoutUploadedByNestedInput
   pushTokens?: Prisma.PushTokenUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReportsCreatedInput = {
@@ -921,6 +974,7 @@ export type UserUncheckedUpdateWithoutReportsCreatedInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -932,6 +986,7 @@ export type UserUncheckedUpdateWithoutReportsCreatedInput = {
   imagesUploaded?: Prisma.ImageUncheckedUpdateManyWithoutUploadedByNestedInput
   pushTokens?: Prisma.PushTokenUncheckedUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserUpsertWithoutReportsAssignedInput = {
@@ -955,6 +1010,7 @@ export type UserUpdateWithoutReportsAssignedInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -966,6 +1022,7 @@ export type UserUpdateWithoutReportsAssignedInput = {
   imagesUploaded?: Prisma.ImageUpdateManyWithoutUploadedByNestedInput
   pushTokens?: Prisma.PushTokenUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReportsAssignedInput = {
@@ -978,6 +1035,7 @@ export type UserUncheckedUpdateWithoutReportsAssignedInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -989,6 +1047,7 @@ export type UserUncheckedUpdateWithoutReportsAssignedInput = {
   imagesUploaded?: Prisma.ImageUncheckedUpdateManyWithoutUploadedByNestedInput
   pushTokens?: Prisma.PushTokenUncheckedUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutCommentsInput = {
@@ -1001,6 +1060,7 @@ export type UserCreateWithoutCommentsInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -1012,6 +1072,7 @@ export type UserCreateWithoutCommentsInput = {
   imagesUploaded?: Prisma.ImageCreateNestedManyWithoutUploadedByInput
   pushTokens?: Prisma.PushTokenCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutCommentsInput = {
@@ -1024,6 +1085,7 @@ export type UserUncheckedCreateWithoutCommentsInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -1035,6 +1097,7 @@ export type UserUncheckedCreateWithoutCommentsInput = {
   imagesUploaded?: Prisma.ImageUncheckedCreateNestedManyWithoutUploadedByInput
   pushTokens?: Prisma.PushTokenUncheckedCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutCommentsInput = {
@@ -1063,6 +1126,7 @@ export type UserUpdateWithoutCommentsInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1074,6 +1138,7 @@ export type UserUpdateWithoutCommentsInput = {
   imagesUploaded?: Prisma.ImageUpdateManyWithoutUploadedByNestedInput
   pushTokens?: Prisma.PushTokenUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCommentsInput = {
@@ -1086,6 +1151,7 @@ export type UserUncheckedUpdateWithoutCommentsInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1097,6 +1163,7 @@ export type UserUncheckedUpdateWithoutCommentsInput = {
   imagesUploaded?: Prisma.ImageUncheckedUpdateManyWithoutUploadedByNestedInput
   pushTokens?: Prisma.PushTokenUncheckedUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutImagesUploadedInput = {
@@ -1109,6 +1176,7 @@ export type UserCreateWithoutImagesUploadedInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -1120,6 +1188,7 @@ export type UserCreateWithoutImagesUploadedInput = {
   comments?: Prisma.CommentCreateNestedManyWithoutAuthorInput
   pushTokens?: Prisma.PushTokenCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutImagesUploadedInput = {
@@ -1132,6 +1201,7 @@ export type UserUncheckedCreateWithoutImagesUploadedInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -1143,6 +1213,7 @@ export type UserUncheckedCreateWithoutImagesUploadedInput = {
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutAuthorInput
   pushTokens?: Prisma.PushTokenUncheckedCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutImagesUploadedInput = {
@@ -1171,6 +1242,7 @@ export type UserUpdateWithoutImagesUploadedInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1182,6 +1254,7 @@ export type UserUpdateWithoutImagesUploadedInput = {
   comments?: Prisma.CommentUpdateManyWithoutAuthorNestedInput
   pushTokens?: Prisma.PushTokenUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutImagesUploadedInput = {
@@ -1194,6 +1267,7 @@ export type UserUncheckedUpdateWithoutImagesUploadedInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1205,6 +1279,7 @@ export type UserUncheckedUpdateWithoutImagesUploadedInput = {
   comments?: Prisma.CommentUncheckedUpdateManyWithoutAuthorNestedInput
   pushTokens?: Prisma.PushTokenUncheckedUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutPushTokensInput = {
@@ -1217,6 +1292,7 @@ export type UserCreateWithoutPushTokensInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -1228,6 +1304,7 @@ export type UserCreateWithoutPushTokensInput = {
   comments?: Prisma.CommentCreateNestedManyWithoutAuthorInput
   imagesUploaded?: Prisma.ImageCreateNestedManyWithoutUploadedByInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutPushTokensInput = {
@@ -1240,6 +1317,7 @@ export type UserUncheckedCreateWithoutPushTokensInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -1251,6 +1329,7 @@ export type UserUncheckedCreateWithoutPushTokensInput = {
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutAuthorInput
   imagesUploaded?: Prisma.ImageUncheckedCreateNestedManyWithoutUploadedByInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutPushTokensInput = {
@@ -1279,6 +1358,7 @@ export type UserUpdateWithoutPushTokensInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1290,6 +1370,7 @@ export type UserUpdateWithoutPushTokensInput = {
   comments?: Prisma.CommentUpdateManyWithoutAuthorNestedInput
   imagesUploaded?: Prisma.ImageUpdateManyWithoutUploadedByNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPushTokensInput = {
@@ -1302,6 +1383,7 @@ export type UserUncheckedUpdateWithoutPushTokensInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1313,6 +1395,7 @@ export type UserUncheckedUpdateWithoutPushTokensInput = {
   comments?: Prisma.CommentUncheckedUpdateManyWithoutAuthorNestedInput
   imagesUploaded?: Prisma.ImageUncheckedUpdateManyWithoutUploadedByNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutNotificationsInput = {
@@ -1325,6 +1408,7 @@ export type UserCreateWithoutNotificationsInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -1336,6 +1420,7 @@ export type UserCreateWithoutNotificationsInput = {
   comments?: Prisma.CommentCreateNestedManyWithoutAuthorInput
   imagesUploaded?: Prisma.ImageCreateNestedManyWithoutUploadedByInput
   pushTokens?: Prisma.PushTokenCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutNotificationsInput = {
@@ -1348,6 +1433,7 @@ export type UserUncheckedCreateWithoutNotificationsInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -1359,6 +1445,7 @@ export type UserUncheckedCreateWithoutNotificationsInput = {
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutAuthorInput
   imagesUploaded?: Prisma.ImageUncheckedCreateNestedManyWithoutUploadedByInput
   pushTokens?: Prisma.PushTokenUncheckedCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutNotificationsInput = {
@@ -1387,6 +1474,7 @@ export type UserUpdateWithoutNotificationsInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1398,6 +1486,7 @@ export type UserUpdateWithoutNotificationsInput = {
   comments?: Prisma.CommentUpdateManyWithoutAuthorNestedInput
   imagesUploaded?: Prisma.ImageUpdateManyWithoutUploadedByNestedInput
   pushTokens?: Prisma.PushTokenUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutNotificationsInput = {
@@ -1410,6 +1499,7 @@ export type UserUncheckedUpdateWithoutNotificationsInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1421,6 +1511,7 @@ export type UserUncheckedUpdateWithoutNotificationsInput = {
   comments?: Prisma.CommentUncheckedUpdateManyWithoutAuthorNestedInput
   imagesUploaded?: Prisma.ImageUncheckedUpdateManyWithoutUploadedByNestedInput
   pushTokens?: Prisma.PushTokenUncheckedUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutInviteInput = {
@@ -1433,6 +1524,7 @@ export type UserCreateWithoutInviteInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -1444,6 +1536,7 @@ export type UserCreateWithoutInviteInput = {
   imagesUploaded?: Prisma.ImageCreateNestedManyWithoutUploadedByInput
   pushTokens?: Prisma.PushTokenCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutInviteInput = {
@@ -1456,6 +1549,7 @@ export type UserUncheckedCreateWithoutInviteInput = {
   role: $Enums.Role
   active?: boolean
   points?: number
+  avatarUrl?: string | null
   position?: string | null
   workCategory?: $Enums.Category | null
   company?: string | null
@@ -1467,6 +1561,7 @@ export type UserUncheckedCreateWithoutInviteInput = {
   imagesUploaded?: Prisma.ImageUncheckedCreateNestedManyWithoutUploadedByInput
   pushTokens?: Prisma.PushTokenUncheckedCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutInviteInput = {
@@ -1495,6 +1590,7 @@ export type UserUpdateWithoutInviteInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1506,6 +1602,7 @@ export type UserUpdateWithoutInviteInput = {
   imagesUploaded?: Prisma.ImageUpdateManyWithoutUploadedByNestedInput
   pushTokens?: Prisma.PushTokenUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInviteInput = {
@@ -1518,9 +1615,127 @@ export type UserUncheckedUpdateWithoutInviteInput = {
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  reportsAssigned?: Prisma.ReportUncheckedUpdateManyWithoutAssignedToNestedInput
+  reportsCreated?: Prisma.ReportUncheckedUpdateManyWithoutCreatedByNestedInput
+  comments?: Prisma.CommentUncheckedUpdateManyWithoutAuthorNestedInput
+  imagesUploaded?: Prisma.ImageUncheckedUpdateManyWithoutUploadedByNestedInput
+  pushTokens?: Prisma.PushTokenUncheckedUpdateManyWithoutUserNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  pointsTransactions?: Prisma.PointsTransactionUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutPointsTransactionsInput = {
+  user_id?: string
+  email: string
+  name: string
+  surname: string
+  password: string
+  nickname: string
+  role: $Enums.Role
+  active?: boolean
+  points?: number
+  avatarUrl?: string | null
+  position?: string | null
+  workCategory?: $Enums.Category | null
+  company?: string | null
+  createdAt?: Date | string
+  lastModified?: Date | string
+  invite?: Prisma.InviteCreateNestedOneWithoutUserInput
+  reportsAssigned?: Prisma.ReportCreateNestedManyWithoutAssignedToInput
+  reportsCreated?: Prisma.ReportCreateNestedManyWithoutCreatedByInput
+  comments?: Prisma.CommentCreateNestedManyWithoutAuthorInput
+  imagesUploaded?: Prisma.ImageCreateNestedManyWithoutUploadedByInput
+  pushTokens?: Prisma.PushTokenCreateNestedManyWithoutUserInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutPointsTransactionsInput = {
+  user_id?: string
+  email: string
+  name: string
+  surname: string
+  password: string
+  nickname: string
+  role: $Enums.Role
+  active?: boolean
+  points?: number
+  avatarUrl?: string | null
+  position?: string | null
+  workCategory?: $Enums.Category | null
+  company?: string | null
+  inviteId?: string | null
+  createdAt?: Date | string
+  lastModified?: Date | string
+  reportsAssigned?: Prisma.ReportUncheckedCreateNestedManyWithoutAssignedToInput
+  reportsCreated?: Prisma.ReportUncheckedCreateNestedManyWithoutCreatedByInput
+  comments?: Prisma.CommentUncheckedCreateNestedManyWithoutAuthorInput
+  imagesUploaded?: Prisma.ImageUncheckedCreateNestedManyWithoutUploadedByInput
+  pushTokens?: Prisma.PushTokenUncheckedCreateNestedManyWithoutUserInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutPointsTransactionsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutPointsTransactionsInput, Prisma.UserUncheckedCreateWithoutPointsTransactionsInput>
+}
+
+export type UserUpsertWithoutPointsTransactionsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutPointsTransactionsInput, Prisma.UserUncheckedUpdateWithoutPointsTransactionsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutPointsTransactionsInput, Prisma.UserUncheckedCreateWithoutPointsTransactionsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutPointsTransactionsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutPointsTransactionsInput, Prisma.UserUncheckedUpdateWithoutPointsTransactionsInput>
+}
+
+export type UserUpdateWithoutPointsTransactionsInput = {
+  user_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  surname?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  nickname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  active?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  invite?: Prisma.InviteUpdateOneWithoutUserNestedInput
+  reportsAssigned?: Prisma.ReportUpdateManyWithoutAssignedToNestedInput
+  reportsCreated?: Prisma.ReportUpdateManyWithoutCreatedByNestedInput
+  comments?: Prisma.CommentUpdateManyWithoutAuthorNestedInput
+  imagesUploaded?: Prisma.ImageUpdateManyWithoutUploadedByNestedInput
+  pushTokens?: Prisma.PushTokenUpdateManyWithoutUserNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutPointsTransactionsInput = {
+  user_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  surname?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  nickname?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  active?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  points?: Prisma.IntFieldUpdateOperationsInput | number
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  position?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workCategory?: Prisma.NullableEnumCategoryFieldUpdateOperationsInput | $Enums.Category | null
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastModified?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   reportsAssigned?: Prisma.ReportUncheckedUpdateManyWithoutAssignedToNestedInput
@@ -1543,6 +1758,7 @@ export type UserCountOutputType = {
   imagesUploaded: number
   pushTokens: number
   notifications: number
+  pointsTransactions: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1552,6 +1768,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   imagesUploaded?: boolean | UserCountOutputTypeCountImagesUploadedArgs
   pushTokens?: boolean | UserCountOutputTypeCountPushTokensArgs
   notifications?: boolean | UserCountOutputTypeCountNotificationsArgs
+  pointsTransactions?: boolean | UserCountOutputTypeCountPointsTransactionsArgs
 }
 
 /**
@@ -1606,6 +1823,13 @@ export type UserCountOutputTypeCountNotificationsArgs<ExtArgs extends runtime.Ty
   where?: Prisma.NotificationWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountPointsTransactionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PointsTransactionWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   user_id?: boolean
@@ -1617,6 +1841,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   role?: boolean
   active?: boolean
   points?: boolean
+  avatarUrl?: boolean
   position?: boolean
   workCategory?: boolean
   company?: boolean
@@ -1630,6 +1855,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   imagesUploaded?: boolean | Prisma.User$imagesUploadedArgs<ExtArgs>
   pushTokens?: boolean | Prisma.User$pushTokensArgs<ExtArgs>
   notifications?: boolean | Prisma.User$notificationsArgs<ExtArgs>
+  pointsTransactions?: boolean | Prisma.User$pointsTransactionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1643,6 +1869,7 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   role?: boolean
   active?: boolean
   points?: boolean
+  avatarUrl?: boolean
   position?: boolean
   workCategory?: boolean
   company?: boolean
@@ -1662,6 +1889,7 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   role?: boolean
   active?: boolean
   points?: boolean
+  avatarUrl?: boolean
   position?: boolean
   workCategory?: boolean
   company?: boolean
@@ -1681,6 +1909,7 @@ export type UserSelectScalar = {
   role?: boolean
   active?: boolean
   points?: boolean
+  avatarUrl?: boolean
   position?: boolean
   workCategory?: boolean
   company?: boolean
@@ -1689,7 +1918,7 @@ export type UserSelectScalar = {
   lastModified?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"user_id" | "email" | "name" | "surname" | "password" | "nickname" | "role" | "active" | "points" | "position" | "workCategory" | "company" | "inviteId" | "createdAt" | "lastModified", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"user_id" | "email" | "name" | "surname" | "password" | "nickname" | "role" | "active" | "points" | "avatarUrl" | "position" | "workCategory" | "company" | "inviteId" | "createdAt" | "lastModified", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   invite?: boolean | Prisma.User$inviteArgs<ExtArgs>
   reportsAssigned?: boolean | Prisma.User$reportsAssignedArgs<ExtArgs>
@@ -1698,6 +1927,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   imagesUploaded?: boolean | Prisma.User$imagesUploadedArgs<ExtArgs>
   pushTokens?: boolean | Prisma.User$pushTokensArgs<ExtArgs>
   notifications?: boolean | Prisma.User$notificationsArgs<ExtArgs>
+  pointsTransactions?: boolean | Prisma.User$pointsTransactionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1717,6 +1947,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     imagesUploaded: Prisma.$ImagePayload<ExtArgs>[]
     pushTokens: Prisma.$PushTokenPayload<ExtArgs>[]
     notifications: Prisma.$NotificationPayload<ExtArgs>[]
+    pointsTransactions: Prisma.$PointsTransactionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     user_id: string
@@ -1728,6 +1959,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     role: $Enums.Role
     active: boolean
     points: number
+    avatarUrl: string | null
     position: string | null
     workCategory: $Enums.Category | null
     company: string | null
@@ -2135,6 +2367,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   imagesUploaded<T extends Prisma.User$imagesUploadedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$imagesUploadedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ImagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   pushTokens<T extends Prisma.User$pushTokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$pushTokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PushTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   notifications<T extends Prisma.User$notificationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$notificationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  pointsTransactions<T extends Prisma.User$pointsTransactionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$pointsTransactionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PointsTransactionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2173,6 +2406,7 @@ export interface UserFieldRefs {
   readonly role: Prisma.FieldRef<"User", 'Role'>
   readonly active: Prisma.FieldRef<"User", 'Boolean'>
   readonly points: Prisma.FieldRef<"User", 'Int'>
+  readonly avatarUrl: Prisma.FieldRef<"User", 'String'>
   readonly position: Prisma.FieldRef<"User", 'String'>
   readonly workCategory: Prisma.FieldRef<"User", 'Category'>
   readonly company: Prisma.FieldRef<"User", 'String'>
@@ -2740,6 +2974,30 @@ export type User$notificationsArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.NotificationScalarFieldEnum | Prisma.NotificationScalarFieldEnum[]
+}
+
+/**
+ * User.pointsTransactions
+ */
+export type User$pointsTransactionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PointsTransaction
+   */
+  select?: Prisma.PointsTransactionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PointsTransaction
+   */
+  omit?: Prisma.PointsTransactionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PointsTransactionInclude<ExtArgs> | null
+  where?: Prisma.PointsTransactionWhereInput
+  orderBy?: Prisma.PointsTransactionOrderByWithRelationInput | Prisma.PointsTransactionOrderByWithRelationInput[]
+  cursor?: Prisma.PointsTransactionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PointsTransactionScalarFieldEnum | Prisma.PointsTransactionScalarFieldEnum[]
 }
 
 /**

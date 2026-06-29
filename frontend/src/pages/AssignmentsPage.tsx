@@ -1,21 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
-  getReports,
+  getReportsPaginated,
   transitionReport,
   autoAssignReports,
   type AutoAssignResult,
 } from '../api/reports';
 import { getTechnicians } from '../api/users';
 import PriorityBadge from '../components/PriorityBadge';
+import Pagination from '../components/Pagination';
 import TechnicianAssignmentList from '../components/TechnicianAssignmentList';
 import { useLiveEvent } from '../hooks/liveEvents';
 import type { Report, Technician } from '../types';
-import { CATEGORY_LABELS } from '../types';
+
+const PAGE_SIZE = 20;
 
 export default function AssignmentsPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [reports, setReports] = useState<Report[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -31,13 +37,19 @@ export default function AssignmentsPage() {
   const [autoAssignResult, setAutoAssignResult] = useState<AutoAssignResult | null>(null);
 
   const fetchData = useCallback(() => {
-    Promise.all([getReports({ state: 'OPEN' }), getTechnicians()])
+    Promise.all([getReportsPaginated({ state: 'OPEN' }, page, PAGE_SIZE), getTechnicians()])
       .then(([rs, ts]) => {
-        setReports(rs);
+        // Si la pàgina ha quedat buida després d'assignar, retrocedeix.
+        if (rs.items.length === 0 && page > 1) {
+          setPage((p) => p - 1);
+          return;
+        }
+        setReports(rs.items);
+        setTotal(rs.total);
         setTechnicians(ts);
       })
       .catch(() => {});
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     setLoading(true);
@@ -110,6 +122,7 @@ export default function AssignmentsPage() {
         assigned: [],
         skipped: [...selectedIds].map((reportId) => ({
           reportId,
+          reportTitle: reports.find((r) => r.report_id === reportId)?.title ?? 'Incidència',
           reason: err?.response?.data?.error ?? err?.message ?? 'Error desconegut',
         })),
       });
@@ -118,7 +131,7 @@ export default function AssignmentsPage() {
     }
   };
 
-  const totalPending = reports.length;
+  const totalPending = total;
 
   if (loading) {
     return (
@@ -132,11 +145,13 @@ export default function AssignmentsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Assignacions pendents</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('assignments.title')}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Incidències obertes esperant que un tècnic les agafi.
+            {t('assignments.subtitle')}
             {technicians.length > 0 &&
-              ` ${technicians.length} ${technicians.length === 1 ? 'tècnic disponible' : 'tècnics disponibles'}.`}
+              ' ' + (technicians.length === 1
+                ? t('assignments.techAvailableOne', { count: technicians.length })
+                : t('assignments.techAvailableMany', { count: technicians.length }))}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -150,15 +165,17 @@ export default function AssignmentsPage() {
               {autoAssigning ? (
                 <>
                   <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Assignant…
+                  {t('assignments.assigning')}
                 </>
               ) : (
-                <>Auto-assignar ({selectedIds.size})</>
+                <>{t('assignments.autoAssign', { count: selectedIds.size })}</>
               )}
             </button>
           )}
           <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm font-semibold text-yellow-800">
-            {totalPending} {totalPending === 1 ? 'pendent' : 'pendents'}
+            {totalPending === 1
+              ? t('assignments.pendingOne', { count: totalPending })
+              : t('assignments.pendingMany', { count: totalPending })}
           </span>
         </div>
       </div>
@@ -172,9 +189,9 @@ export default function AssignmentsPage() {
           <svg className="mx-auto mb-3 h-12 w-12 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
           </svg>
-          <p className="font-medium text-gray-700">No hi ha incidències pendents d'assignar</p>
+          <p className="font-medium text-gray-700">{t('assignments.noPendingTitle')}</p>
           <p className="mt-1 text-sm text-gray-500">
-            Totes les incidències obertes han estat assignades.
+            {t('assignments.noPendingBody')}
           </p>
         </div>
       ) : (
@@ -189,8 +206,8 @@ export default function AssignmentsPage() {
             />
             <span>
               {selectedIds.size === 0
-                ? 'Seleccionar totes per a l\'auto-assignació'
-                : `${selectedIds.size} seleccionades`}
+                ? t('assignments.selectAll')
+                : t('assignments.selectedCount', { count: selectedIds.size })}
             </span>
           </div>
 
@@ -224,7 +241,7 @@ export default function AssignmentsPage() {
                       <PriorityBadge priority={r.priority} />
                       {r.category && (
                         <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
-                          {CATEGORY_LABELS[r.category]}
+                          {t(`categories.${r.category}`)}
                         </span>
                       )}
                       {r.aiClassifiedAt && (
@@ -242,7 +259,7 @@ export default function AssignmentsPage() {
                     <p className="mt-1 line-clamp-2 text-sm text-gray-600">{r.description}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
                       <span>
-                        Reportat per <span className="font-medium text-gray-700">{r.createdBy.name}</span>
+                        {t('assignments.reportedBy')} <span className="font-medium text-gray-700">{r.createdBy.name}</span>
                       </span>
                       <span>·</span>
                       <span>{new Date(r.createdAt).toLocaleDateString('ca-ES')}</span>
@@ -253,13 +270,13 @@ export default function AssignmentsPage() {
                       onClick={() => navigate(`/reports/${r.report_id}`)}
                       className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200"
                     >
-                      Veure detall
+                      {t('assignments.seeDetail')}
                     </button>
                     <button
                       onClick={() => setExpandedId(expanded ? null : r.report_id)}
                       className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-700"
                     >
-                      {expanded ? 'Amagar tècnics' : 'Assignar'}
+                      {expanded ? t('assignments.hideTechs') : t('assignments.assign')}
                     </button>
                   </div>
                 </div>
@@ -281,6 +298,16 @@ export default function AssignmentsPage() {
         </div>
       )}
 
+      {totalPending > 0 && (
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          onPageChange={setPage}
+          label="assignments"
+        />
+      )}
+
       {/* Modal de resultats després d'auto-assignar */}
       {autoAssignResult && (
         <div
@@ -288,21 +315,27 @@ export default function AssignmentsPage() {
           onClick={() => setAutoAssignResult(null)}
         >
           <div
-            className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-2xl ring-1 ring-gray-200"
+            className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-2xl ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-gray-900">Resultat d'auto-assignació</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {autoAssignResult.assigned.length} assignades · {autoAssignResult.skipped.length} no assignades
+            <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">{t('assignments.resultTitle')}</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
+              {t('assignments.resultSummary', { assigned: autoAssignResult.assigned.length, skipped: autoAssignResult.skipped.length })}
             </p>
 
             {autoAssignResult.assigned.length > 0 && (
               <div className="mt-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-green-700">Assignades</p>
-                <ul className="mt-1 space-y-1 text-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-green-700 dark:text-green-400">{t('assignments.assigned')}</p>
+                <ul className="mt-1 space-y-1.5 text-sm">
                   {autoAssignResult.assigned.map((a) => (
-                    <li key={a.reportId} className="rounded bg-green-50 px-3 py-1.5 text-green-900">
-                      → {a.technicianName}
+                    <li
+                      key={a.reportId}
+                      className="rounded-lg bg-green-50 px-3 py-2 text-green-900 ring-1 ring-green-100 dark:bg-green-950/40 dark:text-green-100 dark:ring-green-900"
+                    >
+                      <p className="font-semibold">{a.reportTitle}</p>
+                      <p className="mt-0.5 text-xs text-green-700 dark:text-green-300">
+                        {t('assignments.assignedToLabel')} <span className="font-medium">{a.technicianName}</span>
+                      </p>
                     </li>
                   ))}
                 </ul>
@@ -311,11 +344,15 @@ export default function AssignmentsPage() {
 
             {autoAssignResult.skipped.length > 0 && (
               <div className="mt-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">No assignades</p>
-                <ul className="mt-1 space-y-1 text-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">{t('assignments.notAssigned')}</p>
+                <ul className="mt-1 space-y-1.5 text-sm">
                   {autoAssignResult.skipped.map((s) => (
-                    <li key={s.reportId} className="rounded bg-amber-50 px-3 py-1.5 text-amber-900">
-                      {s.reason}
+                    <li
+                      key={s.reportId}
+                      className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900 ring-1 ring-amber-100 dark:bg-amber-950/40 dark:text-amber-100 dark:ring-amber-900"
+                    >
+                      <p className="font-semibold">{s.reportTitle}</p>
+                      <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">{s.reason}</p>
                     </li>
                   ))}
                 </ul>
@@ -325,9 +362,9 @@ export default function AssignmentsPage() {
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setAutoAssignResult(null)}
-                className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
               >
-                Tancar
+                {t('assignments.accept')}
               </button>
             </div>
           </div>

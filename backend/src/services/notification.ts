@@ -296,9 +296,71 @@ export const onReportTransitioned = async (params: {
       }
       break;
     }
+    case 'CLOSE': {
+      if (params.newAssigneeId && params.newAssigneeId !== params.actorId) {
+        tasks.push(
+          persistAndPush({
+            userId: params.newAssigneeId,
+            type: NotificationType.REPORT_STATE_CHANGED,
+            title: 'Resolució validada',
+            body: `L'admin ha validat i tancat: ${params.reportTitle}`,
+            reportId: params.reportId,
+          }),
+        );
+      }
+      break;
+    }
   }
 
   await Promise.allSettled(tasks);
+};
+
+/**
+ * Un estudiant ha guanyat punts perquè la seva incidència s'ha tancat.
+ * Push + entrada a notifications + SSE perquè el dashboard admin pugui
+ * refrescar el rànquing/historial de punts en temps real si la vista és oberta.
+ */
+export const onPointsEarned = (params: {
+  userId: string;
+  reportId: string;
+  reportTitle: string;
+  amount: number;
+  newTotal: number;
+}): void => {
+  // SSE per al dashboard admin: la pàgina de punts pot refrescar-se.
+  notifyAdminsSse({
+    type: 'points.awarded',
+    userId: params.userId,
+    reportId: params.reportId,
+    amount: params.amount,
+  });
+
+  void persistAndPush({
+    userId: params.userId,
+    type: NotificationType.POINTS_EARNED,
+    title: `Has guanyat ${params.amount} punts!`,
+    body: `S'ha tancat la teva incidència "${params.reportTitle}". Total: ${params.newTotal} punts.`,
+    reportId: params.reportId,
+  });
+};
+
+/**
+ * Esdeveniments del cicle de vida d'una invitació. Només emeten SSE als admins
+ * perquè el panell d'accessos (InvitesPage) es refresqui a l'instant sense
+ * polling. El cas clau és `onInviteUsed`: quan algú es registra amb el token,
+ * l'admin que té la pantalla oberta veu l'invitació passar a "Utilitzada" i el
+ * nou usuari aparèixer a la taula de privilegiats immediatament.
+ */
+export const onInviteCreated = (inviteId: string): void => {
+  notifyAdminsSse({ type: 'invite.created', inviteId });
+};
+
+export const onInviteUsed = (inviteId: string): void => {
+  notifyAdminsSse({ type: 'invite.used', inviteId });
+};
+
+export const onInviteRevoked = (inviteId: string): void => {
+  notifyAdminsSse({ type: 'invite.revoked', inviteId });
 };
 
 // ────────────────────────────────────────────────────────────────────────────

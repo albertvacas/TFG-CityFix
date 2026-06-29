@@ -29,6 +29,13 @@ export type SseEvent =
   | { type: 'report.priority_changed'; reportId: string; priority: string }
   | { type: 'report.comment_added'; reportId: string; commentId: string }
   | { type: 'report.classified'; reportId: string; category: string; priority: string }
+  | { type: 'points.awarded'; userId: string; reportId: string; amount: number }
+  // Esdeveniments del cicle de vida de les invitacions. Permeten que el panell
+  // d'accessos (InvitesPage) es refresqui a l'instant quan algú crea, revoca o
+  // —sobretot— consumeix una invitació en registrar-se amb el token.
+  | { type: 'invite.created'; inviteId: string }
+  | { type: 'invite.used'; inviteId: string }
+  | { type: 'invite.revoked'; inviteId: string }
   | { type: 'heartbeat'; timestamp: number };
 
 const clients = new Map<string, SseClient>();

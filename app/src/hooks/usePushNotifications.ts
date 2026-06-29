@@ -32,7 +32,7 @@ const ensureAndroidChannel = async (): Promise<void> => {
     name: 'Notificacions',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#4f46e5',
+    lightColor: '#15803d',
   });
 };
 
@@ -41,27 +41,38 @@ const ensureAndroidChannel = async (): Promise<void> => {
  * permisos o si l'aparell no els admet (emulador iOS, etc.).
  */
 const obtainPushToken = async (): Promise<string | null> => {
+  console.log('[push] obtainPushToken: start. isDevice =', Device.isDevice);
+
   // Push notifications requereixen un dispositiu físic (excepte Android amb
   // FCM al simulador). Si no és físic, sortim aviat per evitar errors.
-  if (!Device.isDevice) return null;
+  if (!Device.isDevice) {
+    console.log('[push] no és dispositiu físic, surto');
+    return null;
+  }
 
   const existing = await Notifications.getPermissionsAsync();
+  console.log('[push] permís actual:', existing.status);
   let status = existing.status;
   if (status !== 'granted') {
     const requested = await Notifications.requestPermissionsAsync();
+    console.log('[push] permís després de demanar:', requested.status);
     status = requested.status;
   }
-  if (status !== 'granted') return null;
+  if (status !== 'granted') {
+    console.log('[push] permís denegat, surto sense token');
+    return null;
+  }
 
   // El projectId d'Expo cal per identificar l'app dins el servei de push.
-  // S'agafa de `expo.extra.eas.projectId` (en standalone) o de l'app.json.
   const projectId =
     (Constants.expoConfig as any)?.extra?.eas?.projectId ??
     (Constants as any)?.easConfig?.projectId;
+  console.log('[push] projectId =', projectId);
 
   const tokenResponse = await Notifications.getExpoPushTokenAsync(
     projectId ? { projectId } : undefined,
   );
+  console.log('[push] token obtingut:', tokenResponse.data);
   return tokenResponse.data;
 };
 
@@ -91,11 +102,21 @@ export const usePushNotifications = (userId: string | null): void => {
 
     (async () => {
       try {
+        console.log('[push] hook disparat per userId =', userId);
         await ensureAndroidChannel();
         const token = await obtainPushToken();
-        if (!token || cancelled) return;
+        if (!token) {
+          console.log('[push] no s\'ha obtingut token, fi');
+          return;
+        }
+        if (cancelled) {
+          console.log('[push] cancel·lat abans de registrar');
+          return;
+        }
         tokenRef.current = token;
+        console.log('[push] enviant token al backend...');
         await registerPushToken(token, Platform.OS === 'ios' ? 'ios' : 'android');
+        console.log('[push] token registrat al backend correctament');
       } catch (err) {
         console.warn('[push] No s\'ha pogut registrar el token:', err);
       }

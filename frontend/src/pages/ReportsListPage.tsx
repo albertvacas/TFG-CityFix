@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getReports } from '../api/reports';
+import { useTranslation } from 'react-i18next';
+import { getReportsPaginated } from '../api/reports';
 import { getTechnicians, getStudents } from '../api/users';
 import ReportStatusBadge from '../components/ReportStatusBadge';
 import PriorityBadge from '../components/PriorityBadge';
+import Pagination from '../components/Pagination';
 import { useLiveEvent } from '../hooks/liveEvents';
 import type { Report, State, Technician, StudentSummary } from '../types';
 
-const stateOptions: { value: '' | State; label: string }[] = [
-  { value: '', label: 'Tots els estats' },
-  { value: 'OPEN', label: 'Obertes' },
-  { value: 'ASSIGNED', label: 'Assignades' },
-  { value: 'IN_PROGRESS', label: 'En procés' },
-  { value: 'VALIDATED', label: 'Validades' },
-  { value: 'CLOSED', label: 'Tancades' },
+const PAGE_SIZE = 20;
+
+const stateOptions: { value: '' | State; labelKey: string }[] = [
+  { value: '', labelKey: 'reports.allStates' },
+  { value: 'OPEN', labelKey: 'states.OPEN' },
+  { value: 'ASSIGNED', labelKey: 'states.ASSIGNED' },
+  { value: 'IN_PROGRESS', labelKey: 'states.IN_PROGRESS' },
+  { value: 'VALIDATED', labelKey: 'states.VALIDATED' },
+  { value: 'CLOSED', labelKey: 'states.CLOSED' },
 ];
 
 interface FilterState {
@@ -27,9 +31,12 @@ interface FilterState {
 
 export default function ReportsListPage() {
   const [reports, setReports] = useState<Report[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // Llistes per als dropdowns
   const [technicians, setTechnicians] = useState<Technician[]>([]);
@@ -69,19 +76,31 @@ export default function ReportsListPage() {
   // Útil tant per a la càrrega inicial com per a les actualitzacions en
   // temps real disparades per esdeveniments SSE.
   const refetch = useCallback(() => {
-    getReports({
-      q: filters.q || undefined,
-      state: (filters.state as State) || undefined,
-      createdById: filters.createdById || undefined,
-      assignedToId: filters.assignedToId || undefined,
-      dateFrom: filters.dateFrom || undefined,
-      dateTo: filters.dateTo || undefined,
-    })
-      .then(setReports)
+    getReportsPaginated(
+      {
+        q: filters.q || undefined,
+        state: (filters.state as State) || undefined,
+        createdById: filters.createdById || undefined,
+        assignedToId: filters.assignedToId || undefined,
+        dateFrom: filters.dateFrom || undefined,
+        dateTo: filters.dateTo || undefined,
+      },
+      page,
+      PAGE_SIZE,
+    )
+      .then((res) => {
+        setReports(res.items);
+        setTotal(res.total);
+      })
       .catch(() => {});
+  }, [filters, page]);
+
+  // Quan canvien els filtres, tornem a la primera pàgina.
+  useEffect(() => {
+    setPage(1);
   }, [filters]);
 
-  // Fetch dels reports cada cop que canvien filtres
+  // Fetch dels reports cada cop que canvien filtres o pàgina
   useEffect(() => {
     setLoading(true);
     refetch();
@@ -114,9 +133,13 @@ export default function ReportsListPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Incidències</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('reports.title')}</h1>
         <span className="text-sm text-gray-500">
-          {loading ? 'Carregant…' : `${reports.length} ${reports.length === 1 ? 'resultat' : 'resultats'}`}
+          {loading
+            ? t('common.loading')
+            : total === 1
+            ? t('reports.resultOne', { count: total })
+            : t('reports.resultMany', { count: total })}
         </span>
       </div>
 
@@ -125,7 +148,7 @@ export default function ReportsListPage() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-12">
           {/* Cercador */}
           <div className="lg:col-span-4">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Cerca</label>
+            <label className="mb-1 block text-xs font-medium text-gray-600">{t('reports.search')}</label>
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -137,7 +160,7 @@ export default function ReportsListPage() {
                 type="search"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Títol o descripció..."
+                placeholder={t('reports.searchPlaceholder')}
                 className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
@@ -145,27 +168,27 @@ export default function ReportsListPage() {
 
           {/* Estat */}
           <div className="lg:col-span-2">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Estat</label>
+            <label className="mb-1 block text-xs font-medium text-gray-600">{t('reports.status')}</label>
             <select
               value={filters.state}
               onChange={(e) => updateFilter('state', e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               {stateOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
               ))}
             </select>
           </div>
 
           {/* Creador */}
           <div className="lg:col-span-2">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Creador</label>
+            <label className="mb-1 block text-xs font-medium text-gray-600">{t('reports.creator')}</label>
             <select
               value={filters.createdById}
               onChange={(e) => updateFilter('createdById', e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
-              <option value="">Tots</option>
+              <option value="">{t('common.all')}</option>
               {students.map((s) => (
                 <option key={s.user_id} value={s.user_id}>
                   {s.name} {s.surname}
@@ -176,13 +199,13 @@ export default function ReportsListPage() {
 
           {/* Assignat a */}
           <div className="lg:col-span-2">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Assignat a</label>
+            <label className="mb-1 block text-xs font-medium text-gray-600">{t('reports.assignedTo')}</label>
             <select
               value={filters.assignedToId}
               onChange={(e) => updateFilter('assignedToId', e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
-              <option value="">Tots</option>
+              <option value="">{t('common.all')}</option>
               {technicians.map((t) => (
                 <option key={t.user_id} value={t.user_id}>
                   {t.name} {t.surname}
@@ -193,7 +216,7 @@ export default function ReportsListPage() {
 
           {/* Data des de */}
           <div className="lg:col-span-1">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Des de</label>
+            <label className="mb-1 block text-xs font-medium text-gray-600">{t('reports.from')}</label>
             <input
               type="date"
               value={filters.dateFrom}
@@ -204,7 +227,7 @@ export default function ReportsListPage() {
 
           {/* Data fins */}
           <div className="lg:col-span-1">
-            <label className="mb-1 block text-xs font-medium text-gray-600">Fins</label>
+            <label className="mb-1 block text-xs font-medium text-gray-600">{t('reports.to')}</label>
             <input
               type="date"
               value={filters.dateTo}
@@ -217,13 +240,15 @@ export default function ReportsListPage() {
         {activeFilterCount > 0 && (
           <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
             <span className="text-xs text-gray-500">
-              {activeFilterCount} {activeFilterCount === 1 ? 'filtre actiu' : 'filtres actius'}
+              {activeFilterCount === 1
+                ? t('reports.activeFilterOne', { count: activeFilterCount })
+                : t('reports.activeFilterMany', { count: activeFilterCount })}
             </span>
             <button
               onClick={resetFilters}
               className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
             >
-              Netejar filtres
+              {t('reports.clearFilters')}
             </button>
           </div>
         )}
@@ -235,19 +260,19 @@ export default function ReportsListPage() {
         </div>
       ) : reports.length === 0 ? (
         <div className="rounded-xl bg-white p-12 text-center ring-1 ring-gray-200">
-          <p className="text-gray-500">No s'han trobat incidències.</p>
+          <p className="text-gray-500">{t('reports.noResults')}</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl ring-1 ring-gray-200">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 font-medium text-gray-600">Títol</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Estat</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Prioritat</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Creador</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Assignat a</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Data</th>
+                <th className="px-4 py-3 font-medium text-gray-600">{t('reports.colTitle')}</th>
+                <th className="px-4 py-3 font-medium text-gray-600">{t('reports.status')}</th>
+                <th className="px-4 py-3 font-medium text-gray-600">{t('reports.colPriority')}</th>
+                <th className="px-4 py-3 font-medium text-gray-600">{t('reports.creator')}</th>
+                <th className="px-4 py-3 font-medium text-gray-600">{t('reports.assignedTo')}</th>
+                <th className="px-4 py-3 font-medium text-gray-600">{t('reports.colDate')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
@@ -277,6 +302,16 @@ export default function ReportsListPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {!loading && (
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          onPageChange={setPage}
+          label="incidents"
+        />
       )}
     </div>
   );

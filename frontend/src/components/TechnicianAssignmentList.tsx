@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Category, Technician } from '../types';
-import { CATEGORY_LABELS } from '../types';
 
 interface RankedTech extends Technician {
   matchesCategory: boolean;
@@ -41,6 +41,7 @@ export default function TechnicianAssignmentList({
   onAssign,
   assigningTechId,
 }: Props) {
+  const { t: tt } = useTranslation();
   const ranked = useMemo(() => rankTechnicians(technicians, category), [technicians, category]);
   const recommended = ranked.filter((t) => t.matchesCategory);
   const others = ranked.filter((t) => !t.matchesCategory);
@@ -60,7 +61,7 @@ export default function TechnicianAssignmentList({
             Recomanats
             {category && (
               <span className="ml-1 font-normal text-gray-500">
-                ({CATEGORY_LABELS[category]})
+                ({tt(`categories.${category}`)})
               </span>
             )}
           </h4>
@@ -111,6 +112,7 @@ function TechnicianRow({
   onAssign: () => void;
   loading: boolean;
 }) {
+  const { t: tt } = useTranslation();
   return (
     <div
       className={`flex items-center justify-between rounded-lg bg-white p-3 ring-1 ${
@@ -129,7 +131,7 @@ function TechnicianRow({
           {tech.position && tech.workCategory && <span>·</span>}
           {tech.workCategory && (
             <span className="rounded-full bg-purple-50 px-2 py-0.5 text-purple-700">
-              {CATEGORY_LABELS[tech.workCategory]}
+              {tt(`categories.${tech.workCategory}`)}
             </span>
           )}
           {tech.company && (

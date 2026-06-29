@@ -1,6 +1,7 @@
 import { prisma } from '../config/db';
 import { Role, State, Category } from '../../generated/prisma';
 import { transitionReport } from './report';
+import { getNearestActiveDistances } from './geo';
 
 /**
  * Resultat detallat d'una operació d'auto-assignació.
@@ -12,11 +13,13 @@ import { transitionReport } from './report';
 export interface AutoAssignResult {
   assigned: Array<{
     reportId: string;
+    reportTitle: string;
     technicianId: string;
     technicianName: string;
   }>;
   skipped: Array<{
     reportId: string;
+    reportTitle: string;
     reason: string;
   }>;
 }
@@ -38,13 +41,20 @@ const ACTIVE_STATES: State[] = [State.ASSIGNED, State.IN_PROGRESS];
  *   3. Per cada report sol·licitat (en ordre, però sense ponderar per prioritat):
  *      a. Filtrar candidats amb `workCategory == report.category`.
  *      b. Si la llista és buida → skip ("cap tècnic per a aquesta categoria").
- *      c. Triar el de menys càrrega. Empat → el que fa més temps que no rep
- *         tasca (round-robin suau, evita que el mateix tècnic rebi totes les
- *         del mateix lot).
+ *      c. Triar el de menys càrrega. Empat → el més PROPER (distància, calculada
+ *         per PostGIS amb ST_Distance, a la seva incidència activa més propera;
+ *         un tècnic amb feina just al costat de la nova incidència agrupa millor
+ *         els desplaçaments). Empat de nou → el que fa més temps que no rep tasca
+ *         (round-robin suau, evita que el mateix tècnic rebi totes les del lot).
  *      d. Cridar `transitionReport` amb event=ASSIGN per fer la transició
  *         oficial via XState (manté la integritat del cicle de vida).
  *      e. Incrementar la càrrega en memòria perquè el següent report del lot
  *         vegi la càrrega actualitzada.
+ *
+ * La proximitat es delega a PostGIS (`getNearestActiveDistances`), que llegeix
+ * la columna geography `location` indexada amb GiST. Com que la transició de
+ * cada report es confirma a la BD abans del següent, la consulta de distàncies
+ * del següent report ja reflecteix l'assignació anterior (coherència dins del lot).
  *
  * Tot el processament es fa seqüencialment per evitar condicions de cursa
  * sobre el mateix tècnic. No és un coll d'ampolla: un lot típic d'auto-assign
@@ -65,6 +75,8 @@ export const autoAssignReports = async (params: {
       title: true,
       state: true,
       category: true,
+      latitude: true,
+      longitude: true,
     },
   });
 
@@ -81,7 +93,8 @@ export const autoAssignReports = async (params: {
       name: true,
       surname: true,
       workCategory: true,
-      // Llegim els reports actius per comptar la càrrega.
+      // Llegim els reports actius només per comptar la càrrega i el round-robin.
+      // La proximitat ja no es calcula aquí: la resol PostGIS sota demanda.
       reportsAssigned: {
         where: { state: { in: ACTIVE_STATES } },
         select: { report_id: true, lastModified: true },
@@ -125,12 +138,13 @@ export const autoAssignReports = async (params: {
   for (const reportId of params.reportIds) {
     const report = reportsById.get(reportId);
     if (!report) {
-      result.skipped.push({ reportId, reason: 'Incidència no trobada' });
+      result.skipped.push({ reportId, reportTitle: 'Incidència desconeguda', reason: 'Incidència no trobada' });
       continue;
     }
     if (report.state !== State.OPEN) {
       result.skipped.push({
         reportId,
+        reportTitle: report.title,
         reason: `Estat actual ${report.state} — només es poden auto-assignar incidències OPEN`,
       });
       continue;
@@ -138,6 +152,7 @@ export const autoAssignReports = async (params: {
     if (!report.category) {
       result.skipped.push({
         reportId,
+        reportTitle: report.title,
         reason: 'Sense categoria — no es pot triar tècnic',
       });
       continue;
@@ -151,19 +166,34 @@ export const autoAssignReports = async (params: {
     if (candidates.length === 0) {
       result.skipped.push({
         reportId,
+        reportTitle: report.title,
         reason: `Cap tècnic disponible per a categoria ${report.category}`,
       });
       continue;
     }
 
-    // Ordenem: primer per càrrega ascendent, secundari per "fa més temps que
-    // no se li ha assignat res" (timestamp ascendent → ha esperat més).
-    candidates.sort((a, b) => {
-      if (a.load !== b.load) return a.load - b.load;
-      return a.lastAssignedAt - b.lastAssignedAt;
+    // Distàncies dels candidats a la nova incidència, calculades per PostGIS
+    // (ST_Distance sobre `location`). Una sola consulta espacial per report.
+    // Els tècnics sense incidència activa no surten al map => distància Infinity.
+    const distances = await getNearestActiveDistances(
+      { lat: report.latitude, lng: report.longitude },
+      candidates.map((t) => t.userId),
+    );
+
+    const ranked = candidates.map((t) => ({
+      tech: t,
+      distance: distances.get(t.userId) ?? Infinity,
+    }));
+
+    // Ordenem: (1) càrrega ascendent; (2) proximitat ascendent (més a prop
+    // primer); (3) "fa més temps que no se li ha assignat res" (round-robin).
+    ranked.sort((a, b) => {
+      if (a.tech.load !== b.tech.load) return a.tech.load - b.tech.load;
+      if (a.distance !== b.distance) return a.distance - b.distance;
+      return a.tech.lastAssignedAt - b.tech.lastAssignedAt;
     });
 
-    const chosen = candidates[0]!;
+    const chosen = ranked[0]!.tech;
 
     try {
       await transitionReport(reportId, 'ASSIGN', params.actorId, Role.ADMIN, {
@@ -172,11 +202,14 @@ export const autoAssignReports = async (params: {
 
       // Actualitzem l'estat local perquè el següent report del lot vegi la
       // càrrega incrementada — és això el que evita que tots vagin al mateix.
+      // La proximitat del següent report ja la recalcularà PostGIS amb
+      // l'assignació que acabem de confirmar a la BD.
       chosen.load += 1;
       chosen.lastAssignedAt = Date.now();
 
       result.assigned.push({
         reportId,
+        reportTitle: report.title,
         technicianId: chosen.userId,
         technicianName: chosen.name,
       });
@@ -184,6 +217,7 @@ export const autoAssignReports = async (params: {
       // Errors de XState (transició no permesa) o de BD: no aturem el lot.
       result.skipped.push({
         reportId,
+        reportTitle: report.title,
         reason: err?.message ?? 'Error desconegut en assignar',
       });
     }

@@ -41,3 +41,27 @@ export const getDashboardData = async (req: AuthRequest, res: Response): Promise
     res.status(500).json({ error: error.message });
   }
 };
+
+// GET /api/analytics/category-counts?from=YYYY-MM-DD&to=YYYY-MM-DD
+export const getCategoryCounts = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const fromStr = req.query.from as string | undefined;
+    const toStr = req.query.to as string | undefined;
+    if (!fromStr || !toStr) {
+      res.status(400).json({ error: 'Els paràmetres "from" i "to" són obligatoris' });
+      return;
+    }
+    // Interpretem el rang com a dies complets en hora local del servidor.
+    const from = new Date(`${fromStr}T00:00:00`);
+    const to = new Date(`${toStr}T23:59:59.999`);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      res.status(400).json({ error: 'Dates invàlides' });
+      return;
+    }
+
+    const categoryCounts = await analyticsService.getCategoryCountsInRange(from, to);
+    res.json({ categoryCounts });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};

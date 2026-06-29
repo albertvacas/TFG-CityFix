@@ -76,3 +76,8 @@ export type Notification = Prisma.NotificationModel
  * 
  */
 export type Invite = Prisma.InviteModel
+/**
+ * Model PointsTransaction
+ * 
+ */
+export type PointsTransaction = Prisma.PointsTransactionModel

@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView, Alert, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../src/context/AuthContext';
 
 const loginSchema = z.object({
@@ -15,6 +16,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
 
@@ -44,22 +46,24 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-white"
+      className="flex-1 bg-surface"
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View className="flex-1 justify-center px-6 py-12">
           {/* Header */}
           <View className="mb-10 items-center">
-            <View className="mb-4 h-20 w-20 items-center justify-center rounded-2xl bg-brand-600">
-              <Text className="text-4xl font-bold text-white">C</Text>
-            </View>
-            <Text className="text-3xl font-bold text-gray-900">CityFix</Text>
-            <Text className="mt-1 text-sm text-gray-500">Gestió d'incidències del Campus UAB</Text>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={{ width: 88, height: 88, borderRadius: 20 }}
+              className="mb-4"
+            />
+            <Text className="text-3xl font-bold text-gray-900">CampusFix</Text>
+            <Text className="mt-1 text-sm text-gray-500">{t('auth.tagline')}</Text>
           </View>
 
           {/* Email */}
           <View className="mb-4">
-            <Text className="mb-1.5 text-sm font-medium text-gray-700">Correu electrònic</Text>
+            <Text className="mb-1.5 text-sm font-medium text-gray-700">{t('auth.email')}</Text>
             <Controller
               control={control}
               name="email"
@@ -84,7 +88,7 @@ export default function LoginScreen() {
 
           {/* Password */}
           <View className="mb-6">
-            <Text className="mb-1.5 text-sm font-medium text-gray-700">Contrasenya</Text>
+            <Text className="mb-1.5 text-sm font-medium text-gray-700">{t('auth.password')}</Text>
             <Controller
               control={control}
               name="password"
@@ -112,7 +116,7 @@ export default function LoginScreen() {
             className={`rounded-xl py-4 active:bg-brand-700 ${submitting ? 'bg-brand-500/70' : 'bg-brand-600'}`}
           >
             <Text className="text-center text-base font-semibold text-white">
-              {submitting ? 'Iniciant sessió...' : 'Iniciar sessió'}
+              {submitting ? `${t('auth.login')}…` : t('auth.login')}
             </Text>
           </Pressable>
 

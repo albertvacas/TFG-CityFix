@@ -6,6 +6,7 @@ import { Priority, Role, State, TypeImage } from '../../generated/prisma';
 import { uploadReportImage } from './storage';
 import * as notificationService from './notification';
 import { classifyReport } from './classification';
+import { awardPointsForClosedReport } from './gamification';
 
 // Include compartit perquè totes les respostes de Report tinguin la mateixa forma
 // (createdBy / assignedTo amb dades públiques + email per facilitar el contacte
@@ -75,6 +76,10 @@ export const getAllReports = async (filters?: {
   /** Visibilitat segons rol del peticionari. Si es passa, s'aplica un filtre
    *  implícit a la consulta perquè estudiants i tècnics només vegin les seves. */
   viewer?: { role: Role; userId: string };
+  /** Paginació opt-in: si `page` està definit, es retorna {reports,total}
+   *  amb skip/take; si no, es retornen totes les coincidències (mòbil). */
+  page?: number;
+  pageSize?: number;
 }) => {
   // dateTo s'interpreta com a fi de dia (inclusiu)
   const dateToInclusive = filters?.dateTo
@@ -91,28 +96,44 @@ export const getAllReports = async (filters?: {
       ? { assignedToId: filters.viewer.userId }
       : {};
 
-  return prisma.report.findMany({
-    where: {
-      ...viewerScope,
-      ...(filters?.state && { state: filters.state }),
-      ...(filters?.createdById && { createdById: filters.createdById }),
-      ...(filters?.assignedToId && { assignedToId: filters.assignedToId }),
-      ...((filters?.dateFrom || dateToInclusive) && {
-        createdAt: {
-          ...(filters?.dateFrom && { gte: filters.dateFrom }),
-          ...(dateToInclusive && { lte: dateToInclusive }),
-        },
+  const where = {
+    ...viewerScope,
+    ...(filters?.state && { state: filters.state }),
+    ...(filters?.createdById && { createdById: filters.createdById }),
+    ...(filters?.assignedToId && { assignedToId: filters.assignedToId }),
+    ...((filters?.dateFrom || dateToInclusive) && {
+      createdAt: {
+        ...(filters?.dateFrom && { gte: filters.dateFrom }),
+        ...(dateToInclusive && { lte: dateToInclusive }),
+      },
+    }),
+    ...(filters?.q && {
+      OR: [
+        { title: { contains: filters.q, mode: 'insensitive' as const } },
+        { description: { contains: filters.q, mode: 'insensitive' as const } },
+      ],
+    }),
+  };
+
+  const orderBy = { createdAt: 'desc' as const };
+
+  if (filters?.page !== undefined) {
+    const pageSize = filters.pageSize ?? 20;
+    const [reports, total] = await Promise.all([
+      prisma.report.findMany({
+        where,
+        include: REPORT_LIST_INCLUDE,
+        orderBy,
+        skip: (filters.page - 1) * pageSize,
+        take: pageSize,
       }),
-      ...(filters?.q && {
-        OR: [
-          { title: { contains: filters.q, mode: 'insensitive' as const } },
-          { description: { contains: filters.q, mode: 'insensitive' as const } },
-        ],
-      }),
-    },
-    include: REPORT_LIST_INCLUDE,
-    orderBy: { createdAt: 'desc' },
-  });
+      prisma.report.count({ where }),
+    ]);
+    return { reports, total };
+  }
+
+  const reports = await prisma.report.findMany({ where, include: REPORT_LIST_INCLUDE, orderBy });
+  return { reports, total: reports.length };
 };
 
 /**
@@ -179,6 +200,33 @@ export const transitionReport = async (
   const newState = actor.getSnapshot().value as State;
   actor.stop();
 
+  // RF-05: la màquina d'estats valida el rol de QUI assigna; aquí validem el
+  // rol de QUI rep la tasca. Una incidència només es pot assignar a un TÈCNIC
+  // actiu (s'aplica tant a ASSIGN com a la REASSIGN que torna a ASSIGNED).
+  if (options?.assignedToId) {
+    const assignee = await prisma.user.findUnique({
+      where: { user_id: options.assignedToId },
+      select: { role: true, active: true },
+    });
+    if (!assignee || assignee.role !== Role.TECHNICAL || !assignee.active) {
+      throw new Error('Només es pot assignar una incidència a un tècnic actiu');
+    }
+  }
+
+  // RF-09: per validar una resolució (RESOLVE -> VALIDATED) cal haver adjuntat
+  // com a mínim una foto de tipus RESOLUTION (l'evidència del "després"). Així
+  // la traçabilitat fotogràfica de la resolució queda garantida pel backend.
+  if (event === 'RESOLVE') {
+    const resolutionImages = await prisma.image.count({
+      where: { reportId, type: 'RESOLUTION' },
+    });
+    if (resolutionImages === 0) {
+      throw new Error(
+        'Cal adjuntar almenys una foto de resolució abans de validar la incidència',
+      );
+    }
+  }
+
   const updateReport = prisma.report.update({
     where: { report_id: reportId },
     data: {
@@ -230,6 +278,28 @@ export const transitionReport = async (
     newAssigneeId: updated.assignedToId,
     previousAssigneeId,
   });
+
+  // Gamificació: si l'admin acaba de tancar la incidència, premiem l'autor
+  // (estudiant) amb punts segons la prioritat. L'award és idempotent — si
+  // la mateixa transició arribés dues vegades, només compta el primer cop.
+  // Disparat fire-and-forget: un error aquí no ha de trencar la transició.
+  if (newState === 'CLOSED') {
+    void awardPointsForClosedReport(reportId)
+      .then((result) => {
+        if (result.awarded) {
+          notificationService.onPointsEarned({
+            userId: updated.createdById,
+            reportId,
+            reportTitle: updated.title,
+            amount: result.amount,
+            newTotal: result.newTotal,
+          });
+        }
+      })
+      .catch((err) => {
+        console.error('[gamification] Error premiant punts:', err);
+      });
+  }
 
   return updated;
 };

@@ -88,7 +88,8 @@ export const NotificationType = {
   REPORT_ASSIGNED: 'REPORT_ASSIGNED',
   REPORT_REASSIGNED: 'REPORT_REASSIGNED',
   REPORT_UNASSIGNED: 'REPORT_UNASSIGNED',
-  REPORT_STATE_CHANGED: 'REPORT_STATE_CHANGED'
+  REPORT_STATE_CHANGED: 'REPORT_STATE_CHANGED',
+  POINTS_EARNED: 'POINTS_EARNED'
 } as const
 
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]

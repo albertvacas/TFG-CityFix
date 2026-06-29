@@ -57,7 +57,8 @@ export const ModelName = {
   Image: 'Image',
   PushToken: 'PushToken',
   Notification: 'Notification',
-  Invite: 'Invite'
+  Invite: 'Invite',
+  PointsTransaction: 'PointsTransaction'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -86,6 +87,7 @@ export const UserScalarFieldEnum = {
   role: 'role',
   active: 'active',
   points: 'points',
+  avatarUrl: 'avatarUrl',
   position: 'position',
   workCategory: 'workCategory',
   company: 'company',
@@ -182,6 +184,18 @@ export const InviteScalarFieldEnum = {
 } as const
 
 export type InviteScalarFieldEnum = (typeof InviteScalarFieldEnum)[keyof typeof InviteScalarFieldEnum]
+
+
+export const PointsTransactionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  reportId: 'reportId',
+  amount: 'amount',
+  priority: 'priority',
+  createdAt: 'createdAt'
+} as const
+
+export type PointsTransactionScalarFieldEnum = (typeof PointsTransactionScalarFieldEnum)[keyof typeof PointsTransactionScalarFieldEnum]
 
 
 export const SortOrder = {

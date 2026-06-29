@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest, IncidentEvent } from '../types';
 import * as reportService from '../services/report';
 import { Priority, State, TypeImage } from '../../generated/prisma';
+import { parsePagination, hasPagination } from '../utils/pagination';
 
 const VALID_PRIORITIES: Priority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
@@ -46,7 +47,12 @@ export const getAll = async (req: AuthRequest, res: Response): Promise<void> => 
     const dateFrom = typeof req.query.dateFrom === 'string' ? new Date(req.query.dateFrom) : undefined;
     const dateTo = typeof req.query.dateTo === 'string' ? new Date(req.query.dateTo) : undefined;
 
-    const reports = await reportService.getAllReports({
+    // Paginació opt-in: si el client envia `page`, retornem metadades; si no
+    // (p. ex. el mòbil, que ja filtra per usuari), retornem totes les coincidències.
+    const paginate = hasPagination(req.query);
+    const { page, pageSize } = parsePagination(req.query);
+
+    const result = await reportService.getAllReports({
       q,
       state,
       createdById,
@@ -57,8 +63,14 @@ export const getAll = async (req: AuthRequest, res: Response): Promise<void> => 
       // assignades; ADMIN veu tot. Es força al backend per evitar que un usuari
       // pugui llegir incidències d'altres cridant l'API directament.
       viewer: { role: req.user!.role, userId: req.user!.userId },
+      ...(paginate ? { page, pageSize } : {}),
     });
-    res.json({ reports });
+
+    if (paginate) {
+      res.json({ reports: result.reports, total: result.total, page, pageSize });
+    } else {
+      res.json({ reports: result.reports });
+    }
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

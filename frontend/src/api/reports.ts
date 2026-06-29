@@ -1,5 +1,5 @@
 import client from './client';
-import type { Report, IncidentEvent, State, Priority } from '../types';
+import type { Report, IncidentEvent, State, Priority, Paginated } from '../types';
 
 export interface ReportFilters {
   q?: string;
@@ -10,7 +10,7 @@ export interface ReportFilters {
   dateTo?: string;
 }
 
-export const getReports = async (filters: ReportFilters = {}): Promise<Report[]> => {
+const buildReportParams = (filters: ReportFilters): Record<string, string> => {
   const params: Record<string, string> = {};
   if (filters.q) params.q = filters.q;
   if (filters.state) params.state = filters.state;
@@ -18,8 +18,29 @@ export const getReports = async (filters: ReportFilters = {}): Promise<Report[]>
   if (filters.assignedToId) params.assignedToId = filters.assignedToId;
   if (filters.dateFrom) params.dateFrom = filters.dateFrom;
   if (filters.dateTo) params.dateTo = filters.dateTo;
-  const { data } = await client.get<{ reports: Report[] }>('/reports', { params });
+  return params;
+};
+
+// Sense paginació: retorna totes les coincidències (per mapes, validacions,
+// assignacions… on es necessita el conjunt complet filtrat per estat).
+export const getReports = async (filters: ReportFilters = {}): Promise<Report[]> => {
+  const { data } = await client.get<{ reports: Report[] }>('/reports', {
+    params: buildReportParams(filters),
+  });
   return data.reports;
+};
+
+// Amb paginació: per a la taula d'incidències de l'admin.
+export const getReportsPaginated = async (
+  filters: ReportFilters,
+  page: number,
+  pageSize: number,
+): Promise<Paginated<Report>> => {
+  const { data } = await client.get<{ reports: Report[]; total: number; page: number; pageSize: number }>(
+    '/reports',
+    { params: { ...buildReportParams(filters), page, pageSize } },
+  );
+  return { items: data.reports, total: data.total, page: data.page, pageSize: data.pageSize };
 };
 
 export const getReportById = async (id: string): Promise<Report> => {
@@ -48,11 +69,13 @@ export const updateReportPriority = async (id: string, priority: Priority): Prom
 export interface AutoAssignResult {
   assigned: Array<{
     reportId: string;
+    reportTitle: string;
     technicianId: string;
     technicianName: string;
   }>;
   skipped: Array<{
     reportId: string;
+    reportTitle: string;
     reason: string;
   }>;
 }

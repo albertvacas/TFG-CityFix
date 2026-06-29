@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../config/db';
 import { envs } from '../config/env';
 import { RegisterDTO, LoginDTO, JwtPayload } from '../types';
+import { onInviteUsed } from './notification';
 
 const SALT_ROUNDS = 10;
 
@@ -77,6 +78,11 @@ export const registerUser = async (data: RegisterDTO) => {
         data: { status: 'USED' },
       }),
     ]);
+
+    // Avisem els admins connectats perquè el panell d'accessos es refresqui:
+    // la invitació passa a "Utilitzada" i el nou usuari apareix a la taula de
+    // privilegiats sense haver de recarregar la pàgina.
+    onInviteUsed(invite.id);
 
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword;

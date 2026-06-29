@@ -16,8 +16,6 @@ interface GeoJsonFeature {
     state: string;
     priority: string;
     category: string | null;
-    createdBy: string;
-    assignedTo: string | null;
     createdAt: string;
   };
 }
@@ -42,13 +40,21 @@ export const getReportsGeoJson = async (filters?: GeoFilters): Promise<GeoJsonCo
     where.createdAt = { gte: since };
   }
 
+  // Seleccionem només els camps que el mapa renderitza (marker + popup).
+  // Evitem els JOINs amb createdBy/assignedTo: el mapa no els mostra, i
+  // arrossegar-los multiplicava el cost de la consulta i la mida del payload.
   const reports = await prisma.report.findMany({
     where,
-    include: {
-      createdBy: { select: { name: true } },
-      assignedTo: { select: { name: true } },
+    select: {
+      report_id: true,
+      title: true,
+      state: true,
+      priority: true,
+      category: true,
+      latitude: true,
+      longitude: true,
+      createdAt: true,
     },
-    orderBy: { createdAt: 'desc' },
   });
 
   const features: GeoJsonFeature[] = reports.map((r) => ({
@@ -63,8 +69,6 @@ export const getReportsGeoJson = async (filters?: GeoFilters): Promise<GeoJsonCo
       state: r.state,
       priority: r.priority,
       category: r.category,
-      createdBy: r.createdBy.name,
-      assignedTo: r.assignedTo?.name ?? null,
       createdAt: r.createdAt.toISOString(),
     },
   }));
@@ -117,4 +121,44 @@ export const getHeatmapData = async (
 
     return { lat: r.latitude, lng: r.longitude, weight };
   });
+};
+
+/**
+ * Consulta espacial PostGIS (RNF-03): per a un punt objectiu i un conjunt de
+ * tècnics, retorna la distància (en metres) de cada tècnic a la seva incidència
+ * ACTIVA més propera. El càlcul es delega a PostGIS amb `ST_Distance` sobre la
+ * columna `location` (geography 4326), accelerada per l'índex GiST
+ * (002_location_gist_index.sql).
+ *
+ * A diferència del càlcul haversine en memòria, això aprofita la capacitat
+ * geoespacial nativa de la base de dades i s'usa al desempat de l'auto-assignació.
+ * Els tècnics sense cap incidència activa no apareixen al resultat (el cridant
+ * els tracta com a distància infinita).
+ */
+export const getNearestActiveDistances = async (
+  target: { lat: number; lng: number },
+  techIds: string[],
+): Promise<Map<string, number>> => {
+  if (techIds.length === 0) return new Map();
+
+  const rows: { tech: string; dist: number | null }[] = await prisma.$queryRaw`
+    SELECT "assignedToId" AS tech,
+           MIN(
+             ST_Distance(
+               location,
+               ST_SetSRID(ST_MakePoint(${target.lng}, ${target.lat}), 4326)::geography
+             )
+           ) AS dist
+    FROM reports
+    WHERE "assignedToId" = ANY(${techIds}::text[])
+      AND state IN ('ASSIGNED', 'IN_PROGRESS')
+      AND location IS NOT NULL
+    GROUP BY "assignedToId"
+  `;
+
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    if (r.dist !== null) map.set(r.tech, Number(r.dist));
+  }
+  return map;
 };

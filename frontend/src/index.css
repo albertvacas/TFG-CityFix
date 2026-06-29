@@ -1,1 +1,142 @@
 @import "tailwindcss";
+
+/* Dark mode per classe (.dark a <html>) en lloc de prefers-color-scheme.
+   Així el ThemeContext pot forçar clar/fosc/sistema. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Rebrand de marca: lila (indigo) → verd bosc.
+  En lloc de tocar les ~25 pàgines que usen `indigo-*`, redefinim la paleta
+  indigo perquè totes les utilitats existents (text-indigo-600, bg-indigo-50,
+  focus:ring-indigo-500, etc.) passin a renderitzar verd automàticament.
+  El color primari de marca és green-700 (#15803d).
+*/
+@theme {
+  --color-indigo-50: #f0fdf4;
+  --color-indigo-100: #dcfce7;
+  --color-indigo-200: #bbf7d0;
+  --color-indigo-300: #86efac;
+  --color-indigo-400: #4ade80;
+  --color-indigo-500: #16a34a;
+  --color-indigo-600: #15803d;
+  --color-indigo-700: #166534;
+  --color-indigo-800: #14532d;
+  --color-indigo-900: #0f3d22;
+
+  /* Tokens semàntics de superfície per al mode fosc. */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f9fafb;
+  --color-surface-border: #e5e7eb;
+  --color-content: #111827;
+  --color-content-muted: #6b7280;
+}
+
+/* Variables de superfície en mode fosc. Les utilitats `bg-surface`,
+   `text-content`, etc. les recalcula Tailwind a partir d'aquestes. */
+.dark {
+  --color-surface: #1e293b;
+  --color-surface-muted: #0f172a;
+  --color-surface-border: #334155;
+  --color-content: #f1f5f9;
+  --color-content-muted: #94a3b8;
+
+  /* Inversió de l'escala de grisos. Com que Tailwind v4 genera les utilitats
+     neutres a partir d'aquestes variables (text-gray-*, bg-gray-*,
+     border-gray-*, ring-gray-*, divide-gray-*), invertir-les fa que TOTES les
+     pàgines s'adaptin al mode fosc sense haver d'afegir `dark:` a cada element. */
+  --color-gray-50: #0f172a;
+  --color-gray-100: #1e293b;
+  --color-gray-200: #334155;
+  --color-gray-300: #475569;
+  --color-gray-400: #64748b;
+  --color-gray-500: #94a3b8;
+  --color-gray-600: #cbd5e1;
+  --color-gray-700: #e2e8f0;
+  --color-gray-800: #f1f5f9;
+  --color-gray-900: #f8fafc;
+}
+
+/* `bg-white` (targetes, capçaleres) no es pot remapar via --color-white perquè
+   aquesta variable també l'usa `text-white` (text dels botons verds). El
+   sobreescrivim per classe, només en mode fosc. */
+.dark .bg-white {
+  background-color: #1e293b;
+}
+
+/* Desplegables natius (<select>/<option>) en mode fosc. El popup d'opcions del
+   navegador surt amb fons clar i el text de les opcions hereta el color clar
+   del body → blanc sobre blanc. Hi fixem fons fosc i text clar explícits. */
+.dark select,
+.dark option {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+/* Gràfics Recharts en mode fosc. Recharts dibuixa SVG/HTML amb classes pròpies
+   (no utilitats Tailwind), així que els eixos, la graella, la llegenda i els
+   tooltips no s'adapten sols. Els ajustem aquí de manera centralitzada. */
+.dark .recharts-text {
+  fill: #94a3b8;
+}
+.dark .recharts-cartesian-grid line {
+  stroke: #334155;
+}
+.dark .recharts-cartesian-axis-line,
+.dark .recharts-cartesian-axis-tick-line {
+  stroke: #475569;
+}
+.dark .recharts-legend-item-text {
+  color: #cbd5e1 !important;
+}
+.dark .recharts-default-tooltip {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+.dark .recharts-tooltip-label {
+  color: #f1f5f9 !important;
+}
+
+/* Fons i color de text base de tota l'app, perquè les zones no estilades
+   explícitament també s'adaptin al tema. */
+html,
+body,
+#root {
+  background-color: var(--color-surface-muted);
+  color: var(--color-content);
+}
+
+/* Salvaguarda dels controls de formulari: hereten el `color` del body, així que
+   els fixem a l'escala de grisos (que s'inverteix en fosc) perquè el text mai
+   quedi il·legible. Les utilitats `text-*` i la classe `.input` tenen prioritat. */
+@layer base {
+  input,
+  textarea,
+  select {
+    color: var(--color-gray-900);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+}
+
+/* Camp de formulari reutilitzable (settings, etc.) amb suport per mode fosc. */
+@layer components {
+  .input {
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-gray-300);
+    background-color: var(--color-surface);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-content);
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--color-indigo-500);
+    box-shadow: 0 0 0 1px var(--color-indigo-500);
+  }
+  .dark .input {
+    border-color: var(--color-slate-600);
+  }
+}

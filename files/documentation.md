@@ -1302,6 +1302,45 @@ S'ha creat un únic endpoint que retorna totes les dades del dashboard en una so
 |---|---|---|
 | `recharts` | ^2.x | Llibreria de gràfics React basada en D3.js |
 
+### Evolució del dashboard — Gràfic "Incidències per categoria" amb filtre de calendari
+
+El gràfic temporal **"Històric per categoria"** (Stacked Area Chart del Bloc 2) s'ha substituït per un gràfic **"Incidències per categoria"** amb una lògica diferent, més directa per a la consulta operativa:
+
+- **Eixos**: l'eix **X** mostra les categories i l'eix **Y** el nombre d'incidències de cadascuna (una barra per categoria), en lloc de la sèrie temporal apilada.
+- **Filtre manual per calendari**: dos selectors de data (`<input type="date">`, "Del … al …") permeten escollir un rang arbitrari. Per consultar **un sol dia** s'estableix la mateixa data a tots dos camps. Per defecte mostra els últims 30 dies fins avui.
+- **Independència del filtre global**: a diferència de la resta de gràfics (lligats als controls globals `granularity`/`days`), aquest té el seu propi estat de dates i consulta un **endpoint dedicat**, de manera que pot anar més enllà de la finestra global i amb precisió de dia.
+
+**Justificació del canvi**: l'àrea apilada respon a "com evoluciona cada categoria en el temps", però per a la gestió diària és més útil respondre "quantes incidències de cada tipus hi ha hagut en un període concret". El filtre de calendari dona control total sobre el període auditat (un dia puntual, una setmana, un mes…) sense dependre de granularitats predefinides.
+
+#### Nou endpoint — `GET /api/analytics/category-counts`
+
+**Ruta**: `GET /api/analytics/category-counts?from=YYYY-MM-DD&to=YYYY-MM-DD`
+**Protecció**: `authenticate` + `authorize('ADMIN')`
+**Paràmetres obligatoris**: `from` i `to` (dates inclusives). El backend interpreta el rang com a dies complets (`from` a les 00:00:00 i `to` a les 23:59:59.999) i retorna `{ category, count }[]` ordenat descendentment.
+
+La funció de servei `getCategoryCountsInRange(from, to)` fa un `groupBy(['category'])` amb el filtre `createdAt: { gte: from, lte: to }`. És un endpoint separat del dashboard perquè el seu cicle de vida (es recarrega en canviar les dates) és independent de la resta de visualitzacions.
+
+#### Colors i format de les barres per categoria
+
+- **Dos blaus alternats**: tant "Incidències per categoria" com "Distribució per categoria" pinten les barres amb dos tons de blau que s'alternen per índex (`barBlues[i % 2]`), en lloc d'un color diferent per categoria. Com que cada barra ja s'identifica pel nom a l'eix X, alternar dos blaus dona un resultat net i coherent amb la marca, i evita una paleta excessivament cridanera. Els tons s'adapten al tema: blaus foscos sobre fons clar, blaus clars en mode fosc.
+- **Amplada màxima de columna (`maxBarSize={64}`)**: limita l'amplada de cada barra perquè, quan hi ha poques categories (o només una), les columnes no s'eixamplin desproporcionadament. Així el format es manté constant independentment del nombre de categories del període.
+
+#### Adaptació al mode fosc
+
+Tot el dashboard és sensible al tema (clar/fosc) mitjançant el `ThemeContext` del frontend:
+- Els colors d'estat amb blaus marins poc visibles (`ASSIGNED`) es reemplacen per blaus clars en mode fosc.
+- Els elements propis de Recharts (eixos, graella, llegenda, tooltips) s'estilitzen via CSS dirigit a les seves classes (`.recharts-text`, `.recharts-cartesian-grid line`, etc.) dins de `.dark`, ja que es dibuixen com a SVG/HTML i no com a utilitats Tailwind.
+
+#### Fitxers afegits o modificats en aquesta evolució
+
+| Fitxer | Acció | Descripció |
+|---|---|---|
+| `backend/src/services/analytics.ts` | Modificat | Afegida `getCategoryCountsInRange(from, to)` |
+| `backend/src/controllers/analytics.ts` | Modificat | Afegit controlador `getCategoryCounts` (valida `from`/`to`) |
+| `backend/src/routes/analytics.ts` | Modificat | Afegida ruta `GET /api/analytics/category-counts` |
+| `frontend/src/api/analytics.ts` | Modificat | Afegida `getCategoryCounts(from, to)` + tipus `CategoryCount` |
+| `frontend/src/pages/DashboardPage.tsx` | Modificat | Nou gràfic per categoria amb calendari, blaus alternats, `maxBarSize` i suport de mode fosc |
+
 ---
 
 # Sprint 4: Aplicació Mòbil — Fase 1 (Autenticació i Estructura)
@@ -3137,7 +3176,8 @@ Punt d'entrada únic.
 ### Backend — Auto-assignació
 
 #### `services/autoAssign.ts`
-- `autoAssignReports({reportIds, actorId})` — l'algoritme. Carrega tècnics elegibles (rol TECHNICAL, actius, amb `workCategory != null`), calcula càrrega actual de cadascun, itera els reports en ordre i n'assigna un per un. Manté un Map en memòria de càrrega que actualitza incrementalment perquè el següent report del lot no torni a anar al mateix tècnic. Cridat `transitionReport(ASSIGN)` per a cada assignació exitosa, així mantenim la integritat de la màquina d'estats XState. Retorna `{assigned: [...], skipped: [...]}` amb raons concretes.
+- `autoAssignReports({reportIds, actorId})` — l'algoritme. Carrega tècnics elegibles (rol TECHNICAL, actius, amb `workCategory != null`), calcula càrrega actual i les coordenades de les incidències actives de cadascun, itera els reports en ordre i n'assigna un per un. Dins de cada categoria, ordena els candidats per **càrrega ascendent**, després per **proximitat** (distància a la incidència activa més propera del tècnic) i finalment per round-robin. Manté un Map en memòria de càrrega i ubicacions que actualitza incrementalment perquè el següent report del lot no torni a anar al mateix tècnic i tingui en compte la feina just assignada. Cridat `transitionReport(ASSIGN)` per a cada assignació exitosa, així mantenim la integritat de la màquina d'estats XState. Retorna `{assigned: [...], skipped: [...]}` amb raons concretes.
+- `haversineMeters(a, b)` / `nearestDistanceMeters(target, techLocations)` *(interns)* — càlcul de distància (haversine, metres WGS84) i distància del report a la incidència activa més propera del tècnic, usats per al desempat per proximitat.
 - `interface AutoAssignResult` — exportada perquè el frontend tipi la resposta.
 
 #### `controllers/autoAssign.ts`
@@ -3238,20 +3278,32 @@ Hem escollit la 3a com a compromís pragmàtic. Documentat com a deute tècnic; 
 
 ### 5. Algoritme d'auto-assignació
 
-La part interessant és l'**actualització incremental de càrrega**:
+Dins de cada categoria, els candidats s'ordenen per **tres criteris en cascada**:
 
 ```ts
-for (const reportId of params.reportIds) {
-  // ...
-  const chosen = candidates[0]!;  // el de menys càrrega
-  await transitionReport(...);    // ASSIGN via XState
-  chosen.load += 1;              // ← clau: actualitzem en memòria
-}
+ranked.sort((a, b) => {
+  if (a.tech.load !== b.tech.load) return a.tech.load - b.tech.load;       // 1. càrrega
+  if (a.distance !== b.distance) return a.distance - b.distance;           // 2. proximitat
+  return a.tech.lastAssignedAt - b.tech.lastAssignedAt;                    // 3. round-robin
+});
+```
+
+**Criteri 1 — càrrega ascendent (principal).** La part clau és l'**actualització incremental de càrrega**:
+
+```ts
+chosen.load += 1;             // ← clau: actualitzem en memòria després d'assignar
+chosen.locations.push(target); // ← també la ubicació, per al desempat de proximitat dins del lot
 ```
 
 Sense aquest `chosen.load += 1`, si seleccionessis 5 reports de la mateixa categoria, **els 5 anirien al tècnic amb menys càrrega inicial**. Amb la actualització incremental, cada report veu la càrrega ja modificada pels anteriors del mateix lot, i el repartiment és equitatiu.
 
-El segon factor d'ordenació és **`lastAssignedAt`**: quan dos tècnics tenen la mateixa càrrega, dóna prioritat al que fa més temps que no rep res. És un round-robin suau que evita que el primer per ordre alfabètic sempre rebi els empats.
+**Criteri 2 — proximitat ascendent (desempat per ubicació).** Quan dos tècnics tenen la **mateixa càrrega**, s'assigna al que ja té una incidència activa **més a prop** de la nova. Un tècnic no té una ubicació fixa, així que la seva proximitat es deriva de les coordenades (`latitude`/`longitude`) de les incidències actives que ja té assignades: es calcula la distància (haversine, en metres) del report a la **incidència activa més propera** del tècnic (`nearestDistanceMeters`). Així s'agrupen els desplaçaments per zona — si un tècnic ja treballa en aquell racó del campus, té sentit que també s'encarregui de la nova incidència veïna.
+
+Una propietat elegant d'aquest disseny: la proximitat **només** decideix entre tècnics amb la mateixa càrrega **> 0**, i tot tècnic amb càrrega > 0 té com a mínim una incidència per mesurar la distància. Els tècnics sense feina (càrrega 0, sense ubicació de referència) ja guanyen abans pel criteri principal de càrrega, de manera que no cal cap regla especial per al cas "tècnic sense incidències". A més, dins d'un mateix lot, la ubicació de cada incidència acabada d'assignar s'afegeix a la llista del tècnic (`chosen.locations.push(target)`), perquè les incidències següents del lot que caiguin a la mateixa zona també el considerin "proper".
+
+**Criteri 3 — `lastAssignedAt` (round-robin final).** Si encara hi ha empat (mateixa càrrega i mateixa proximitat), dóna prioritat al tècnic que fa més temps que no rep res. És un round-robin suau que evita que el primer per ordre sempre rebi els empats.
+
+> **Nota d'escala**: el desempat per proximitat es calcula en JavaScript sobre els camps `latitude`/`longitude`, no amb PostGIS. Per a l'escala d'un campus i lots de 5–20 incidències és perfectament eficient. Si el sistema escalés a milers d'incidències actives per tècnic, el natural seria moure el càlcul a una query PostGIS (`ST_Distance` sobre la columna `location`), coherent amb l'ús de PostGIS previst per a futures consultes espacials.
 
 ### 6. Per què crida `transitionReport` i no fa l'`UPDATE` directe
 
@@ -3356,6 +3408,7 @@ Tot el flux dura uns segons d'IA i un click d'admin. Cap intervenció manual per
 - **`setTimeout(3000)` abans de classificar**: hack pragmàtic per esperar la imatge. Documentat com a deute tècnic.
 - **Tècnics sense `workCategory` queden fora del pool d'auto-assignació**: decisió explícita. Per als reports que no troben candidats, l'admin haurà d'assignar manualment. Així mantenim la qualitat: només auto-assignem a tècnics amb expertesa declarada.
 - **Càrrega = `ASSIGNED + IN_PROGRESS` sense ponderar per prioritat**: simple, suficient. Si en el futur els CRITICAL volgués comptar com a 3, només cal canviar la query.
+- **Proximitat com a desempat, no com a criteri principal**: es va valorar fer la proximitat el factor dominant (el tècnic més proper guanya sempre), però això pot sobrecarregar el tècnic d'una zona molt activa. Mantenint la càrrega com a criteri principal i la proximitat només per desempatar tècnics amb la mateixa càrrega, es preserva l'equilibri de feina i alhora s'agrupen els desplaçaments per zona. La mètrica triada és la "incidència activa més propera" (no el centroide) perquè captura millor el cas "ja té feina just al costat".
 - **Reuse de `transitionReport` a l'auto-assignació**: en lloc de fer `UPDATE` directe, passem per la màquina d'estats. Així reutilitzem totes les notificacions, SSE, validacions i auditoria que ja teníem del Sprint 2 i 5. **És el millor exemple de tot el TFG de "build it once, reuse it everywhere"**.
 - **Sense cau de classificacions**: si el mateix report es re-classifiqués (no passa avui, però podria), tornaríem a cridar Gemini. Per al volum del TFG i 1500 RPD gratuïts, no és problema.
 
@@ -3369,3 +3422,649 @@ Tot el flux dura uns segons d'IA i un click d'admin. Cap intervenció manual per
 - **La integració entre sprints és el que dóna valor de veritat**. Aquest sprint usa l'XState del Sprint 2, l'API REST del Sprint 3, els tipus del frontend del Sprint 3, l'app del Sprint 4 i les SSE+push del Sprint 5. Cada un per separat era una funcionalitat; tots junts, és un producte. El Sprint 6 hauria sigut **impossible de defensar** sense els anteriors.
 - **Els hacks pragmàtics han d'estar documentats**. El `setTimeout(3000)` és lleig, però millor que esperar 5 sprints per fer una cua de tasques "professional". Documentar-ho a la memòria amb les alternatives i el motiu de la decisió és més honest que amagar-ho.
 
+---
+
+# Sprint 7: Sistema de Gamificació de Punts
+
+## Resum
+
+S'ha implementat un sistema de gamificació que premia els estudiants amb punts cada vegada que una incidència que han reportat es tanca definitivament (estat `CLOSED`). La quantitat de punts es modula per la criticalitat de la incidència — un report `CRITICAL` val 8 vegades més que un `LOW` —, de manera que el sistema valora l'aportació en proporció a l'impacte real al campus.
+
+L'arquitectura reaprofita tots els carrils d'infraestructura ja construïts als sprints anteriors: el premi es dispara des de la mateixa transició XState que ja governa el cicle de vida (`Sprint 2`), s'orquestra des del `NotificationService` central per emetre push al mòbil i SSE al dashboard admin (`Sprint 5`), i s'exposa a les tres interfícies (mòbil estudiant/tècnic, web admin) sense duplicar lògica.
+
+El resultat és que quan l'admin clica "Tancar" en una incidència, succeeixen quatre coses en cadena dins d'una sola request: la transició a CLOSED es valida i s'emmagatzema, l'estudiant veu el seu comptador de punts incrementat al perfil, rep un push immediat ("Has guanyat 20 punts!"), i el rànquing del dashboard admin es refresca en temps real via SSE.
+
+---
+
+## Context tecnològic i decisions de disseny
+
+### Per què només es premia al CLOSED, no al RESOLVE
+
+El cicle de vida té dos estats "resolts" diferents: `VALIDATED` (el tècnic l'ha marcat com a resolta) i `CLOSED` (l'admin l'ha validat definitivament). Es va considerar premiar als dos punts (parcial al RESOLVE, complet al CLOSE), però es va descartar perquè:
+
+- Si l'admin acaba fent `REJECT` (la resolució no era bona), caldria *restar* punts ja entregats — una operació socialment fragil ("M'has tret punts!") i tècnicament confusa.
+- L'únic moment objectivament fiable de "incidència resolta de veritat" és el CLOSED, perquè hi ha l'admin validant. Premiar abans és premiar per crèdit.
+- És més senzill, més just i més fàcil d'explicar als usuaris: "guanyes punts quan es tanca".
+
+### Per què una taula `PointsTransaction` separada en lloc de només incrementar `User.points`
+
+L'alternativa mínima seria fer un sol `UPDATE users SET points = points + N`. Funcionaria, però perdríem tres garanties que la taula sí dóna:
+
+1. **Idempotència via constraint**. El camp `PointsTransaction.reportId` és `UNIQUE`. Si per un bug futur la transició CLOSE arribés dues vegades (per exemple, un retry de xarxa, una migració incorrecta, un test), la segona inserció rebot amb `P2002` i el premi *no es duplica*. Sense aquesta taula, l'únic check possible seria "ja s'ha incrementat aquest comptador per aquest report?" que no es pot expressar amb un `UPDATE` atòmic.
+
+2. **Auditoria històrica**. Quan un estudiant té 240 punts, *d'on vénen?* La taula respon: 12 reports, distribuïts en X categories i Y nivells de criticalitat, en un rang de dates concret. Sense ella, sabem el total però no la història.
+
+3. **Snapshot de prioritat al moment del premi**. Si l'admin canvia la `priority` d'una incidència mesos després (per a analítica retrospectiva), volem que el premi reflecteixi el valor *real aplicat*, no el valor *actual*. La taula emmagatzema la prioritat junt amb l'amount.
+
+### Per què només els estudiants reben punts
+
+Decisió de domini: els punts representen el reconeixement a l'aportació ciutadana. Admins i tècnics ja tenen rol institucional i no necessiten incentius extrínsecs. Si en algun moment un admin o tècnic crea un report (per testing o per cas especial), el servei `awardPointsForClosedReport` ho detecta i retorna `not_student` sense premiar — el filtre és al backend, no al frontend, per garantir-ho.
+
+### Per què el premi és fire-and-forget
+
+A `transitionReport`, la crida `awardPointsForClosedReport(reportId)` es dispara amb `void ... .then(...).catch(...)` sense `await`. Així:
+
+- Si el sistema de gamificació falla (per exemple, BD lenta puntualment), la transició CLOSE no es bloqueja ni retorna error a l'admin.
+- L'admin obté resposta HTTP en mil·lisegons; el push de "Has guanyat punts!" arriba al mòbil quan toqui (centenars de mil·lisegons després).
+
+És el mateix patró que ja s'usava per als push del Sprint 5 — extensió coherent del principi "lo no crític, fora del camí crític".
+
+### Escala 5/10/20/40
+
+L'escala segueix una progressió geomètrica (cada nivell dobla l'anterior). Això:
+
+- Té significat clar: una incidència CRÍTICA equival a *vuit* de baixes — diferència suficient per motivar reports d'alta prioritat.
+- Manté els nombres petits i llegibles al podi i a les notificacions.
+- És fàcilment ajustable: els valors estan en una sola constant (`POINTS_BY_PRIORITY` a `services/gamification.ts`).
+
+Mirall al frontend i mòbil amb la mateixa constant per poder mostrar previsualitzacions ("guanyaràs +X punts quan es tanqui") sense una crida API.
+
+---
+
+## Visió general de l'arquitectura
+
+```
+[Admin clica "Tancar" al panel web]
+            │
+            ▼
+   PATCH /reports/:id/transition { event: 'CLOSE' }
+            │
+            ▼
+┌───────────────────────────────────┐
+│  transitionReport()               │
+│   - XState valida (isAdmin)       │
+│   - prisma.update(state=CLOSED,   │
+│                   resolvedAt=now) │
+└─────────────┬─────────────────────┘
+              │ (després del commit)
+              ▼
+   ┌──────────────────────────────┐
+   │  Fire-and-forget en paral·lel │
+   └─┬──────────┬─────────────────┘
+     │          │
+     ▼          ▼
+notificationService.   awardPointsForClosedReport()
+onReportTransitioned()      │
+     │                      │  $transaction([
+     ▼                      │    pointsTransaction.create,
+   Push +                   │    user.update(points += N)
+   SSE                      │  ])
+                            │
+                            ▼
+              if (awarded) → onPointsEarned()
+                                │
+                                ├─ persistAndPush  → push mòbil "Has guanyat N punts!"
+                                └─ SSE 'points.awarded' → dashboard admin refresca rànquing
+```
+
+Una sola transició HTTP, tres canals propagats, zero acoblament entre ells (cada canal pot fallar sense afectar els altres).
+
+---
+
+## Catàleg de mòduls i mètodes
+
+### Backend
+
+#### `services/gamification.ts` (nou)
+
+Motor del sistema. Tota la lògica de càlcul i persistència viu aquí.
+
+- `POINTS_BY_PRIORITY` — constant exportada `{ LOW: 5, MEDIUM: 10, HIGH: 20, CRITICAL: 40 }`. Single source of truth.
+- `awardPointsForClosedReport(reportId)` — l'operació crítica. Llegeix el report (incloent priority + creador), valida que el creador sigui STUDENT, i fa la `$transaction([create PointsTransaction, update User.points])`. Retorna `{ awarded, amount, newTotal, reason? }`. Captura `P2002` (unique constraint) i el retorna com a `already_awarded` no-op.
+- `getLeaderboard(limit)` — top N estudiants actius ordenats per punts descendents, desempat per nom. Límit màxim 50.
+- `getUserPointsHistory(userId, limit)` — transaccions d'un usuari amb el report incrustat (title, priority, category). Pensat per al perfil mòbil.
+- `getAllPointsTransactions({ userId?, limit? })` — historial complet d'auditoria amb user + report incrustats. Filtrable per usuari concret. Pensat per al panel admin.
+- `getUserRank(userId)` — posició al rànquing comptant quants estudiants tenen `points > userPoints`. Retorna `{ rank, total, points }` o `null` si l'usuari no és estudiant.
+
+#### `services/notification.ts` (modificat)
+
+- Nova funció `onPointsEarned({ userId, reportId, reportTitle, amount, newTotal })` — emet SSE `points.awarded` als admins i fa `persistAndPush` per al destinatari amb el tipus `POINTS_EARNED` ("Has guanyat N punts!").
+
+#### `services/sse.ts` (modificat)
+
+- Afegit `{ type: 'points.awarded'; userId: string; reportId: string; amount: number }` al `SseEvent` union.
+
+#### `services/report.ts` (modificat)
+
+- A `transitionReport()`, al final, si `newState === 'CLOSED'`, dispara `awardPointsForClosedReport(reportId)` fire-and-forget. Si el premi és nou (`result.awarded === true`), invoca `notificationService.onPointsEarned(...)`. Errors capturats i només es loguen — no propaguen.
+
+#### `controllers/gamification.ts` (nou)
+
+- `getLeaderboard(req, res)` — wrap del servei. Llegeix `?limit=N` opcional.
+- `getMyPoints(req, res)` — retorna `{ history, rank }` de l'usuari autenticat (a partir del `req.user.userId` del JWT).
+- `getAllTransactions(req, res)` — admin only. Llegeix `?userId=<uuid>&limit=N` opcionals.
+
+#### `routes/gamification.ts` (nou)
+
+Mount del router sota `/api/gamification`. Totes les rutes passen per `authenticate`; `/transactions` afegeix `authorize('ADMIN')`.
+
+#### Models nous a `prisma/schema.prisma`
+
+- Enum `NotificationType` ampliat amb `POINTS_EARNED`.
+- Nou model `PointsTransaction`:
+  ```prisma
+  model PointsTransaction {
+    id        String   @id @default(uuid())
+    userId    String
+    user      User     @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+    reportId  String   @unique
+    report    Report   @relation(fields: [reportId], references: [report_id], onDelete: Cascade)
+    amount    Int
+    priority  Priority
+    createdAt DateTime @default(now())
+    @@index([userId, createdAt])
+    @@map("points_transactions")
+  }
+  ```
+- Relacions inverses afegides al `User` (`pointsTransactions`) i al `Report` (`pointsTransaction` — singular, perquè la UNIQUE de `reportId` fa que sigui 0 o 1).
+- Aplicat amb `npx prisma db push` (la mateixa raó del Sprint anterior: el shadow DB no té PostGIS, així evitem `migrate dev`).
+
+#### Endpoints REST nous
+
+| Mètode | Ruta | Protecció | Descripció |
+|---|---|---|---|
+| GET | `/api/gamification/leaderboard` | `authenticate` | Top N estudiants per punts. Query: `?limit=N` (def. 10, màx. 50). |
+| GET | `/api/gamification/me` | `authenticate` | Historial de punts + posició + total de l'usuari autenticat. |
+| GET | `/api/gamification/transactions` | `authenticate` + `authorize('ADMIN')` | Historial complet d'auditoria, filtrable per usuari. |
+
+### Frontend web (panel admin)
+
+#### `api/gamification.ts` (nou)
+
+- `getLeaderboard(limit)` — `GET /gamification/leaderboard`.
+- `getAllPointsTransactions({ userId?, limit? })` — `GET /gamification/transactions`.
+
+#### `types/index.ts` (modificat)
+
+- Nous tipus `LeaderboardEntry`, `PointsTransaction`.
+- Constant `POINTS_BY_PRIORITY` mirall del backend per renderitzar l'escala.
+
+#### `hooks/useEventStream.ts` (modificat)
+
+- Afegit `points.awarded` al union `DashboardEvent`.
+- Registrat `source.addEventListener('points.awarded', dispatch)`.
+
+#### `pages/PointsPage.tsx` (nou)
+
+Pàgina completa amb tres blocs:
+
+1. **KPIs superiors**: total atorgat, transaccions, estudiants premiats.
+2. **Escala de punts**: targeta explicativa amb els valors per criticalitat (`POINTS_BY_PRIORITY`).
+3. **Rànquing + historial**: dues columnes. A l'esquerra, top 20 amb medalles de podi (or/plata/bronze). A la dreta, taula d'historial amb filtre per usuari (select poblat amb el leaderboard) i enllaços als reports.
+
+Subscrita a `useLiveEvent('points.awarded', fetchData)` per refrescar en temps real cada vegada que un admin tanca una incidència.
+
+#### `components/Layout.tsx` (modificat)
+
+- Nova entrada "Punts" al sidebar amb icona `Trophy` de `lucide-react`, entre "Mapa" i "Invitacions".
+
+#### `App.tsx` (modificat)
+
+- Registrada la ruta `/points` dins del bloc `ProtectedRoute` + `Layout`.
+
+### App mòbil
+
+#### `src/types/index.ts` (modificat)
+
+- Afegit `POINTS_EARNED` al tipus `NotificationType`.
+- Nous tipus `LeaderboardEntry`, `PointsTransactionItem`, `UserRank`.
+- Constant `POINTS_BY_PRIORITY` mirall del backend.
+
+#### `src/api/gamification.ts` (nou)
+
+- `getLeaderboard(limit)` — `GET /gamification/leaderboard`.
+- `getMyPoints()` — `GET /gamification/me` (retorna `{ history, rank }`).
+
+#### `app/(app)/(tabs)/leaderboard.tsx` (nou)
+
+Pestanya "Punts" disponible per a tots els rols (la informació no és sensible). Per a estudiants mostra també una targeta amb la seva posició personal (`#3 de 27 estudiants · 145 punts totals`). Inclou:
+
+- Card de posició personal (només STUDENT).
+- Escala de punts amb chips de color per prioritat.
+- Top 20 amb medalles, ressaltat de l'usuari actual (`bg-brand-50` + sufix "· tu").
+- Pull-to-refresh.
+
+#### `app/(app)/(tabs)/_layout.tsx` (modificat)
+
+- Nova `Tabs.Screen name="leaderboard"` amb icona `trophy-outline` / `trophy`.
+
+#### `app/(app)/(tabs)/profile.tsx` (modificat)
+
+Secció nova "Darrers punts guanyats" al perfil de l'estudiant (només es renderitza si `role === STUDENT`):
+
+- Estat buit amb call-to-action si encara no té cap punt.
+- Llista dels últims 5 premis amb data, categoria i amount.
+- Botó "Veure classificació" que navega a `/leaderboard`.
+- Header amb la seva posició al rànquing.
+
+L'historial es carrega via `getMyPoints()` amb `useEffect` dependent de `user?.points` — així es refresca automàticament quan rep el push de "Has guanyat punts!" i el `AuthContext` actualitza l'usuari.
+
+---
+
+## Backend en detall
+
+### 1. Atomicitat de l'award
+
+L'operació crítica és garantir que *o* es crea la fila a `points_transactions` *i* s'incrementa `User.points`, *o* no passa res. La implementació:
+
+```ts
+const [, updatedUser] = await prisma.$transaction([
+  prisma.pointsTransaction.create({
+    data: {
+      userId: report.createdById,
+      reportId: report.report_id,
+      amount,
+      priority: report.priority,
+    },
+  }),
+  prisma.user.update({
+    where: { user_id: report.createdById },
+    data: { points: { increment: amount } },
+    select: { points: true },
+  }),
+]);
+```
+
+Si la `create` falla per UNIQUE constraint (`P2002`), la `update` *no* s'aplica. Sense la `$transaction`, podríem deixar `User.points` incrementat sense fila a `points_transactions` — exactament el tipus d'inconsistència que la taula d'auditoria havia de prevenir.
+
+### 2. Idempotència via UNIQUE + try/catch
+
+```ts
+try {
+  const [, updatedUser] = await prisma.$transaction([...]);
+  return { awarded: true, amount, newTotal: updatedUser.points };
+} catch (err: any) {
+  if (err?.code === 'P2002') {
+    return { awarded: false, amount: 0, newTotal: report.createdBy.points, reason: 'already_awarded' };
+  }
+  throw err;
+}
+```
+
+Aquest patró converteix una violació de constraint en una resposta semàntica del domini ("ja premiat") sense propagar l'error. El caller (`transitionReport`) només mira `result.awarded` per decidir si emet la notificació de "punts guanyats". Si es tornés a disparar la transició per qualsevol motiu, el sistema no enviarà un segon push fantasma.
+
+### 3. Snapshot de priority al moment del premi
+
+El camp `PointsTransaction.priority` no és una simple FK al report — és un valor cru *copiat* en el moment de la creació. La raó: si l'admin edita la priority del report mesos després (per a analítica retrospectiva o correcció), el premi original ha de mantenir el seu valor. La taula `points_transactions` és l'auditoria del que va passar, no del que és cert ara.
+
+### 4. Per què el rank és un `COUNT(*) WHERE points > X` i no una window function
+
+```ts
+const higher = await prisma.user.count({
+  where: { role: 'STUDENT', active: true, points: { gt: user.points } },
+});
+return { rank: higher + 1, ... };
+```
+
+Una `RANK() OVER (ORDER BY points DESC)` en SQL seria més idiomàtica però requereix `$queryRaw` (Prisma no l'exposa directament). Per al volum del TFG (centenars d'estudiants), un `COUNT(*)` indexat és O(log n) i suficient. Si en el futur el sistema escalés a milers, refactor a window function és un sol fitxer.
+
+### 5. Per què `points.awarded` és un esdeveniment SSE propi i no es deriva de `report.transitioned`
+
+El dashboard admin *podria* recalcular el rànquing cada vegada que arriba un `report.transitioned` amb `to: 'CLOSED'`. Però:
+
+- No tots els CLOSEs generen punts (admins/tècnics que tanquen incidències pròpies, casos de `not_student`).
+- L'esdeveniment `report.transitioned` parla del cicle de vida, no de gamificació. Barrejar-ho seria acoblar dos dominis.
+- Tenir un `points.awarded` separat permet que la pàgina `/points` només es refresqui quan realment passa cosa rellevant per ella — la `/reports` no necessita reaccionar a aquest tipus i així evitem refetches innecessaris.
+
+### 6. Hook al `transitionReport`
+
+```ts
+if (newState === 'CLOSED') {
+  void awardPointsForClosedReport(reportId)
+    .then((result) => {
+      if (result.awarded) {
+        notificationService.onPointsEarned({
+          userId: updated.createdById,
+          reportId,
+          reportTitle: updated.title,
+          amount: result.amount,
+          newTotal: result.newTotal,
+        });
+      }
+    })
+    .catch((err) => {
+      console.error('[gamification] Error premiant punts:', err);
+    });
+}
+```
+
+`void` + `.then().catch()` enlloc d'`await`: el premi és asíncron i no bloqueja la response HTTP de la transició. L'admin no nota cap latència extra; el push del mòbil arriba "uns segons després" (igual que la resta de notificacions del Sprint 5).
+
+---
+
+## Frontend i mòbil en detall
+
+### Refresc en temps real al panel admin
+
+La pàgina `/points` registra un `useLiveEvent('points.awarded', fetchData)`. Cada vegada que un admin (potencialment un *altre* admin) tanca una incidència, el rànquing i l'historial es refresquen sense que ningú hagi de recarregar la pàgina. És la mateixa pauta del Sprint 5 aplicada a un nou tipus d'esdeveniment.
+
+### Refresc del perfil mòbil sense polling
+
+Al `profile.tsx`, l'`useEffect` que carrega `getMyPoints()` depèn de `user?.points`. Quan arriba un push de "Has guanyat punts", el `usePushNotifications` (Sprint 5) processa la notificació i l'`AuthContext` acaba refrescant l'usuari (els punts pugen). Això dispara automàticament una recàrrega de l'historial. Sense polling, sense WebSocket, sense complexitat addicional — només encadenat de cause-effects existents.
+
+### Mostrar la posició personal només a estudiants
+
+Tots els rols veuen la pestanya "Punts" (no és informació sensible), però la targeta "La teva posició" només es renderitza si `user.role === 'STUDENT' && myRank != null`. Tècnics i admins veuen únicament el podi i l'escala. Es podria amagar la pestanya per a no-estudiants, però la visibilitat aporta context (tots saben com funciona el sistema, tots veuen qui són els reporters més actius).
+
+---
+
+## Flux complet, exemple end-to-end
+
+Una estudiant ha reportat la setmana passada una incidència de prioritat HIGH ("Cable elèctric exposat al pàrquing"). Un tècnic l'ha resolta i l'admin la revisa avui:
+
+1. **Admin (panel web)** entra a `/validations`, llegeix els comentaris, mira la foto de resolució i clica "Tancar definitivament".
+2. **Backend**: `PATCH /reports/:id/transition { event: 'CLOSE' }`. XState valida `VALIDATED → CLOSE → CLOSED` amb guard `isAdmin`. Es fa `prisma.update({ state: 'CLOSED', resolvedAt: now() })`.
+3. **Backend (notificacions Sprint 5)**: `notificationService.onReportTransitioned(...)` envia push a la estudiant "Incidència tancada" i SSE `report.transitioned` als admins. La transició retorna 200 al frontend admin → la incidència desapareix de la llista de pendents (refrescada per SSE).
+4. **Backend (gamificació)**: en paral·lel, `awardPointsForClosedReport(reportId)` s'executa. Detecta que la creadora és STUDENT, calcula `POINTS_BY_PRIORITY.HIGH = 20`, executa la `$transaction([create PointsTransaction, increment user.points])`. Retorna `{ awarded: true, amount: 20, newTotal: 145 }`.
+5. **Backend**: com que `awarded === true`, dispara `notificationService.onPointsEarned(...)`. Persistéix una fila a `notifications` (type `POINTS_EARNED`), envia push a la estudiant ("Has guanyat 20 punts! S'ha tancat la teva incidència 'Cable elèctric exposat al pàrquing'. Total: 145 punts."), i emet SSE `points.awarded` als admins.
+6. **Estudiant (mòbil)**: el dispositiu mostra el banner del push. Si toca la notificació, l'app obre el detall de la incidència. Si va al perfil, la secció "Darrers punts guanyats" mostra el nou registre. Si va a la pestanya "Punts", la seva posició s'ha actualitzat.
+7. **Admin (panel web)**: si tenia oberta la pàgina `/points` en una altra finestra, l'historial refresca automàticament amb la nova transacció a dalt. El total atorgat puja, el podi es recalcula.
+
+Tot a partir d'una sola request HTTP i un sol clic — XState valida, gamificació premia, notificacions emet, SSE refresca.
+
+---
+
+## Decisions i compromisos
+
+- **Premiar només al CLOSED** en lloc de fer premi parcial al RESOLVE: més simple, més just, sense necessitat de restar punts si l'admin fa REJECT després.
+- **Taula `PointsTransaction` separada** en lloc de només `User.points`: la UNIQUE de `reportId` proporciona idempotència via constraint (el mecanisme més robust possible), permet auditoria històrica i snapshot de priority. Cost real: una taula, un índex; benefici: tres garanties dures.
+- **`POINTS_EARNED` com a NotificationType nou** en lloc de reutilitzar `REPORT_STATE_CHANGED`: permet al mòbil tractar visualment els push de punts de forma diferenciada (futur: icona de trofeu en lloc d'incidència) sense canviar res al servei.
+- **Escala 5/10/20/40** com a progressió geomètrica: cada nivell doblar l'anterior dóna significat clar ("un crític val vuit baixes") i manté els nombres petits.
+- **Fire-and-forget al CLOSE**: el premi mai bloqueja la transició. Coherent amb el patró de notificacions del Sprint 5 — lo no crític, fora del camí crític.
+- **Pestanya "Punts" visible per a tots els rols**: tots saben com funciona el sistema; només l'estudiant veu la card personal.
+- **Endpoint únic `GET /gamification/me`** que retorna `{ history, rank }`: una sola crida HTTP per a tota la informació personal del mòbil, en lloc de dues (historial + posició).
+- **Sense badges ni nivells**: el sistema són només punts. Afegir nivells/insígnies/desbloquejos és una decisió de producte separada que pot venir més tard sense canviar el backend (només cal derivar del `points` total a la UI).
+
+---
+
+## Lliçons apreses
+
+- **La UNIQUE constraint és la millor xarxa de seguretat**. Es podria comprovar a l'aplicació amb un `findFirst` previ, però sempre tindria una *race condition* (dos `findFirst` simultanis veuen "no existeix" i tots dos creen). La constraint, en canvi, és atòmica per definició — Postgres garanteix l'exclusivitat. El patró `try { create } catch (P2002) { ... }` és el modisme correcte per a operacions idempotents.
+- **Snapshot vs join**: és tentador modelar el premi només amb una FK al report i derivar la priority cada vegada (`points_transactions JOIN reports`). Però si el report es modifica, l'auditoria s'ha vist contaminada. La regla és: les taules d'historial copien valors que defineixen l'esdeveniment.
+- **L'asincronia bona és invisible**. L'usuari admin no nota res quan tanca una incidència — la resposta HTTP arriba en mil·lisegons. El push de "Has guanyat punts!" arriba a la estudiant uns segons més tard. Sense `void ... .then()` (és a dir, amb `await` directe), tots dos haurien d'esperar a tots dos. Aquesta separació costa zero línies de codi i salva 50-200 ms de latència en el cas feliç i 30 segons en el cas dolent (timeout d'Expo).
+- **Reutilitzar canals existents val més que dissenyar nous**. La temptació era afegir una taula "rewards" i un canal nou de "rewards events". La realitat: les notifications, els push, els SSE i el patró fire-and-forget ja existien. Una sola funció nova (`onPointsEarned`) reaprofita tot. El cost d'integració és proporcional a com de bé separes responsabilitats; aquí, el NotificationService del Sprint 5 era el lloc natural.
+- **La constant `POINTS_BY_PRIORITY` viu en 3 llocs (backend, web, mòbil)** i això és correcte. Una sola font de veritat seria un endpoint `GET /gamification/scale` que les tres capes consumeixen, però per a una constant que canvia un cop l'any (i mai sense desplegament coordinat), el cost de mantenir 3 còpies sincronitzades és menor que el cost d'una crida HTTP extra al boot de l'app.
+
+---
+
+## Ampliació: Fotos de Perfil i Gestió d'Usuaris
+
+A més de la gamificació, en aquest sprint s'han afegit dues funcionalitats transversals que toquen les tres interfícies:
+
+1. **Fotos de perfil (avatars)** per a estudiants i tècnics. La imatge es puja des del mòbil (càmera o galeria), es desa a Supabase Storage i es mostra al perfil, als rànquings (mòbil i web) i als resultats de cerca.
+2. **Cerca i gestió d'usuaris**. Qualsevol usuari pot cercar estudiants i tècnics per nom/cognoms/nick (mòbil i web), amb una fitxa d'informació bàsica i el comptador d'incidències resoltes. A més, des del panell web l'admin pot **bloquejar, reactivar i eliminar** qualsevol compte, amb **logout automàtic** dels comptes afectats que estiguin en ús i la impossibilitat de tornar a iniciar sessió.
+
+La implementació reaprofita la infraestructura ja existent: el patró de pujada multipart → Supabase Storage del Sprint 4 (Fase 3), els interceptors 401 que ja feien neteja de token a web i mòbil, i les regles de protecció d'usuaris privilegiats (root + últim admin) introduïdes a la revocació per invitació.
+
+### Context i decisions de disseny (avatars i gestió)
+
+#### Eliminar un compte = anonimitzar in-place, no esborrat dur
+
+Els `reports`, `comments` i `images` tenen una FK **obligatòria** cap al seu creador/autor. Un `DELETE` dur de la fila d'usuari trencaria l'històric d'incidències (o obligaria a esborrar-lo en cascada, perdent dades valuoses). La decisió va ser **anonimitzar la fila in-place**:
+
+- S'esborra tota la PII (nom, cognoms, email, nickname, avatar, dades de tècnic).
+- Les credencials s'invaliden (password = hash d'un UUID aleatori) i `active = false`.
+- S'eliminen les dades efímeres del compte (`pushTokens`, `notifications`).
+- La invitació associada (si en tenia) es marca `REVOKED`.
+
+Resultat: el "compte real" desapareix (PII fora, login impossible), però els reports queden atribuïts a una fila anònima ("Usuari eliminat") i les estadístiques i l'històric es mantenen íntegres. És l'enfocament GDPR-friendly: dret a l'oblit sense corrompre dades de tercers.
+
+#### Auto-logout: comprovació d'`active` a cada petició autenticada
+
+Fins ara el JWT (vàlid 24 h) era condició suficient: un cop emès, l'usuari tenia accés fins a l'expiració encara que l'admin el bloquegés. Per aconseguir un **logout immediat**, el middleware `authenticate` ara fa una consulta lleugera (`select: { active: true }`) a la BD després de verificar la signatura: si el compte no existeix o està inactiu, retorna **401**. Com que els interceptors 401 de web i mòbil ja netegen el token i redirigeixen a login, el bloqueig/eliminació es propaga sol a la propera petició.
+
+El compromís és **una query extra per request autenticada**. Per a l'escala d'un TFG (centenars d'usuaris) és negligible; si el volum ho exigís, es podria cachejar l'estat `active` amb un TTL curt (p. ex. 30 s).
+
+#### Abast de la cerca
+
+Els **resultats** de cerca són sempre estudiants i tècnics (els admins són gestió, no apareixen com a fitxes). Qui pot **cercar** difereix per interfície: al mòbil ho fan estudiants i tècnics; al web, l'admin. L'endpoint és compartit i només requereix autenticació. Un únic matís de gestió: l'admin pot passar `?includeInactive=true` per veure i reactivar comptes bloquejats — el backend només honora aquest flag si el sol·licitant és ADMIN, de manera que el mòbil mai veu comptes inactius.
+
+#### Reutilitzar el bucket d'imatges per als avatars
+
+En lloc de crear un bucket nou, els avatars es desen al mateix bucket de Supabase Storage que les imatges d'incidència, sota el prefix `avatars/<userId>/`. Reaprofita la configuració, les credencials i la funció `extensionFromMimetype` ja existents; la separació per path és suficient.
+
+### Arquitectura del bloqueig → auto-logout
+
+```
+[Admin clica "Bloquejar" o "Eliminar" al panel web]
+            │
+            ▼
+   PATCH /users/:id/active { active:false }   |  DELETE /users/:id
+            │                                        │
+            ▼                                        ▼
+   setUserActive(false)                       deleteUser() (anonimitza + active:false)
+   (proteccions: root, últim admin)           (mateixes proteccions)
+            │
+            ▼
+   user.active = false a la BD
+            │
+            ▼ (propera petició de l'usuari afectat, encara amb JWT vàlid)
+   authenticate → select active → false → 401
+            │
+            ├─ Web:  interceptor 401 → localStorage.removeItem + redirect /login
+            └─ Mòbil: interceptor 401 → SecureStore delete + onUnauthorized() → setUser(null)
+                                                             → guard de navegació → /login
+```
+
+### Catàleg de mòduls i mètodes (avatars i gestió)
+
+#### Backend
+
+##### `prisma/schema.prisma` (modificat)
+
+- Nou camp `avatarUrl String?` al model `User` (URL pública de la foto a Supabase Storage).
+- Aplicat amb `npx prisma db push` (com als sprints previs: el shadow DB no té PostGIS, així evitem `migrate dev`).
+
+##### `services/storage.ts` (modificat)
+
+- `uploadAvatarImage(userId, buffer, mimetype)` — puja l'avatar al bucket sota `avatars/<userId>/<uuid>.<ext>` i retorna la URL pública. Reaprofita `getClient()` i `extensionFromMimetype()`.
+
+##### `services/user.ts` (modificat)
+
+- `PUBLIC_USER_SELECT` — objecte `select` compartit amb els camps públics (inclou `avatarUrl`), per no duplicar-lo a cada query.
+- `setUserActive(userId, active)` — bloqueja o reactiva qualsevol rol. En desactivar aplica les proteccions (root intocable, últim admin actiu) i, si l'usuari té invitació, la marca `REVOKED` dins una transacció.
+- `revokeUser(userId)` — ara és un cas particular de `setUserActive(userId, false)`, conservant el guard "ja està desactivat" (compatibilitat amb l'endpoint `/revoke`).
+- `deleteUser(userId)` — anonimització in-place (vegeu detall més avall). Mateixes proteccions.
+- `updateAvatar(userId, buffer, mimetype)` — puja la imatge i desa la URL a `User.avatarUrl`.
+- `searchUsers(q, includeInactive?)` — cerca STUDENT/TECHNICAL per `name`/`surname`/`nickname` (`contains`, insensitive) i calcula `solvedCount` per rol via `_count`.
+
+##### `controllers/user.ts` (modificat)
+
+- `uploadAvatar` — valida el fitxer multipart (`ACCEPTED_AVATAR_MIMETYPES`) i crida `updateAvatar`.
+- `search` — llegeix `?q=` i només permet `includeInactive` si `req.user.role === 'ADMIN'`.
+- `setActive` — valida el booleà `active` del body i crida `setUserActive`.
+- `remove` — crida `deleteUser`. Tradueix proteccions a 403 i "no trobat" a 404.
+- `avatarUrl` afegit als `select` de `getProfile`, `getTechnicianById`, `getAllTechnicians`, `getAllStudents`.
+
+##### `routes/users.ts` (modificat)
+
+- `multer` en memòria (com a `routes/reports.ts`) i noves rutes:
+
+| Mètode | Ruta | Protecció | Descripció |
+|---|---|---|---|
+| POST | `/api/users/avatar` | `authenticate` | Puja/actualitza la foto de perfil pròpia (multipart, camp `image`). |
+| GET | `/api/users/search` | `authenticate` | Cerca STUDENT/TECHNICAL. Query: `?q=`, `?includeInactive=true` (només admin). |
+| PATCH | `/api/users/:id/active` | `authenticate` + `authorize('ADMIN')` | Bloqueja/reactiva un compte (`{ active }`). |
+| DELETE | `/api/users/:id` | `authenticate` + `authorize('ADMIN')` | Elimina (anonimitza) un compte. |
+
+##### `middlewares/auth.ts` (modificat)
+
+- `authenticate` passa a ser `async`: després de `jwt.verify`, comprova a la BD que el compte segueix `active`; si no, **401**. És la peça clau de l'auto-logout.
+
+##### `services/gamification.ts` (modificat)
+
+- `getLeaderboard` afegeix `avatarUrl` al `select` per mostrar la foto al podi.
+
+#### Frontend web (panel admin)
+
+##### `types/index.ts` (modificat)
+
+- `avatarUrl?` afegit a `User`, `TechnicianDetails`, `LeaderboardEntry` (i per herència a `Technician`).
+- Nou tipus `UserSearchResult` (info bàsica + `solvedCount`).
+
+##### `api/users.ts` (modificat)
+
+- `searchUsers(q, includeInactive?)`, `setUserActive(id, active)`, `deleteUser(id)`.
+
+##### `components/Avatar.tsx` (nou)
+
+- Component reutilitzable: mostra `<img>` si hi ha `url`, o un cercle amb inicials com a fallback. Mida configurable.
+
+##### `pages/PointsPage.tsx` (modificat)
+
+- Avatar a cada fila del rànquing.
+
+##### `pages/InvitesPage.tsx` (modificat — "Gestió d'Accessos")
+
+- Nova secció **Cerca d'usuaris**: input amb debounce + taula de resultats (avatar, nom/nick, email, rol, punts, dades de tècnic, incidències resoltes, estat).
+- Accions de gestió **Bloquejar/Reactivar** i **Eliminar** (component `UserActions`) tant als resultats de cerca com a la taula d'admins/tècnics, amb confirmació i columna d'avatar. La cerca usa `includeInactive=true` per poder reactivar comptes bloquejats.
+
+#### App mòbil
+
+##### `src/types/index.ts` (modificat)
+
+- `avatarUrl?` afegit a `User` i `LeaderboardEntry`; nou tipus `UserSearchResult`.
+
+##### `src/api/auth.ts` (modificat)
+
+- `uploadAvatar(uri)` — pujada multipart al `POST /users/avatar` (mateix patró que `uploadReportImage`).
+
+##### `src/api/users.ts` (nou)
+
+- `searchUsers(q)` — `GET /users/search`.
+
+##### `src/api/client.ts` (modificat)
+
+- `setUnauthorizedHandler(cb)` — permet registrar un callback que l'interceptor 401 invoca després d'esborrar el token.
+
+##### `src/context/AuthContext.tsx` (modificat)
+
+- Registra el handler perquè un 401 faci `setUser(null)` → el guard de `app/_layout.tsx` redirigeix a login (auto-logout real mentre s'usa l'app).
+
+##### `src/components/Avatar.tsx` (nou)
+
+- Equivalent mòbil: `<Image>` si hi ha `uri`, o cercle amb inicials.
+
+##### `app/(app)/(tabs)/profile.tsx` i `app/(app)/settings.tsx` (modificats)
+
+- Substitueixen el cercle d'inicials per `<Avatar>` amb una insígnia de càmera; en tocar-la, `Alert` amb opcions càmera/galeria → `expo-image-picker` → `uploadAvatar` → `setUser`.
+
+##### `app/(app)/(tabs)/leaderboard.tsx` (modificat)
+
+- Avatar a cada fila del podi i botó "Cerca usuaris" que navega a `/users`.
+
+##### `app/(app)/users.tsx` (nou) + `app/(app)/_layout.tsx` (modificat)
+
+- Pantalla de cerca (presentació `card`, registrada al layout): input amb debounce i targetes de resultat amb avatar, dades bàsiques, dades de tècnic i incidències resoltes.
+
+### Backend en detall (avatars i gestió)
+
+#### 1. Anonimització atòmica a `deleteUser`
+
+```ts
+const scrambledPassword = await bcrypt.hash(randomUUID(), 10);
+const anonId = userId.slice(0, 8);
+
+await prisma.$transaction([
+  prisma.pushToken.deleteMany({ where: { userId } }),
+  prisma.notification.deleteMany({ where: { userId } }),
+  prisma.user.update({
+    where: { user_id: userId },
+    data: {
+      name: 'Usuari', surname: 'eliminat',
+      nickname: `deleted_${anonId}_${Date.now()}`,
+      email: `deleted_${anonId}_${Date.now()}@deleted.local`,
+      password: scrambledPassword, active: false,
+      avatarUrl: null, position: null, company: null, workCategory: null,
+    },
+  }),
+  ...(user.inviteId
+    ? [prisma.invite.update({ where: { id: user.inviteId }, data: { status: 'REVOKED' } })]
+    : []),
+]);
+```
+
+El `nickname` i l'`email` són `@unique`: per evitar col·lisions amb futurs esborrats, s'hi afegeix `userId` + timestamp. Tot dins una `$transaction`: o l'usuari queda completament anonimitzat o no canvia res.
+
+#### 2. La comprovació d'`active` al middleware
+
+`authenticate` separa ara dos errors: signatura invàlida (token corromput/caducat) i compte inactiu. Tots dos retornen 401 — el client no necessita distingir-los, només ha de tancar sessió. La query és un `findUnique` per PK amb `select` d'un sol camp: el cost mínim possible.
+
+#### 3. `solvedCount` calculat amb `_count` filtrat
+
+```ts
+_count: {
+  select: {
+    reportsCreated:  { where: { state: { in: ['VALIDATED','CLOSED'] } } },
+    reportsAssigned: { where: { state: { in: ['VALIDATED','CLOSED'] } } },
+  },
+}
+```
+
+Prisma permet filtrar dins de `_count`, de manera que el comptador es resol en la mateixa query del `findMany` (sense N+1). El mapeig final tria `reportsAssigned` per a tècnics ("incidències solucionades") i `reportsCreated` per a estudiants ("incidències resoltes").
+
+#### 4. Reutilització de les proteccions
+
+Les regles "root intocable" i "últim admin actiu" ja existien a la revocació per invitació. `setUserActive` i `deleteUser` les comparteixen, de manera que cap operació de gestió (bloqueig, eliminació o revocació) pot deixar el sistema sense administrador ni tocar l'admin root.
+
+### Frontend i mòbil en detall (avatars i gestió)
+
+#### Auto-logout: web vs mòbil
+
+A la web n'hi havia prou: l'interceptor 401 ja feia `localStorage.removeItem('token')` + `window.location.href = '/login'`. Al mòbil, en canvi, l'interceptor només esborrava el token de `SecureStore`, però l'estat de React (`AuthContext.user`) seguia ple, així que la navegació no reaccionava. La solució mínima va ser un **callback registrable** (`setUnauthorizedHandler`) que l'`AuthContext` connecta a `setUser(null)`; el guard de `_layout.tsx` (que ja redirigia quan `user` és null) fa la resta. Zero acoblament del client amb el context de navegació.
+
+#### `includeInactive` només per a l'admin
+
+El mateix endpoint de cerca serveix mòbil i web. Per evitar que un estudiant pogués enumerar comptes bloquejats, el flag `includeInactive` només s'honora al backend si el sol·licitant és ADMIN. El mòbil ni tan sols l'envia.
+
+#### Component `Avatar` amb fallback
+
+Tant a web com a mòbil, l'avatar és un component únic que mostra la foto si existeix o un cercle amb inicials si no. Cap pantalla duplica la lògica del fallback, i el dia que un usuari no tingui foto la UI segueix sent coherent.
+
+### Flux end-to-end: bloqueig en calent
+
+Un estudiant té comportament abusiu i l'admin decideix bloquejar-lo mentre l'app de l'estudiant està oberta:
+
+1. **Admin (web)** entra a "Gestió d'Accessos", cerca l'estudiant pel nom, i clica "Bloquejar". `PATCH /users/:id/active { active:false }`. El backend valida proteccions i posa `active=false`.
+2. **Estudiant (mòbil)** fa qualsevol acció que dispari una petició. El JWT encara és vàlid, però `authenticate` consulta la BD, veu `active=false` i retorna **401**.
+3. **Mòbil**: l'interceptor 401 esborra el token de `SecureStore` i invoca el handler → `setUser(null)` → el guard redirigeix a `/(auth)/login`.
+4. **Estudiant** intenta tornar a iniciar sessió: `loginUser` rebutja amb "Compte desactivat. Contacta amb un administrador."
+5. Més endavant, si l'admin clica "Reactivar" (`active:true`), l'estudiant ja pot tornar a entrar amb les seves credencials de sempre.
+
+Si en comptes de bloquejar l'admin hagués clicat "Eliminar", el pas 4 fallaria igualment (credencials invalidades i email anonimitzat), però de forma permanent — i els reports de l'estudiant seguirien existint atribuïts a "Usuari eliminat".
+
+### Decisions i compromisos (avatars i gestió)
+
+- **Anonimitzar en lloc d'esborrar dur**: preserva l'històric d'incidències (FK obligatòries) i compleix el dret a l'oblit.
+- **Comprovar `active` a cada request**: garanteix logout immediat a canvi d'una query per petició. Acceptable a escala TFG; cachejable amb TTL si calgués.
+- **Endpoint de cerca compartit amb gate per rol** (`includeInactive`): una sola API per a mòbil i web, sense filtrar dades sensibles a usuaris no privilegiats.
+- **Reutilitzar el bucket i el patró multipart existents** per als avatars: zero infraestructura nova.
+- **Component `Avatar` únic per interfície** amb fallback d'inicials: coherència visual i sense duplicació.
+- **`setUnauthorizedHandler` al mòbil** en lloc d'acoblar el client API amb expo-router: el client no sap res de navegació, només notifica; el context decideix.
+
+### Lliçons apreses (avatars i gestió)
+
+- **Una FK obligatòria condiciona l'estratègia d'esborrat**. "Eliminar un usuari" sembla trivial fins que descobreixes que mitja base de dades hi apunta. Anonimitzar és sovint la resposta correcta en sistemes amb històric — el patró GDPR estàndard.
+- **El JWT stateless té un cost amagat: la revocació**. Un token signat és vàlid fins que expira, per definició. Si necessites poder "fer fora" algú a l'instant, has de reintroduir estat (consultar la BD) en algun punt. És el compromís clàssic stateless ↔ revocabilitat; aquí hem triat revocabilitat amb una query barata.
+- **Els interceptors 401 ja existien, però fer-los útils al mòbil demanava un pont cap a l'estat de React**. La diferència entre "esborrar el token" i "tancar sessió de veritat" era un callback.
+- **Filtrar dins de `_count` evita N+1**. Prisma permet expressar el comptador d'incidències resoltes declarativament dins del mateix `findMany`, mantenint la cerca en una sola anada a la BD.
